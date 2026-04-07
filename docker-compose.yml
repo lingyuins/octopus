@@ -1,6 +1,6 @@
 services:
   octopus:
-    image: lingyuins/octopus:latest
+    image: lingyuins/octopus:v1.0.2
     container_name: octopus
     restart: unless-stopped
     ports:
