@@ -29,7 +29,11 @@ export function AppContainer() {
     const t = useTranslations('navbar');
     const queryClient = useQueryClient();
 
-    const { data: bootstrapStatus, isLoading: bootstrapStatusLoading } = useQuery({
+    const {
+        data: bootstrapStatus,
+        isLoading: bootstrapStatusLoading,
+        error: bootstrapStatusError,
+    } = useQuery({
         queryKey: ['bootstrap', 'status'],
         queryFn: async () => apiClient.get<BootstrapStatusResponse>('/api/v1/bootstrap/status', undefined, false),
         retry: false,
@@ -180,7 +184,10 @@ export function AppContainer() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authLoading, isAuthenticated]);
 
-    const shouldShowFirstRunSetup = !bootstrapStatusLoading && bootstrapStatus?.initialized === false && !isAuthenticated;
+    const shouldShowFirstRunSetup =
+        !isAuthenticated &&
+        !bootstrapStatusLoading &&
+        (bootstrapStatus?.initialized === false || Boolean(bootstrapStatusError));
 
     // 加载状态
     const isLoading =
