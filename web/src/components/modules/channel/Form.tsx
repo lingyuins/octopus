@@ -114,6 +114,28 @@ export function ChannelForm({
         onFormDataChange({ ...formData, model, custom_model });
     };
 
+    const normalizeFetchedModels = (data: unknown): string[] => {
+        if (!Array.isArray(data)) return [];
+
+        return Array.from(new Set(
+            data
+                .map((item) => {
+                    if (typeof item === 'string') return item.trim();
+                    if (!item || typeof item !== 'object') return '';
+
+                    const candidate =
+                        ('id' in item && typeof item.id === 'string' && item.id) ||
+                        ('name' in item && typeof item.name === 'string' && item.name) ||
+                        ('display_name' in item && typeof item.display_name === 'string' && item.display_name) ||
+                        ('displayName' in item && typeof item.displayName === 'string' && item.displayName) ||
+                        '';
+
+                    return candidate.trim();
+                })
+                .filter(Boolean)
+        ));
+    };
+
     const normalizedHeaders = useMemo(() =>
         (formData.custom_header ?? [])
             .map((h) => ({ header_key: h.header_key.trim(), header_value: h.header_value }))
@@ -173,8 +195,9 @@ export function ChannelForm({
             },
             {
                 onSuccess: (data) => {
-                    if (data && data.length > 0) {
-                        const nextAuto = Array.from(new Set([...autoModels, ...data].map((m) => m.trim()).filter(Boolean)));
+                    const normalizedModels = normalizeFetchedModels(data);
+                    if (normalizedModels.length > 0) {
+                        const nextAuto = Array.from(new Set([...autoModels, ...normalizedModels]));
                         updateModels(nextAuto, customModels);
                         toast.success(t('modelRefreshSuccess'));
                     } else {
