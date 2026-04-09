@@ -152,6 +152,15 @@ export function useLogs(options: { pageSize?: number } = {}) {
         }
     }, [logsQuery]);
 
+    const refresh = useCallback(async () => {
+        try {
+            await logsQuery.refetch();
+        } catch (e) {
+            logger.error('手动刷新日志失败:', e);
+            throw e;
+        }
+    }, [logsQuery]);
+
     useEffect(() => {
         let cancelled = false;
 
@@ -224,7 +233,9 @@ export function useLogs(options: { pageSize?: number } = {}) {
         hasMore: !!logsQuery.hasNextPage,
         isLoading: logsQuery.isLoading,
         isLoadingMore: logsQuery.isFetchingNextPage,
+        isRefreshing: logsQuery.isRefetching,
         loadMore,
+        refresh,
         clear,
     };
 }

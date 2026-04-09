@@ -482,6 +482,11 @@
         }
     },
     "log": {
+        "actions": {
+            "refresh": "Refresh Logs",
+            "refreshSuccess": "Logs refreshed",
+            "refreshFailed": "Failed to refresh logs"
+        },
         "list": {
             "noMore": "No more logs"
         },

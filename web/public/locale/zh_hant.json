@@ -482,6 +482,11 @@
         }
     },
     "log": {
+        "actions": {
+            "refresh": "重新整理日誌",
+            "refreshSuccess": "日誌已重新整理",
+            "refreshFailed": "日誌重新整理失敗"
+        },
         "list": {
             "noMore": "沒有更多日誌了"
         },

@@ -482,6 +482,11 @@
         }
     },
     "log": {
+        "actions": {
+            "refresh": "刷新日志",
+            "refreshSuccess": "日志已刷新",
+            "refreshFailed": "日志刷新失败"
+        },
         "list": {
             "noMore": "没有更多日志了"
         },
