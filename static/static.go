@@ -1,12 +1,6 @@
 package static
 
-import (
-	"embed"
-	"io/fs"
-)
+import "io/fs"
 
-//go:embed all:out
-var staticFS embed.FS
-
-// StaticFS 返回 out 子目录的文件系统
-var StaticFS, _ = fs.Sub(staticFS, "out")
+// StaticFS is nil in source checkouts until frontend assets are bundled into the binary by the release pipeline.
+var StaticFS fs.FS

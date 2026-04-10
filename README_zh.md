@@ -33,7 +33,7 @@
 直接运行
 
 ```bash
-docker run -d --name octopus -v /path/to/data:/app/data -p 8080:8080 lingyuins/octopus:v1.0.5
+docker run -d --name octopus -v /path/to/data:/app/data -p 8080:8080 lingyuins/octopus:v1.0.6
 ```
 
 或者使用 docker compose 运行
@@ -63,20 +63,26 @@ docker compose up -d
 # 克隆项目
 git clone https://github.com/lingyuins/octopus.git
 cd octopus
-# 构建前端
-cd web && pnpm install && pnpm run build && cd ..
-# 移动前端产物到 static 目录
-mv web/out static/
 # 可选：通过环境变量预置初始管理员账户
 export OCTOPUS_INITIAL_ADMIN_USERNAME="admin"
 export OCTOPUS_INITIAL_ADMIN_PASSWORD="change-this-password-long"
 # 可选但强烈建议：设置持久化 JWT 密钥
 export OCTOPUS_AUTH_JWT_SECRET="replace-with-a-long-random-secret"
-# 启动后端服务
+# 直接启动后端服务（即使还没构建前端，也可以先以 API-only 模式启动）
 go run main.go start
 ```
 
-> 💡 **提示**：前端构建产物会被嵌入到 Go 二进制文件中，所以必须先构建前端再启动后端。
+如果 `static/` 目录中已经有前端构建产物，Go 二进制会直接提供管理界面；如果还没有构建产物，Octopus 仍然可以正常启动并提供 API，但管理界面需要在构建前端后才能访问。
+
+**构建嵌入式管理界面资源**
+
+```bash
+cd web && pnpm install && pnpm run build && cd ..
+# 将前端构建产物复制到 static 目录
+mv web/out/* static/
+# 重新启动后端，此时可直接访问嵌入式管理界面
+go run main.go start
+```
 
 **开发模式**
 

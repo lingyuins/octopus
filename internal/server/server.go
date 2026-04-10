@@ -33,7 +33,11 @@ func Start() error {
 		r.Use(middleware.Logger())
 	}
 	r.Use(middleware.Cors())
-	r.Use(middleware.StaticEmbed("/", static.StaticFS))
+	if static.StaticFS != nil {
+		r.Use(middleware.StaticEmbed("/", static.StaticFS))
+	} else {
+		log.Warnf("frontend static assets are not embedded; API endpoints remain available, but the management UI requires building the web app first")
+	}
 
 	if err := router.RegisterAll(r); err != nil {
 		return fmt.Errorf("register routes: %w", err)

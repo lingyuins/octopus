@@ -33,7 +33,7 @@
 Run directly:
 
 ```bash
-docker run -d --name octopus -v /path/to/data:/app/data -p 8080:8080 lingyuins/octopus:v1.0.5
+docker run -d --name octopus -v /path/to/data:/app/data -p 8080:8080 lingyuins/octopus:v1.0.6
 ```
 
 Or use docker compose:
@@ -63,20 +63,26 @@ Download the binary for your platform from [Releases](https://github.com/lingyui
 # Clone the repository
 git clone https://github.com/lingyuins/octopus.git
 cd octopus
-# Build frontend
-cd web && pnpm install && pnpm run build && cd ..
-# Move frontend assets to static directory
-mv web/out static/
 # Optional: bootstrap the initial admin via environment variables
 export OCTOPUS_INITIAL_ADMIN_USERNAME="admin"
 export OCTOPUS_INITIAL_ADMIN_PASSWORD="change-this-password-long"
 # Optional but recommended: set a persistent JWT secret
 export OCTOPUS_AUTH_JWT_SECRET="replace-with-a-long-random-secret"
-# Start the backend service
+# Start the backend service directly (API-only mode works even before frontend assets are built)
 go run main.go start
 ```
 
-> 💡 **Tip**: The frontend build artifacts are embedded into the Go binary, so you must build the frontend before starting the backend.
+If `static/` already contains built frontend assets, the management UI is served by the Go binary. Otherwise, Octopus still starts normally and exposes the API endpoints, but the management UI is unavailable until you build the frontend.
+
+**Build frontend assets for the embedded management UI**
+
+```bash
+cd web && pnpm install && pnpm run build && cd ..
+# Move frontend assets to static directory
+mv web/out/* static/
+# Start the backend service with embedded UI assets available in the repository
+go run main.go start
+```
 
 **Development Mode**
 
