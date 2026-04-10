@@ -43,6 +43,8 @@ wget https://raw.githubusercontent.com/lingyuins/octopus/refs/heads/master/docke
 docker compose up -d
 ```
 
+启动容器前，请先在 `docker-compose.yml` 中设置 `OCTOPUS_AUTH_JWT_SECRET`（或在 `docker run` 时通过 `-e OCTOPUS_AUTH_JWT_SECRET=...` 传入），这样登录 token 才能在服务重启后继续有效。
+
 
 ### 📦 从 Release 下载
 
@@ -72,14 +74,17 @@ export OCTOPUS_AUTH_JWT_SECRET="replace-with-a-long-random-secret"
 go run main.go start
 ```
 
-如果 `static/` 目录中已经有前端构建产物，Go 二进制会直接提供管理界面；如果还没有构建产物，Octopus 仍然可以正常启动并提供 API，但管理界面需要在构建前端后才能访问。
+如果 `static/out/` 中已经有前端构建产物，Go 二进制会直接提供管理界面；如果还没有构建产物，Octopus 仍然可以正常启动并提供 API，但必须先构建前端并在执行 `go build` / `go run` 前将导出的资源放到 `static/out/` 下，管理界面才能访问。
 
 **构建嵌入式管理界面资源**
 
 ```bash
 cd web && pnpm install && pnpm run build && cd ..
-# 将前端构建产物复制到 static 目录
-mv web/out/* static/
+# 将前端构建产物移动到 Go 二进制预期的嵌入目录
+mkdir -p static/out
+mv web/out/* static/out/
+# 如果 Next.js 导出了空的 _not-found 目录，请在构建 Go 前补一个占位文件
+printf 'placeholder for go:embed\n' > static/out/_not-found/.keep
 # 重新启动后端，此时可直接访问嵌入式管理界面
 go run main.go start
 ```
@@ -145,6 +150,9 @@ http://localhost:3000
 | `database.path` | 数据库连接地址 | `data/data.db` |
 | `log.level` | 日志级别 | `info` |
 | `auth.jwt_secret` | JWT 签名密钥 | 空（未设置时启动生成临时密钥） |
+
+> 💡 **提示**：在生产环境运行 Octopus 前，请设置 `OCTOPUS_AUTH_JWT_SECRET` 或 `auth.jwt_secret`，这样登录 token 才能在服务重启后继续有效。
+
 **数据库配置：**
 
 支持三种数据库：
@@ -190,6 +198,7 @@ http://localhost:3000
 | `OCTOPUS_DATABASE_TYPE` | `database.type` |
 | `OCTOPUS_DATABASE_PATH` | `database.path` |
 | `OCTOPUS_LOG_LEVEL` | `log.level` |
+| `OCTOPUS_AUTH_JWT_SECRET` | `auth.jwt_secret` |
 | `OCTOPUS_GITHUB_PAT` | 用于获取最新版本时的速率限制(可选) |
 | `OCTOPUS_RELAY_MAX_SSE_EVENT_SIZE` | 最大 SSE 事件大小(可选) |
 

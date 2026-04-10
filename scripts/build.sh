@@ -255,6 +255,11 @@ build_frontend() {
         return 1
     fi
 
+    # Ensure generated directories have at least one embeddable file so Go's embed does not fail on export-only folders
+    if [ -d "static/out/_not-found" ] && [ ! -f "static/out/_not-found/.keep" ]; then
+        printf 'placeholder for go:embed\n' > "static/out/_not-found/.keep"
+    fi
+
     return 0
 }
 

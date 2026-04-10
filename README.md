@@ -43,6 +43,8 @@ wget https://raw.githubusercontent.com/lingyuins/octopus/refs/heads/master/docke
 docker compose up -d
 ```
 
+Before starting the container, set `OCTOPUS_AUTH_JWT_SECRET` in `docker-compose.yml` (or via `docker run -e OCTOPUS_AUTH_JWT_SECRET=...`) so login tokens remain valid across restarts.
+
 
 ### 📦 Download from Release
 
@@ -72,14 +74,17 @@ export OCTOPUS_AUTH_JWT_SECRET="replace-with-a-long-random-secret"
 go run main.go start
 ```
 
-If `static/` already contains built frontend assets, the management UI is served by the Go binary. Otherwise, Octopus still starts normally and exposes the API endpoints, but the management UI is unavailable until you build the frontend.
+If `static/out/` already contains built frontend assets, the Go binary serves the management UI directly. Otherwise, Octopus still starts normally and exposes the API endpoints, but the management UI is unavailable until you build the frontend and place the exported assets under `static/out/` before running `go build` / `go run`.
 
 **Build frontend assets for the embedded management UI**
 
 ```bash
 cd web && pnpm install && pnpm run build && cd ..
-# Move frontend assets to static directory
-mv web/out/* static/
+# Move frontend assets to the embed directory expected by the Go binary
+mkdir -p static/out
+mv web/out/* static/out/
+# If Next.js exports an empty _not-found directory, add a placeholder before building Go
+printf 'placeholder for go:embed\n' > static/out/_not-found/.keep
 # Start the backend service with embedded UI assets available in the repository
 go run main.go start
 ```
@@ -145,6 +150,9 @@ The configuration file is located at `data/config.json` by default and is automa
 | `database.path` | Database connection string | `data/data.db` |
 | `log.level` | Log level | `info` |
 | `auth.jwt_secret` | JWT signing secret | empty (ephemeral secret generated at startup if unset) |
+
+> 💡 **Tip**: Set `OCTOPUS_AUTH_JWT_SECRET` or `auth.jwt_secret` before running Octopus in production so login tokens stay valid across restarts.
+
 **Database Configuration:**
 
 Three database types are supported:
@@ -190,6 +198,7 @@ All configuration options can be overridden via environment variables using the 
 | `OCTOPUS_DATABASE_TYPE` | `database.type` |
 | `OCTOPUS_DATABASE_PATH` | `database.path` |
 | `OCTOPUS_LOG_LEVEL` | `log.level` |
+| `OCTOPUS_AUTH_JWT_SECRET` | `auth.jwt_secret` |
 | `OCTOPUS_GITHUB_PAT` | For rate limiting when getting the latest version (optional) |
 | `OCTOPUS_RELAY_MAX_SSE_EVENT_SIZE` | Maximum SSE event size (optional) |
 
