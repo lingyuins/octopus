@@ -33,7 +33,7 @@
 Run directly:
 
 ```bash
-docker run -d --name octopus -v /path/to/data:/app/data -p 8080:8080 lingyuins/octopus:v1.0.6
+docker run -d --name octopus -v /path/to/data:/app/data -p 8080:8080 lingyuins/octopus:v1.0.9
 ```
 
 Or use docker compose:
@@ -44,6 +44,8 @@ docker compose up -d
 ```
 
 Before starting the container, set `OCTOPUS_AUTH_JWT_SECRET` in `docker-compose.yml` (or via `docker run -e OCTOPUS_AUTH_JWT_SECRET=...`) so login tokens remain valid across restarts.
+
+If you are upgrading from an older web build and still see stale frontend errors in the browser, clear the site data / service worker cache once after upgrading so the latest embedded assets are loaded.
 
 
 ### 📦 Download from Release

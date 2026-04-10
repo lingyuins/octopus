@@ -33,7 +33,7 @@
 直接运行
 
 ```bash
-docker run -d --name octopus -v /path/to/data:/app/data -p 8080:8080 lingyuins/octopus:v1.0.6
+docker run -d --name octopus -v /path/to/data:/app/data -p 8080:8080 lingyuins/octopus:v1.0.9
 ```
 
 或者使用 docker compose 运行
@@ -44,6 +44,8 @@ docker compose up -d
 ```
 
 启动容器前，请先在 `docker-compose.yml` 中设置 `OCTOPUS_AUTH_JWT_SECRET`（或在 `docker run` 时通过 `-e OCTOPUS_AUTH_JWT_SECRET=...` 传入），这样登录 token 才能在服务重启后继续有效。
+
+如果是从旧版前端升级，升级后浏览器若仍出现旧页面脚本报错，请清理一次站点数据 / Service Worker 缓存，确保加载到最新嵌入式前端资源。
 
 
 ### 📦 从 Release 下载
