@@ -29,7 +29,7 @@ func static(urlPrefix string, fileSystem http.FileSystem) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		if strings.HasPrefix(c.Request.URL.Path, "/api") {
+		if strings.HasPrefix(c.Request.URL.Path, "/api") || strings.HasPrefix(c.Request.URL.Path, "/v1") {
 			c.Next()
 			return
 		}
