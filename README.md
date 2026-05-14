@@ -24,8 +24,8 @@
 - 🛰️ **Media & Utility Relay** - Relay OpenAI Images, audio, video, search, rerank, and moderation endpoints through the same group / retry / circuit-breaker infrastructure
 - 🧾 **API Key Governance** - Supported-model allowlists, expiry, max-cost caps, RPM / TPM limits, and optional per-model quotas
 - 🔐 **Role-Based Admin Access** - Built-in `admin`, `editor`, and `viewer` roles with server-side permission enforcement
-- 🚨 **Webhook Alerts** - Alert rules for error rate, cost threshold, quota exceeded, and channel down with webhook notifications and history
-- 💎 **Model Market & Price Sync** - The model page now surfaces pricing, channel coverage, enabled key counts, latency, and success metrics while preserving create / edit / delete / refresh price workflows
+- 🚨 **Alerts & Notifications** - Alert rules for error rate, cost threshold, quota exceeded, and channel down with webhook, Gotify, and email notification channels and history
+- 💎 **Model Market** - Unified model catalog with pricing, channel coverage, enabled key counts, latency, and success metrics, plus create / edit / delete / refresh price workflows
 - 🔃 **Model Sync** - Automatic synchronization of available model lists with channels
 - 📊 **Analytics & Evaluation** - Overview, provider / model / API key utilization, route health, semantic-cache evaluation, and live entry points for group testing / AI routing
 - 🛠️ **Ops & Audit** - Cache, quota, health, system, and audit dashboards for daily operations, plus a management-write audit trail
@@ -333,6 +333,7 @@ The embedded management UI currently ships with these top-level modules:
 | Log | Relay request history, error details, token usage, and cost records |
 | Alert | Alert rules, notification channels, state, and history |
 | Ops | Semantic cache, API key quota posture, system health, runtime summary, and audit trail |
+| APIKey | API key create, edit, delete, supported-model allowlists, expiry, max-cost caps, and RPM / TPM quotas |
 | Setting | Version/update info, appearance and nav preferences, runtime tuning, semantic cache, AI route services, API key defaults, retry, circuit breaker, backup, and dangerous operations |
 | User | Admin user management and roles |
 
