@@ -22,10 +22,20 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import {
+    MorphingDialog,
+    MorphingDialogClose,
+    MorphingDialogContainer,
+    MorphingDialogContent,
+    MorphingDialogDescription,
+    MorphingDialogTitle,
+    MorphingDialogTrigger,
+    useMorphingDialog,
+} from '@/components/ui/morphing-dialog';
 import { toast } from '@/components/common/Toast';
 import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshCw, X, Plus, FlaskConical, CheckCircle2, AlertTriangle, Sparkles, Orbit, Layers3, KeyRound, Cable } from 'lucide-react';
+import { RefreshCw, X, Plus, FlaskConical, CheckCircle2, AlertTriangle, Sparkles, Orbit, Layers3, KeyRound, Cable, Search, Check, ListFilter } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export interface ChannelKeyFormItem {
@@ -131,6 +141,183 @@ function SectionHeader({
     );
 }
 
+interface ModelPickerDialogPanelProps {
+    models: string[];
+    selectedModels: string[];
+    isLoading: boolean;
+    onApply: (models: string[]) => void;
+}
+
+function ModelPickerDialogPanel({ models, selectedModels, isLoading, onApply }: ModelPickerDialogPanelProps) {
+    const t = useTranslations('channel.form.modelPicker');
+    const { setIsOpen } = useMorphingDialog();
+    const [searchTerm, setSearchTerm] = useState('');
+    const [draftSelected, setDraftSelected] = useState<string[]>(selectedModels);
+
+    useEffect(() => {
+        setDraftSelected(selectedModels);
+    }, [selectedModels]);
+
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const filteredModels = normalizedSearch
+        ? models.filter((model) => model.toLowerCase().includes(normalizedSearch))
+        : models;
+    const selectedSet = new Set(draftSelected);
+    const allFilteredSelected = filteredModels.length > 0 && filteredModels.every((model) => selectedSet.has(model));
+
+    const toggleModel = (model: string) => {
+        setDraftSelected((current) =>
+            current.includes(model)
+                ? current.filter((item) => item !== model)
+                : [...current, model]
+        );
+    };
+
+    const handleSelectFiltered = () => {
+        if (filteredModels.length === 0) return;
+
+        setDraftSelected((current) => {
+            const currentSet = new Set(current);
+            if (filteredModels.every((model) => currentSet.has(model))) {
+                return current.filter((model) => !filteredModels.includes(model));
+            }
+            return Array.from(new Set([...current, ...filteredModels]));
+        });
+    };
+
+    const handleApply = () => {
+        onApply(draftSelected);
+        setIsOpen(false);
+    };
+
+    return (
+        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border/35 bg-card text-card-foreground shadow-md">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_14%,color-mix(in_oklch,var(--primary)_18%,transparent)_0%,transparent_30%),linear-gradient(180deg,color-mix(in_oklch,white_18%,transparent),transparent_28%)]" />
+            <MorphingDialogTitle className="shrink-0">
+                <header className="relative flex items-center justify-between gap-4 border-b border-border/20 px-5 py-4 md:px-6">
+                    <div className="min-w-0 space-y-2">
+                        <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-10 rounded-full bg-primary/18 shadow-sm" />
+                            <span className="h-2.5 w-20 rounded-full bg-card shadow-inner" />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="truncate text-lg font-semibold tracking-tight text-card-foreground md:text-xl">
+                                {t('title')}
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                                {t('description', { count: models.length })}
+                            </p>
+                        </div>
+                    </div>
+                    <MorphingDialogClose className="relative right-0 top-0" />
+                </header>
+            </MorphingDialogTitle>
+
+            <MorphingDialogDescription disableLayoutAnimation className="relative flex min-h-0 flex-1 flex-col gap-4 px-4 py-4 md:px-6">
+                <div className="relative shrink-0">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                        placeholder={t('searchPlaceholder')}
+                        className="h-11 rounded-lg pl-9"
+                    />
+                </div>
+
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="secondary" className="rounded-full">
+                            {t('selectedCount', { count: draftSelected.length })}
+                        </Badge>
+                        <span>{t('filteredCount', { count: filteredModels.length })}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDraftSelected([])}
+                            disabled={draftSelected.length === 0}
+                            className="h-8 rounded-lg px-2 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                            {t('clear')}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleSelectFiltered}
+                            disabled={filteredModels.length === 0}
+                            className="h-8 rounded-lg px-2 text-xs"
+                        >
+                            <ListFilter className="size-3.5" />
+                            {allFilteredSelected ? t('unselectFiltered') : t('selectFiltered')}
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border/25 bg-card p-2 shadow-sm">
+                    {isLoading ? (
+                        <div className="flex h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
+                            <RefreshCw className="size-4 animate-spin" />
+                            {t('loading')}
+                        </div>
+                    ) : filteredModels.length > 0 ? (
+                        <div className="grid gap-2 sm:grid-cols-2">
+                            {filteredModels.map((model) => {
+                                const selected = selectedSet.has(model);
+                                return (
+                                    <button
+                                        key={model}
+                                        type="button"
+                                        onClick={() => toggleModel(model)}
+                                        className={`flex min-w-0 items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                                            selected
+                                                ? 'border-primary/30 bg-primary/10 text-foreground'
+                                                : 'border-border/25 bg-background/40 text-muted-foreground hover:border-border/60 hover:text-foreground'
+                                        }`}
+                                    >
+                                        <span className={`flex size-5 shrink-0 items-center justify-center rounded-md border ${
+                                            selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card'
+                                        }`}>
+                                            {selected ? <Check className="size-3.5" /> : null}
+                                        </span>
+                                        <span className="min-w-0 flex-1 truncate font-mono" title={model}>
+                                            {model}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                            {models.length === 0 ? t('empty') : t('noSearchResult')}
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex shrink-0 flex-col gap-2 border-t border-border/20 pt-4 sm:flex-row">
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setIsOpen(false)}
+                        className="h-11 rounded-lg sm:flex-1"
+                    >
+                        {t('cancel')}
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handleApply}
+                        className="h-11 rounded-lg sm:flex-1"
+                    >
+                        {t('apply', { count: draftSelected.length })}
+                    </Button>
+                </div>
+            </MorphingDialogDescription>
+        </div>
+    );
+}
+
 export function ChannelForm({
     formData,
     onFormDataChange,
@@ -172,6 +359,7 @@ export function ChannelForm({
         ? formData.custom_model.split(',').map((m) => m.trim()).filter(Boolean)
         : [];
     const [inputValue, setInputValue] = useState('');
+    const [fetchedModels, setFetchedModels] = useState<string[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
 
     const fetchModel = useFetchModel();
@@ -186,6 +374,13 @@ export function ChannelForm({
         const custom_model = nextCustom.join(',');
         if (formData.model === model && formData.custom_model === custom_model) return;
         onFormDataChange({ ...formData, model, custom_model });
+    };
+
+    const applyFetchedModelSelection = (selectedModels: string[]) => {
+        const customModelSet = new Set(customModels);
+        const nextAutoModels = Array.from(new Set(selectedModels)).filter((model) => !customModelSet.has(model));
+        updateModels(nextAutoModels, customModels);
+        toast.success(t('modelPicker.applySuccess', { count: nextAutoModels.length }));
     };
 
     const normalizeFetchedModels = (data: unknown): string[] => {
@@ -255,6 +450,7 @@ export function ChannelForm({
 
     const handleRefreshModels = async () => {
         if (!formData.base_urls?.[0]?.url || !effectiveKey) return;
+        setFetchedModels([]);
         fetchModel.mutate(
             {
                 type: formData.type,
@@ -271,14 +467,15 @@ export function ChannelForm({
                 onSuccess: (data) => {
                     const normalizedModels = normalizeFetchedModels(data);
                     if (normalizedModels.length > 0) {
-                        const nextAuto = Array.from(new Set([...autoModels, ...normalizedModels]));
-                        updateModels(nextAuto, customModels);
-                        toast.success(t('modelRefreshSuccess'));
+                        setFetchedModels(normalizedModels);
+                        toast.success(t('modelRefreshSuccess', { count: normalizedModels.length }));
                     } else {
+                        setFetchedModels([]);
                         toast.warning(t('modelRefreshEmpty'));
                     }
                 },
                 onError: (error) => {
+                    setFetchedModels([]);
                     const errorMessage = error instanceof Error ? error.message : String(error);
                     toast.error(t('modelRefreshFailed'), { description: errorMessage });
                 },
@@ -542,6 +739,25 @@ export function ChannelForm({
                 <div className="flex items-center justify-between gap-2">
                     <label className={labelClassName}>{t('model')}</label>
                     <div className="flex items-center gap-2">
+                        <MorphingDialog onOpen={handleRefreshModels}>
+                            <MorphingDialogTrigger
+                                disabled={!formData.base_urls?.[0]?.url || !effectiveKey || fetchModel.isPending}
+                                className="inline-flex h-6 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground/50 transition-colors hover:bg-transparent hover:text-muted-foreground"
+                            >
+                                <RefreshCw className={`h-3 w-3 ${fetchModel.isPending ? 'animate-spin' : ''}`} />
+                                {t('modelRefresh')}
+                            </MorphingDialogTrigger>
+                            <MorphingDialogContainer>
+                                <MorphingDialogContent className="h-[calc(100dvh-2rem)] w-[min(100vw-2rem,54rem)] max-w-full rounded-xl border border-border/35 bg-card p-0 md:h-[min(44rem,calc(100dvh-3rem))]">
+                                    <ModelPickerDialogPanel
+                                        models={fetchedModels}
+                                        selectedModels={autoModels}
+                                        isLoading={fetchModel.isPending}
+                                        onApply={applyFetchedModelSelection}
+                                    />
+                                </MorphingDialogContent>
+                            </MorphingDialogContainer>
+                        </MorphingDialog>
                         <Button
                             type="button"
                             variant="ghost"
@@ -556,17 +772,6 @@ export function ChannelForm({
                                 <FlaskConical className="h-3 w-3 mr-1" />
                             )}
                             {t('test.button')}
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleRefreshModels}
-                            disabled={!formData.base_urls?.[0]?.url || !effectiveKey || fetchModel.isPending}
-                            className="h-6 px-2 text-xs text-muted-foreground/50 hover:text-muted-foreground hover:bg-transparent"
-                        >
-                            <RefreshCw className={`h-3 w-3 mr-1 ${fetchModel.isPending ? 'animate-spin' : ''}`} />
-                            {t('modelRefresh')}
                         </Button>
                     </div>
                 </div>

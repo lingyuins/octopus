@@ -123,6 +123,7 @@ export type MorphingDialogTriggerProps = {
   style?: React.CSSProperties;
   triggerRef?: React.RefObject<HTMLDivElement>;
   ariaLabel?: string;
+  disabled?: boolean;
 };
 
 function MorphingDialogTrigger({
@@ -131,22 +132,25 @@ function MorphingDialogTrigger({
   style,
   triggerRef: triggerRefProp,
   ariaLabel,
+  disabled,
 }: MorphingDialogTriggerProps) {
   const t = useTranslations('common.dialog');
   const { setIsOpen, isOpen, uniqueId, triggerRef } = useMorphingDialog();
 
   const handleClick = useCallback(() => {
+    if (disabled) return;
     setIsOpen(!isOpen);
-  }, [isOpen, setIsOpen]);
+  }, [disabled, isOpen, setIsOpen]);
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (disabled) return;
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         setIsOpen(!isOpen);
       }
     },
-    [isOpen, setIsOpen]
+    [disabled, isOpen, setIsOpen]
   );
 
   // Important: when dialog is open, framer-motion shared-layout can temporarily
@@ -170,16 +174,17 @@ function MorphingDialogTrigger({
     <motion.div
       ref={triggerRefProp ?? triggerRef}
       layoutId={`dialog-${uniqueId}`}
-      className={cn('relative cursor-pointer', className)}
+      className={cn('relative cursor-pointer', disabled && 'cursor-not-allowed opacity-50', className)}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       style={style}
       aria-haspopup='dialog'
       aria-expanded={isOpen}
+      aria-disabled={disabled || undefined}
       aria-controls={`motion-ui-morphing-dialog-content-${uniqueId}`}
       aria-label={ariaLabel ?? t('open')}
       role='button'
-      tabIndex={0}
+      tabIndex={disabled ? -1 : 0}
     >
       {children}
     </motion.div>
@@ -275,6 +280,10 @@ function MorphingDialogContent({
       if (openPopoverContent) {
         return true;
       }
+      const dialogLayer = target?.closest('[data-slot="morphing-dialog-layer"]') as HTMLElement | null;
+      if (dialogLayer && dialogLayer.dataset.dialogId !== uniqueId) {
+        return true;
+      }
       return false;
     }
   );
@@ -287,6 +296,8 @@ function MorphingDialogContent({
         'relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg max-w-2xl w-[calc(100vw-2rem)] max-h-[90dvh]',
         className
       )}
+      data-slot='morphing-dialog-content'
+      data-dialog-id={uniqueId}
       style={style}
       role='dialog'
       aria-modal='true'
@@ -326,11 +337,13 @@ function MorphingDialogContainer({ children }: MorphingDialogContainerProps) {
           <motion.div
             key={`backdrop-${uniqueId}`}
             className='fixed inset-0 z-50 bg-black/30 '
+            data-slot='morphing-dialog-layer'
+            data-dialog-id={uniqueId}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.2 } }}
           />
-          <div className='fixed inset-0 z-50 flex items-center justify-center'>
+          <div className='fixed inset-0 z-50 flex items-center justify-center' data-slot='morphing-dialog-layer' data-dialog-id={uniqueId}>
             {children}
           </div>
         </>
