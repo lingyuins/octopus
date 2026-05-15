@@ -572,7 +572,7 @@ func (ra *relayAttempt) forward() (int, error) {
 	outboundRequest, err := ra.outAdapter.TransformRequest(
 		ctx,
 		requestForOutbound,
-		ra.channel.GetBaseUrl(),
+		ra.channel.GetNormalizedBaseUrl(),
 		ra.usedKey.ChannelKey,
 	)
 	if err != nil {

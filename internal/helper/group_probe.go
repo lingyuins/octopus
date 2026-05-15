@@ -296,7 +296,7 @@ func sendGroupProbeRequest(ctx context.Context, outAdapter transmodel.Outbound, 
 		return 0, "", err
 	}
 
-	req, err := outAdapter.TransformRequest(ctx, probeRequest, channel.GetBaseUrl(), key)
+	req, err := outAdapter.TransformRequest(ctx, probeRequest, channel.GetNormalizedBaseUrl(), key)
 	if err != nil {
 		return 0, "", err
 	}

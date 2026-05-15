@@ -50,6 +50,7 @@ export type RequestRewriteConfig = {
 export type BaseUrl = {
     url: string;
     delay: number;
+    suffix_mode?: 'auto' | 'openai_compat' | 'anthropic' | 'gemini' | 'volcengine' | 'custom' | '';
 };
 
 export type CustomHeader = {

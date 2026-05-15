@@ -1559,6 +1559,13 @@
       "type": "渠道类型",
       "baseUrls": "Base URLs",
       "baseUrlUrl": "地址",
+      "baseUrlHint": "填写官方或兼容服务的基础地址，再选择接口格式。OpenAI Chat/Responses 通常都使用 OpenAI 兼容 /v1；自定义会保持 URL 原样。",
+      "baseUrlSuffixAuto": "自动识别",
+      "baseUrlSuffixOpenAICompat": "OpenAI 兼容 /v1",
+      "baseUrlSuffixAnthropic": "Anthropic /v1",
+      "baseUrlSuffixGemini": "Gemini /v1beta",
+      "baseUrlSuffixVolcengine": "火山 Ark /api/v3",
+      "baseUrlSuffixCustom": "自定义",
       "baseUrlDelay": "延迟(ms)",
       "advanced": "高级设置",
       "apiKey": "API Key",
@@ -1611,6 +1618,9 @@
       "template": {
         "label": "内置供应商模板",
         "hint": "一键预填常见供应商配置",
+        "open": "使用预设",
+        "skip": "跳过预设",
+        "pickerHint": "可以先选择一个内置供应商快速预填；如果你的上游不在列表里，跳过后手动配置即可。",
         "options": {
           "openai": {
             "description": "OpenAI Chat 官方接口"
@@ -1643,8 +1653,8 @@
         "descriptions": {
           "openai": "OpenAI Chat 官方接口。",
           "openaiResponses": "OpenAI Responses API 接口。",
-          "anthropic": "Claude 官方接口。",
-          "gemini": "Google Gemini 官方接口。",
+          "anthropic": "Claude 官方接口，系统会自动处理版本路径。",
+          "gemini": "Google Gemini 官方接口，系统会自动处理版本路径。",
           "deepseek": "DeepSeek OpenAI 兼容接口。",
           "openrouter": "OpenRouter 聚合接口。",
           "siliconflow": "硅基流动 OpenAI 兼容接口。",

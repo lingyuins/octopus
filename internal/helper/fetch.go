@@ -89,7 +89,7 @@ func fetchOpenAIModels(client *http.Client, ctx context.Context, request model.C
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
-		request.GetBaseUrl()+"/models",
+		request.GetNormalizedBaseUrl()+"/models",
 		nil,
 	)
 	if err != nil {
@@ -131,7 +131,7 @@ func fetchGeminiModels(client *http.Client, ctx context.Context, request model.C
 			req, err := http.NewRequestWithContext(
 				ctx,
 				http.MethodGet,
-				request.GetBaseUrl()+"/models",
+				request.GetNormalizedBaseUrl()+"/models",
 				nil,
 			)
 			if err != nil {
@@ -197,7 +197,7 @@ func fetchAnthropicModels(client *http.Client, ctx context.Context, request mode
 			req, err := http.NewRequestWithContext(
 				ctx,
 				http.MethodGet,
-				request.GetBaseUrl()+"/models",
+				request.GetNormalizedBaseUrl()+"/models",
 				nil,
 			)
 			if err != nil {

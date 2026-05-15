@@ -110,6 +110,8 @@ export interface ChannelFormProps {
     onCancel?: () => void;
     cancelText?: string;
     idPrefix?: string;
+    showTemplatePicker?: boolean;
+    onShowTemplatePicker?: () => void;
 }
 
 import {
@@ -318,6 +320,33 @@ function ModelPickerDialogPanel({ models, selectedModels, isLoading, onApply }: 
     );
 }
 
+export function TemplatePickerGrid({
+    compact,
+    onApplyTemplate,
+}: {
+    compact: boolean;
+    onApplyTemplate: (templateKey: string) => void;
+}) {
+    const t = useTranslations('channel.form');
+
+    return (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {channelTemplates.slice(0, compact ? 4 : channelTemplates.length).map((template) => (
+                <Button
+                    key={template.key}
+                    type="button"
+                    variant="outline"
+                    onClick={() => onApplyTemplate(template.key)}
+                    className="h-auto min-h-20 flex-col items-start gap-1 rounded-lg border-border/30 bg-card px-3.5 py-3 text-left whitespace-normal hover:bg-card md:min-h-24 md:rounded-lg md:px-4"
+                >
+                    <span className="text-sm font-semibold">{template.name}</span>
+                    <span className="text-xs text-muted-foreground">{t(template.descriptionKey)}</span>
+                </Button>
+            ))}
+        </div>
+    );
+}
+
 export function ChannelForm({
     formData,
     onFormDataChange,
@@ -328,6 +357,8 @@ export function ChannelForm({
     onCancel,
     cancelText,
     idPrefix = 'channel',
+    showTemplatePicker = true,
+    onShowTemplatePicker,
 }: ChannelFormProps) {
     const t = useTranslations('channel.form');
     const isCompactViewport = useIsMobile();
@@ -340,7 +371,7 @@ export function ChannelForm({
     // This avoids "empty list" UI and also keeps URL + APIKEY layout consistent.
     useEffect(() => {
         if (!formData.base_urls || formData.base_urls.length === 0) {
-            onFormDataChange({ ...formData, base_urls: [{ url: '', delay: 0 }] });
+            onFormDataChange({ ...formData, base_urls: [{ url: '', delay: 0, suffix_mode: 'auto' }] });
             return;
         }
         if (!formData.keys || formData.keys.length === 0) {
@@ -417,6 +448,7 @@ export function ChannelForm({
         base_urls: (formData.base_urls ?? []).filter((u) => u.url.trim()).map((u) => ({
             url: u.url.trim(),
             delay: Number(u.delay || 0),
+            suffix_mode: u.suffix_mode && u.suffix_mode !== 'auto' ? u.suffix_mode : undefined,
         })),
         keys: formData.keys
             .filter((k) => k.channel_key.trim())
@@ -528,7 +560,7 @@ export function ChannelForm({
     const handleAddBaseUrl = () => {
         onFormDataChange({
             ...formData,
-            base_urls: [...(formData.base_urls ?? []), { url: '', delay: 0 }],
+            base_urls: [...(formData.base_urls ?? []), { url: '', delay: 0, suffix_mode: 'auto' }],
         });
     };
 
@@ -571,23 +603,28 @@ export function ChannelForm({
     return (
         <form onSubmit={onSubmit} className="flex h-full min-h-0 flex-col">
             <div className="flex-1 min-h-0 space-y-4 overflow-y-auto pb-2">
-            <section className={sectionClassName}>
-                <SectionHeader icon={Sparkles} title={t('template.label')} hint={t('template.hint')} />
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                    {channelTemplates.slice(0, isCompactViewport ? 4 : channelTemplates.length).map((template) => (
-                        <Button
-                            key={template.key}
-                            type="button"
-                            variant="outline"
-                            onClick={() => handleApplyTemplate(template.key)}
-                            className="h-auto min-h-20 flex-col items-start gap-1 rounded-lg border-border/30 bg-card px-3.5 py-3 text-left whitespace-normal hover:bg-card md:min-h-24 md:rounded-lg md:px-4"
-                        >
-                            <span className="text-sm font-semibold">{template.name}</span>
-                            <span className="text-xs text-muted-foreground">{t(template.descriptionKey)}</span>
-                        </Button>
-                    ))}
+            {showTemplatePicker ? (
+                <section className={sectionClassName}>
+                    <SectionHeader icon={Sparkles} title={t('template.label')} hint={t('template.hint')} />
+                    <TemplatePickerGrid
+                        compact={isCompactViewport}
+                        onApplyTemplate={handleApplyTemplate}
+                    />
+                </section>
+            ) : (
+                <div className="flex justify-end">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={onShowTemplatePicker}
+                        className="h-8 rounded-lg text-xs"
+                    >
+                        <Sparkles className="size-3.5" />
+                        {t('template.open')}
+                    </Button>
                 </div>
-            </section>
+            )}
 
             <section className={sectionClassName}>
                 <SectionHeader icon={Orbit} title={t('name')} hint={t('type')} />
@@ -632,7 +669,7 @@ export function ChannelForm({
             </section>
 
             <section className={sectionClassName}>
-                <SectionHeader icon={Cable} title={t('baseUrls')} hint={t('baseUrlUrl')} />
+                <SectionHeader icon={Cable} title={t('baseUrls')} hint={t('baseUrlHint')} />
                 <div className="flex items-center justify-between">
                     <label className={labelClassName}>
                         {t('baseUrls')} {formData.base_urls.length > 0 ? `(${formData.base_urls.length})` : ''}
@@ -660,6 +697,22 @@ export function ChannelForm({
                                 required={idx === 0}
                                 className="flex-1 rounded-lg"
                             />
+                            <Select
+                                value={u.suffix_mode || 'auto'}
+                                onValueChange={(value) => handleUpdateBaseUrl(idx, { suffix_mode: value as Channel['base_urls'][number]['suffix_mode'] })}
+                            >
+                                <SelectTrigger className="h-10 w-44 shrink-0 rounded-lg">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-lg">
+                                    <SelectItem className="rounded-xl" value="auto">{t('baseUrlSuffixAuto')}</SelectItem>
+                                    <SelectItem className="rounded-xl" value="openai_compat">{t('baseUrlSuffixOpenAICompat')}</SelectItem>
+                                    <SelectItem className="rounded-xl" value="anthropic">{t('baseUrlSuffixAnthropic')}</SelectItem>
+                                    <SelectItem className="rounded-xl" value="gemini">{t('baseUrlSuffixGemini')}</SelectItem>
+                                    <SelectItem className="rounded-xl" value="volcengine">{t('baseUrlSuffixVolcengine')}</SelectItem>
+                                    <SelectItem className="rounded-xl" value="custom">{t('baseUrlSuffixCustom')}</SelectItem>
+                                </SelectContent>
+                            </Select>
                             <Button
                                 type="button"
                                 variant="ghost"

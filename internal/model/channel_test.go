@@ -111,3 +111,98 @@ func TestRequestRewriteConfigValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestChannelGetNormalizedBaseUrlAddsProviderVersionPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		channelType outbound.OutboundType
+		baseURL     string
+		suffixMode  string
+		want        string
+	}{
+		{
+			name:        "openai root adds v1",
+			channelType: outbound.OutboundTypeOpenAIChat,
+			baseURL:     "https://api.openai.com",
+			want:        "https://api.openai.com/v1",
+		},
+		{
+			name:        "openai v1 is not duplicated",
+			channelType: outbound.OutboundTypeOpenAIResponse,
+			baseURL:     "https://api.openai.com/v1/",
+			want:        "https://api.openai.com/v1",
+		},
+		{
+			name:        "openai compatible api path adds v1",
+			channelType: outbound.OutboundTypeOpenAIChat,
+			baseURL:     "https://openrouter.ai/api",
+			want:        "https://openrouter.ai/api/v1",
+		},
+		{
+			name:        "anthropic root adds v1",
+			channelType: outbound.OutboundTypeAnthropic,
+			baseURL:     "https://api.anthropic.com",
+			want:        "https://api.anthropic.com/v1",
+		},
+		{
+			name:        "gemini root adds v1beta",
+			channelType: outbound.OutboundTypeGemini,
+			baseURL:     "https://generativelanguage.googleapis.com",
+			want:        "https://generativelanguage.googleapis.com/v1beta",
+		},
+		{
+			name:        "gemini v1beta is not duplicated",
+			channelType: outbound.OutboundTypeGemini,
+			baseURL:     "https://generativelanguage.googleapis.com/v1beta",
+			want:        "https://generativelanguage.googleapis.com/v1beta",
+		},
+		{
+			name:        "volcengine root adds api v3",
+			channelType: outbound.OutboundTypeVolcengine,
+			baseURL:     "https://ark.cn-beijing.volces.com",
+			want:        "https://ark.cn-beijing.volces.com/api/v3",
+		},
+		{
+			name:        "mimo root adds v1",
+			channelType: outbound.OutboundTypeMimo,
+			baseURL:     "https://api.xiaomimimo.com",
+			want:        "https://api.xiaomimimo.com/v1",
+		},
+		{
+			name:        "custom suffix mode keeps raw url",
+			channelType: outbound.OutboundTypeGemini,
+			baseURL:     "https://proxy.example.com/custom",
+			suffixMode:  "custom",
+			want:        "https://proxy.example.com/custom",
+		},
+		{
+			name:        "openai compatible suffix mode can override channel type",
+			channelType: outbound.OutboundTypeGemini,
+			baseURL:     "https://proxy.example.com/api",
+			suffixMode:  "openai_compat",
+			want:        "https://proxy.example.com/api/v1",
+		},
+		{
+			name:        "gemini suffix mode can override channel type",
+			channelType: outbound.OutboundTypeOpenAIChat,
+			baseURL:     "https://generativelanguage.googleapis.com",
+			suffixMode:  "gemini",
+			want:        "https://generativelanguage.googleapis.com/v1beta",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			channel := Channel{
+				Type: tt.channelType,
+				BaseUrls: []BaseUrl{
+					{URL: tt.baseURL, SuffixMode: tt.suffixMode},
+				},
+			}
+
+			if got := channel.GetNormalizedBaseUrl(); got != tt.want {
+				t.Fatalf("GetNormalizedBaseUrl() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

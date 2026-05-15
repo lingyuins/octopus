@@ -51,7 +51,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
         name: channel.name,
         type: channel.type,
         enabled: channel.enabled,
-        base_urls: channel.base_urls?.length ? channel.base_urls : [{ url: '', delay: 0 }],
+        base_urls: channel.base_urls?.length ? channel.base_urls : [{ url: '', delay: 0, suffix_mode: 'auto' }],
         custom_header: channel.custom_header ?? [],
         channel_proxy: channel.channel_proxy ?? '',
         param_override: channel.param_override ?? '',
@@ -106,6 +106,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
             req.base_urls = (formData.base_urls ?? []).filter((u) => u.url.trim()).map((u) => ({
                 url: u.url.trim(),
                 delay: Number(u.delay || 0),
+                suffix_mode: u.suffix_mode && u.suffix_mode !== 'auto' ? u.suffix_mode : undefined,
             }));
         }
         if (formData.model !== channel.model) req.model = formData.model;

@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lingyuins/octopus/internal/transformer/outbound"
@@ -64,8 +65,9 @@ type Channel struct {
 }
 
 type BaseUrl struct {
-	URL   string `json:"url"`
-	Delay int    `json:"delay"`
+	URL        string `json:"url"`
+	Delay      int    `json:"delay"`
+	SuffixMode string `json:"suffix_mode,omitempty"`
 }
 
 type CustomHeader struct {
@@ -188,6 +190,78 @@ func (c *Channel) GetBaseUrl() string {
 	}
 
 	return bestURL
+}
+
+func (c *Channel) GetNormalizedBaseUrl() string {
+	if c == nil {
+		return ""
+	}
+
+	rawURL := c.GetBaseUrl()
+	return normalizeChannelBaseURL(rawURL, c.Type, c.getBaseURLSuffixMode(rawURL))
+}
+
+func (c *Channel) GetNormalizedBaseUrlFor(rawURL string) string {
+	if c == nil {
+		return strings.TrimRight(strings.TrimSpace(rawURL), "/")
+	}
+
+	return normalizeChannelBaseURL(rawURL, c.Type, c.getBaseURLSuffixMode(rawURL))
+}
+
+func (c *Channel) getBaseURLSuffixMode(rawURL string) string {
+	trimmedURL := strings.TrimRight(strings.TrimSpace(rawURL), "/")
+	for _, baseURL := range c.BaseUrls {
+		if strings.TrimRight(strings.TrimSpace(baseURL.URL), "/") == trimmedURL {
+			return baseURL.SuffixMode
+		}
+	}
+	return ""
+}
+
+func normalizeChannelBaseURL(rawURL string, channelType outbound.OutboundType, suffixMode string) string {
+	trimmedURL := strings.TrimRight(strings.TrimSpace(rawURL), "/")
+	if trimmedURL == "" {
+		return ""
+	}
+
+	switch strings.ToLower(strings.TrimSpace(suffixMode)) {
+	case "", "auto":
+		return appendBaseURLPathByChannel(trimmedURL, channelType)
+	case "custom":
+		return trimmedURL
+	case "openai_compat", "openai":
+		return appendBaseURLPathIfMissing(trimmedURL, strings.ToLower(trimmedURL), "/v1")
+	case "anthropic":
+		return appendBaseURLPathIfMissing(trimmedURL, strings.ToLower(trimmedURL), "/v1")
+	case "gemini":
+		return appendBaseURLPathIfMissing(trimmedURL, strings.ToLower(trimmedURL), "/v1beta")
+	case "volcengine":
+		return appendBaseURLPathIfMissing(trimmedURL, strings.ToLower(trimmedURL), "/api/v3")
+	default:
+		return appendBaseURLPathByChannel(trimmedURL, channelType)
+	}
+}
+
+func appendBaseURLPathByChannel(rawURL string, channelType outbound.OutboundType) string {
+	lowerURL := strings.ToLower(rawURL)
+	switch channelType {
+	case outbound.OutboundTypeAnthropic:
+		return appendBaseURLPathIfMissing(rawURL, lowerURL, "/v1")
+	case outbound.OutboundTypeGemini:
+		return appendBaseURLPathIfMissing(rawURL, lowerURL, "/v1beta")
+	case outbound.OutboundTypeVolcengine:
+		return appendBaseURLPathIfMissing(rawURL, lowerURL, "/api/v3")
+	default:
+		return appendBaseURLPathIfMissing(rawURL, lowerURL, "/v1")
+	}
+}
+
+func appendBaseURLPathIfMissing(rawURL, lowerURL, suffix string) string {
+	if strings.HasSuffix(lowerURL, strings.ToLower(suffix)) {
+		return rawURL
+	}
+	return rawURL + suffix
 }
 
 func (c *Channel) GetChannelKey() ChannelKey {

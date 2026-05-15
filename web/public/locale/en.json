@@ -1559,6 +1559,13 @@
       "type": "Channel Type",
       "baseUrls": "Base URLs",
       "baseUrlUrl": "URL",
+      "baseUrlHint": "Enter the official or compatible service base address, then choose the API format. OpenAI Chat/Responses usually share OpenAI-compatible /v1; Custom keeps the URL unchanged.",
+      "baseUrlSuffixAuto": "Auto detect",
+      "baseUrlSuffixOpenAICompat": "OpenAI-compatible /v1",
+      "baseUrlSuffixAnthropic": "Anthropic /v1",
+      "baseUrlSuffixGemini": "Gemini /v1beta",
+      "baseUrlSuffixVolcengine": "Volcengine Ark /api/v3",
+      "baseUrlSuffixCustom": "Custom",
       "baseUrlDelay": "Delay(ms)",
       "advanced": "Advanced Settings",
       "apiKey": "API Key",
@@ -1611,6 +1618,9 @@
       "template": {
         "label": "Built-in Templates",
         "hint": "One click to prefill common provider settings",
+        "open": "Use template",
+        "skip": "Skip templates",
+        "pickerHint": "Choose a built-in provider to prefill the form. If your upstream is not listed, skip this step and configure it manually.",
         "options": {
           "openai": {
             "description": "OpenAI Chat official API"
@@ -1643,8 +1653,8 @@
         "descriptions": {
           "openai": "Official OpenAI Chat endpoint.",
           "openaiResponses": "OpenAI Responses API endpoint.",
-          "anthropic": "Official Claude endpoint.",
-          "gemini": "Official Google Gemini endpoint.",
+          "anthropic": "Official Claude endpoint. Version paths are handled automatically.",
+          "gemini": "Official Google Gemini endpoint. Version paths are handled automatically.",
           "deepseek": "DeepSeek OpenAI-compatible endpoint.",
           "openrouter": "OpenRouter aggregated endpoint.",
           "siliconflow": "SiliconFlow OpenAI-compatible endpoint.",

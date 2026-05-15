@@ -63,7 +63,7 @@ func TestChannel(ctx context.Context, request appmodel.Channel) (*ChannelTestSum
 	for _, item := range request.BaseUrls {
 		url := strings.TrimSpace(item.URL)
 		if url != "" {
-			baseURLs = append(baseURLs, url)
+			baseURLs = append(baseURLs, request.GetNormalizedBaseUrlFor(url))
 		}
 	}
 	if len(baseURLs) == 0 {

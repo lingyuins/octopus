@@ -1559,6 +1559,13 @@
       "type": "供應源類型",
       "baseUrls": "Base URLs",
       "baseUrlUrl": "地址",
+      "baseUrlHint": "填寫官方或相容服務的基礎地址，再選擇介面格式。OpenAI Chat/Responses 通常都使用 OpenAI 相容 /v1；自訂會保持 URL 原樣。",
+      "baseUrlSuffixAuto": "自動識別",
+      "baseUrlSuffixOpenAICompat": "OpenAI 相容 /v1",
+      "baseUrlSuffixAnthropic": "Anthropic /v1",
+      "baseUrlSuffixGemini": "Gemini /v1beta",
+      "baseUrlSuffixVolcengine": "火山 Ark /api/v3",
+      "baseUrlSuffixCustom": "自訂",
       "baseUrlDelay": "延遲(ms)",
       "advanced": "進階設定",
       "apiKey": "API Key",
@@ -1611,6 +1618,9 @@
       "template": {
         "label": "內建供應商模板",
         "hint": "一鍵預填常見供應商設定",
+        "open": "使用預設",
+        "skip": "跳過預設",
+        "pickerHint": "可以先選擇一個內建供應商快速預填；如果你的上游不在列表裡，跳過後手動設定即可。",
         "options": {
           "openai": {
             "description": "OpenAI Chat 官方介面"
@@ -1643,8 +1653,8 @@
         "descriptions": {
           "openai": "OpenAI Chat 官方介面。",
           "openaiResponses": "OpenAI Responses API 介面。",
-          "anthropic": "Claude 官方介面。",
-          "gemini": "Google Gemini 官方介面。",
+          "anthropic": "Claude 官方介面，系統會自動處理版本路徑。",
+          "gemini": "Google Gemini 官方介面，系統會自動處理版本路徑。",
           "deepseek": "DeepSeek OpenAI 相容介面。",
           "openrouter": "OpenRouter 聚合介面。",
           "siliconflow": "矽基流動 OpenAI 相容介面。",
