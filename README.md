@@ -355,7 +355,7 @@ The program automatically appends API paths based on channel type. You only need
 | Gemini | `/models/:model:generateContent` | `https://generativelanguage.googleapis.com/v1beta` | `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` |
 | Volcengine | `/responses` | `https://ark.cn-beijing.volces.com/api/v3` | `https://ark.cn-beijing.volces.com/api/v3/responses` |
 
-> 💡 **Tip**: No need to include specific API endpoint paths in the Base URL - the program handles this automatically.
+> 💡 **Tip**: Base URLs now support `Auto detect` and `Custom`. `Auto detect` appends the version suffix based on the channel type, while `Custom` keeps the URL exactly as you entered it.
 
 ### 🌐 Public Relay Endpoints
 

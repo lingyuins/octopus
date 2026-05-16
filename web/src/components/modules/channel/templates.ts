@@ -34,7 +34,7 @@ export const channelTemplates: ChannelTemplate[] = [
         apply: (current) => createTemplatePatch(current, {
             name: current.name || 'OpenAI',
             type: ChannelType.OpenAIChat,
-            base_urls: [{ url: 'https://api.openai.com', delay: 0, suffix_mode: 'openai_compat' }],
+            base_urls: [{ url: 'https://api.openai.com', delay: 0, suffix_mode: 'auto' }],
             custom_header: [],
             channel_proxy: '',
             param_override: '',
@@ -51,7 +51,7 @@ export const channelTemplates: ChannelTemplate[] = [
         apply: (current) => createTemplatePatch(current, {
             name: current.name || 'OpenAI Responses',
             type: ChannelType.OpenAIResponse,
-            base_urls: [{ url: 'https://api.openai.com', delay: 0, suffix_mode: 'openai_compat' }],
+            base_urls: [{ url: 'https://api.openai.com', delay: 0, suffix_mode: 'auto' }],
             custom_header: [],
             channel_proxy: '',
             param_override: '',
@@ -68,7 +68,7 @@ export const channelTemplates: ChannelTemplate[] = [
         apply: (current) => createTemplatePatch(current, {
             name: current.name || 'Anthropic',
             type: ChannelType.Anthropic,
-            base_urls: [{ url: 'https://api.anthropic.com', delay: 0, suffix_mode: 'anthropic' }],
+            base_urls: [{ url: 'https://api.anthropic.com', delay: 0, suffix_mode: 'auto' }],
             custom_header: [],
             channel_proxy: '',
             param_override: '',
@@ -85,7 +85,7 @@ export const channelTemplates: ChannelTemplate[] = [
         apply: (current) => createTemplatePatch(current, {
             name: current.name || 'Gemini',
             type: ChannelType.Gemini,
-            base_urls: [{ url: 'https://generativelanguage.googleapis.com', delay: 0, suffix_mode: 'gemini' }],
+            base_urls: [{ url: 'https://generativelanguage.googleapis.com', delay: 0, suffix_mode: 'auto' }],
             custom_header: [],
             channel_proxy: '',
             param_override: '',
@@ -102,7 +102,7 @@ export const channelTemplates: ChannelTemplate[] = [
         apply: (current) => createTemplatePatch(current, {
             name: current.name || 'DeepSeek',
             type: ChannelType.OpenAIChat,
-            base_urls: [{ url: 'https://api.deepseek.com', delay: 0, suffix_mode: 'openai_compat' }],
+            base_urls: [{ url: 'https://api.deepseek.com', delay: 0, suffix_mode: 'auto' }],
             custom_header: [],
             channel_proxy: '',
             param_override: '',
@@ -119,7 +119,7 @@ export const channelTemplates: ChannelTemplate[] = [
         apply: (current) => createTemplatePatch(current, {
             name: current.name || 'OpenRouter',
             type: ChannelType.OpenAIChat,
-            base_urls: [{ url: 'https://openrouter.ai/api', delay: 0, suffix_mode: 'openai_compat' }],
+            base_urls: [{ url: 'https://openrouter.ai/api', delay: 0, suffix_mode: 'auto' }],
             custom_header: [],
             channel_proxy: '',
             param_override: '',
@@ -136,7 +136,7 @@ export const channelTemplates: ChannelTemplate[] = [
         apply: (current) => createTemplatePatch(current, {
             name: current.name || 'SiliconFlow',
             type: ChannelType.OpenAIChat,
-            base_urls: [{ url: 'https://api.siliconflow.cn', delay: 0, suffix_mode: 'openai_compat' }],
+            base_urls: [{ url: 'https://api.siliconflow.cn', delay: 0, suffix_mode: 'auto' }],
             custom_header: [],
             channel_proxy: '',
             param_override: '',
@@ -153,7 +153,7 @@ export const channelTemplates: ChannelTemplate[] = [
         apply: (current) => createTemplatePatch(current, {
             name: current.name || 'Volcengine',
             type: ChannelType.Volcengine,
-            base_urls: [{ url: 'https://ark.cn-beijing.volces.com', delay: 0, suffix_mode: 'volcengine' }],
+            base_urls: [{ url: 'https://ark.cn-beijing.volces.com', delay: 0, suffix_mode: 'auto' }],
             custom_header: [],
             channel_proxy: '',
             param_override: '',
@@ -170,7 +170,7 @@ export const channelTemplates: ChannelTemplate[] = [
         apply: (current) => createTemplatePatch(current, {
             name: current.name || 'Mimo',
             type: ChannelType.Mimo,
-            base_urls: [{ url: 'https://api.xiaomimimo.com', delay: 0, suffix_mode: 'openai_compat' }],
+            base_urls: [{ url: 'https://api.xiaomimimo.com', delay: 0, suffix_mode: 'auto' }],
             custom_header: [],
             channel_proxy: '',
             param_override: '',

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
     MorphingDialogClose,
     MorphingDialogTitle,
@@ -155,8 +156,16 @@ export function CreateDialogContent() {
                 </header>
             </MorphingDialogTitle>
             <MorphingDialogDescription disableLayoutAnimation className="relative flex-1 min-h-0 overflow-hidden px-4 py-4 md:px-6 md:py-5">
+                <AnimatePresence mode="wait" initial={false}>
                 {showPresetPicker ? (
-                    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto">
+                    <motion.div
+                        key="preset-picker"
+                        initial={{ opacity: 0, scale: 0.98, y: 6 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.98, y: -4 }}
+                        transition={{ duration: 0.16, ease: 'easeOut' }}
+                        className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto"
+                    >
                         <div className="rounded-lg bg-card/70 p-4 md:p-5">
                             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                                 <div className="space-y-2">
@@ -171,27 +180,37 @@ export function CreateDialogContent() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => setShowPresetPicker(false)}
-                                    className="h-8 rounded-lg text-xs text-muted-foreground"
+                                    className="h-8 rounded-lg text-xs text-muted-foreground transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out active:scale-[0.98]"
                                 >
                                     {tForm('template.skip')}
                                 </Button>
                             </div>
                             <TemplatePickerGrid compact={isCompactViewport} onApplyTemplate={handleApplyTemplate} />
                         </div>
-                    </div>
+                    </motion.div>
                 ) : (
-                    <ChannelForm
-                        formData={formData}
-                        onFormDataChange={setFormData}
-                        onSubmit={handleSubmit}
-                        isPending={createChannel.isPending}
-                        submitText={t('submit')}
-                        pendingText={t('submitting')}
-                        idPrefix="new-channel"
-                        showTemplatePicker={false}
-                        onShowTemplatePicker={() => setShowPresetPicker(true)}
-                    />
+                    <motion.div
+                        key="manual-form"
+                        initial={{ opacity: 0, scale: 0.98, y: 6 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.98, y: -4 }}
+                        transition={{ duration: 0.16, ease: 'easeOut' }}
+                        className="h-full min-h-0"
+                    >
+                        <ChannelForm
+                            formData={formData}
+                            onFormDataChange={setFormData}
+                            onSubmit={handleSubmit}
+                            isPending={createChannel.isPending}
+                            submitText={t('submit')}
+                            pendingText={t('submitting')}
+                            idPrefix="new-channel"
+                            showTemplatePicker={false}
+                            onShowTemplatePicker={() => setShowPresetPicker(true)}
+                        />
+                    </motion.div>
                 )}
+                </AnimatePresence>
             </MorphingDialogDescription>
         </div>
     );

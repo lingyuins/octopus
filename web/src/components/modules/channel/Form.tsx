@@ -33,6 +33,7 @@ import {
     useMorphingDialog,
 } from '@/components/ui/morphing-dialog';
 import { toast } from '@/components/common/Toast';
+import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw, X, Plus, FlaskConical, CheckCircle2, AlertTriangle, Sparkles, Orbit, Layers3, KeyRound, Cable, Search, Check, ListFilter } from 'lucide-react';
@@ -98,6 +99,11 @@ export function getEffectiveRequestRewriteFormData(channelType: ChannelType, con
         ...normalized,
         enabled: false,
     };
+}
+
+function hasManualVersionSuffix(rawUrl: string): boolean {
+    const normalized = rawUrl.trim().split(/[?#]/)[0].replace(/\/+$/, '').toLowerCase();
+    return /\/(v\d+(?:beta)?|api\/v\d+)$/.test(normalized);
 }
 
 export interface ChannelFormProps {
@@ -618,7 +624,7 @@ export function ChannelForm({
                         variant="outline"
                         size="sm"
                         onClick={onShowTemplatePicker}
-                        className="h-8 rounded-lg text-xs"
+                        className="h-8 rounded-lg text-xs transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out active:scale-[0.98]"
                     >
                         <Sparkles className="size-3.5" />
                         {t('template.open')}
@@ -687,43 +693,49 @@ export function ChannelForm({
                 </div>
                 <div className="space-y-2">
                     {(formData.base_urls ?? []).map((u, idx) => (
-                        <div key={`baseurl-${idx}`} className="flex items-center gap-2 rounded-lg border border-border/25 bg-card p-2">
-                            <Input
-                                id={`${idPrefix}-base-${idx}`}
-                                type="url"
-                                value={u.url}
-                                onChange={(e) => handleUpdateBaseUrl(idx, { url: e.target.value })}
-                                placeholder={t('baseUrlUrl')}
-                                required={idx === 0}
-                                className="flex-1 rounded-lg"
-                            />
-                            <Select
-                                value={u.suffix_mode || 'auto'}
-                                onValueChange={(value) => handleUpdateBaseUrl(idx, { suffix_mode: value as Channel['base_urls'][number]['suffix_mode'] })}
-                            >
-                                <SelectTrigger className="h-10 w-44 shrink-0 rounded-lg">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-lg">
-                                    <SelectItem className="rounded-xl" value="auto">{t('baseUrlSuffixAuto')}</SelectItem>
-                                    <SelectItem className="rounded-xl" value="openai_compat">{t('baseUrlSuffixOpenAICompat')}</SelectItem>
-                                    <SelectItem className="rounded-xl" value="anthropic">{t('baseUrlSuffixAnthropic')}</SelectItem>
-                                    <SelectItem className="rounded-xl" value="gemini">{t('baseUrlSuffixGemini')}</SelectItem>
-                                    <SelectItem className="rounded-xl" value="volcengine">{t('baseUrlSuffixVolcengine')}</SelectItem>
-                                    <SelectItem className="rounded-xl" value="custom">{t('baseUrlSuffixCustom')}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveBaseUrl(idx)}
-                                disabled={(formData.base_urls ?? []).length <= 1}
-                                className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-destructive disabled:opacity-40 hover:bg-transparent"
-                                title={t('remove')}
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
+                        <div key={`baseurl-${idx}`} className="space-y-1.5 rounded-lg border border-border/25 bg-card p-2">
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    id={`${idPrefix}-base-${idx}`}
+                                    type="url"
+                                    value={u.url}
+                                    onChange={(e) => handleUpdateBaseUrl(idx, { url: e.target.value })}
+                                    placeholder={t('baseUrlUrl')}
+                                    required={idx === 0}
+                                    className="flex-1 rounded-lg"
+                                />
+                                <Select
+                                    value={u.suffix_mode === 'custom' ? 'custom' : 'auto'}
+                                    onValueChange={(value) => handleUpdateBaseUrl(idx, { suffix_mode: value as Channel['base_urls'][number]['suffix_mode'] })}
+                                >
+                                    <SelectTrigger className="h-10 w-44 shrink-0 rounded-lg">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-lg">
+                                        <SelectItem className="rounded-xl" value="auto">{t('baseUrlSuffixAuto')}</SelectItem>
+                                        <SelectItem className="rounded-xl" value="custom">{t('baseUrlSuffixCustom')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRemoveBaseUrl(idx)}
+                                    disabled={(formData.base_urls ?? []).length <= 1}
+                                    className="h-8 w-8 rounded-xl p-0 text-muted-foreground hover:bg-transparent hover:text-destructive disabled:opacity-40"
+                                    title={t('remove')}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            {u.suffix_mode === 'auto' ? (
+                                <p className={cn(
+                                    'px-1 text-xs leading-5',
+                                    hasManualVersionSuffix(u.url) ? 'text-destructive' : 'text-muted-foreground'
+                                )}>
+                                    {hasManualVersionSuffix(u.url) ? t('baseUrlAutoWarning') : t('baseUrlAutoHint')}
+                                </p>
+                            ) : null}
                         </div>
                     ))}
                 </div>

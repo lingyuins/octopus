@@ -356,7 +356,7 @@ http://localhost:3000
 | Gemini | `/models/:model:generateContent` | `https://generativelanguage.googleapis.com/v1beta` | `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` |
 | Volcengine | `/responses` | `https://ark.cn-beijing.volces.com/api/v3` | `https://ark.cn-beijing.volces.com/api/v3/responses` |
 
-> 💡 **提示**：填写 Base URL 时无需包含具体的 API 端点路径，程序会自动处理。
+> 💡 **提示**：Base URL 现在支持 `自动识别` 和 `自定义` 两种模式。`自动识别` 会按渠道类型自动补版本后缀，`自定义` 会保持你填写的 URL 原样。
 
 ### 🌐 公共 Relay 端点
 
