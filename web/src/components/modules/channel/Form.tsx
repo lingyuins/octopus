@@ -633,7 +633,7 @@ export function ChannelForm({
             )}
 
             <section className={sectionClassName}>
-                <SectionHeader icon={Orbit} title={t('name')} hint={t('type')} />
+                <SectionHeader icon={Orbit} title={t('basicInfo')} />
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className={fieldGroupClassName}>
                         <label htmlFor={`${idPrefix}-name`} className={labelClassName}>
@@ -675,11 +675,11 @@ export function ChannelForm({
             </section>
 
             <section className={sectionClassName}>
-                <SectionHeader icon={Cable} title={t('baseUrls')} hint={t('baseUrlHint')} />
-                <div className="flex items-center justify-between">
-                    <label className={labelClassName}>
-                        {t('baseUrls')} {formData.base_urls.length > 0 ? `(${formData.base_urls.length})` : ''}
-                    </label>
+                <SectionHeader icon={Cable} title={t('baseUrlConfig')} hint={t('baseUrlHint')} />
+                <div className="flex items-center justify-end gap-2">
+                    <Badge variant="secondary" className="rounded-full">
+                        {formData.base_urls.length}
+                    </Badge>
                     <Button
                         type="button"
                         variant="ghost"
@@ -742,11 +742,11 @@ export function ChannelForm({
             </section>
 
             <section className={sectionClassName}>
-                <SectionHeader icon={KeyRound} title={t('apiKey')} hint={t('remark')} />
-                <div className="flex items-center justify-between">
-                    <label className={labelClassName}>
-                        {t('apiKey')} {formData.keys.length > 0 ? `(${formData.keys.length})` : ''}
-                    </label>
+                <SectionHeader icon={KeyRound} title={t('apiKeyConfig')} />
+                <div className="flex items-center justify-end gap-2">
+                    <Badge variant="secondary" className="rounded-full">
+                        {formData.keys.length}
+                    </Badge>
                     <Button
                         type="button"
                         variant="ghost"
@@ -800,9 +800,8 @@ export function ChannelForm({
             </section>
 
             <section className={sectionClassName}>
-                <SectionHeader icon={Layers3} title={t('model')} hint={t('modelSelected')} />
-                <div className="flex items-center justify-between gap-2">
-                    <label className={labelClassName}>{t('model')}</label>
+                <SectionHeader icon={Layers3} title={t('modelConfig')} />
+                <div className="flex items-center justify-end gap-2">
                     <div className="flex items-center gap-2">
                         <MorphingDialog onOpen={handleRefreshModels}>
                             <MorphingDialogTrigger
