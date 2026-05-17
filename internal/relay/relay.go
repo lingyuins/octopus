@@ -150,6 +150,8 @@ func resolveCandidateModelName(requestModel string, item dbmodel.GroupItem) stri
 
 // Handler 处理入站请求并转发到上游服务
 func Handler(endpointType string, inboundType inbound.InboundType, c *gin.Context) {
+	InflightInc()
+	defer InflightDec()
 	// 解析请求
 	internalRequest, inAdapter, err := parseRequest(inboundType, c)
 	if err != nil {
@@ -277,6 +279,22 @@ func Handler(endpointType string, inboundType inbound.InboundType, c *gin.Contex
 		groupEndpointType: group.EndpointType,
 		iter:              iter,
 		streamSession:     streamSession,
+	}
+
+	if endpointFamily := semanticCacheEndpointFamily(endpointType, inboundType); endpointFamily != "" {
+		served, payload, cacheErr := maybeServeSemanticCacheHit(c, req, endpointFamily)
+		if cacheErr != nil {
+			log.Warnf("semantic cache lookup failed: %v", cacheErr)
+		}
+		if served {
+			if normalizedPayload := semanticCacheHitPayload(payload, internalRequest); len(normalizedPayload) > 0 {
+				if internalResponse, parseErr := buildSemanticCacheHitInternalResponse(internalRequest, normalizedPayload); parseErr == nil {
+					metrics.SetInternalResponse(internalResponse, internalRequest.Model)
+				}
+			}
+			metrics.Save(true, nil, nil)
+			return
+		}
 	}
 
 	maxKeyRetriesPerRoute := getMaxAttemptsPerCandidate()
@@ -852,6 +870,8 @@ func (ra *relayAttempt) handleResponse(ctx context.Context, response *http.Respo
 		logRelayErrorfByContext(err, "failed to transform response: %v", err)
 		return fmt.Errorf("failed to transform inbound response: %w", err)
 	}
+
+	storeSemanticCacheResponse(ctx, ra.internalRequest, inResponse)
 
 	ra.c.Data(http.StatusOK, "application/json", inResponse)
 	return nil

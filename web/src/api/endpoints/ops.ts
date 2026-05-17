@@ -15,6 +15,41 @@ export interface OpsCacheStatus {
     misses: number;
     hit_rate: number;
     usage_rate: number;
+    provider_prompt_cache: OpsProviderPromptCacheSummary;
+}
+
+export interface OpsProviderPromptCacheProviderItem {
+    channel_id: number;
+    channel_name: string;
+    request_count: number;
+    cached_request_count: number;
+    cache_rate: number;
+    cache_reuse_ratio: number;
+    cache_read_tokens: number;
+    cache_write_tokens: number;
+    estimated_cost_saved: number;
+}
+
+export interface OpsProviderPromptCacheTrendPoint {
+    timestamp: number;
+    request_count: number;
+    cached_request_count: number;
+    cache_rate: number;
+    cache_read_tokens: number;
+    cache_write_tokens: number;
+    estimated_cost_saved: number;
+}
+
+export interface OpsProviderPromptCacheSummary {
+    request_count: number;
+    cached_request_count: number;
+    cache_rate: number;
+    cache_reuse_ratio: number;
+    cache_read_tokens: number;
+    cache_write_tokens: number;
+    estimated_cost_saved: number;
+    providers: OpsProviderPromptCacheProviderItem[];
+    trend: OpsProviderPromptCacheTrendPoint[];
 }
 
 export interface OpsQuotaKeyItem {
@@ -137,6 +172,14 @@ export function useOpsCacheStatus() {
     return useQuery({
         queryKey: ['ops', 'cache'],
         queryFn: async () => apiClient.get<OpsCacheStatus>('/api/v1/ops/cache'),
+        select: (data): OpsCacheStatus => ({
+            ...data,
+            provider_prompt_cache: {
+                ...data.provider_prompt_cache,
+                providers: data.provider_prompt_cache?.providers ?? [],
+                trend: data.provider_prompt_cache?.trend ?? [],
+            },
+        }),
         refetchInterval: 30000,
         refetchOnMount: 'always',
     });
@@ -262,4 +305,108 @@ export function useAuditLogDetail() {
     }, []);
 
     return { detail, isLoading, fetchDetail, reset };
+}
+
+// --- Telemetry ---
+
+export interface OpsTelemetryHeroMetrics {
+    uptime_seconds: number;
+    total_requests: number;
+    avg_latency_ms: number;
+    error_rate: number;
+    active_connections: number;
+    memory_usage_mb: number;
+}
+
+export interface OpsTelemetryTrendPoint {
+    timestamp: number;
+    request_delta: number;
+    failed_delta: number;
+    avg_latency_ms: number;
+    memory_mb: number;
+}
+
+export interface OpsTelemetryRuntimeSignals {
+    p95_latency_ms: number;
+    throughput_rps: number;
+    memory_mb: number;
+    trend_snapshots: OpsTelemetryTrendPoint[];
+}
+
+export interface OpsTelemetryDatabaseHealth {
+    status: string;
+    issues: string[];
+    repairs: number;
+}
+
+export interface OpsTelemetrySessionQuotaActivity {
+    active_sessions: number;
+    sticky_bound_sessions: number;
+    quota_alerts: number;
+    sessions_by_api_key: number;
+    quota_monitors: number;
+}
+
+export interface OpsTelemetryPromptCache {
+    entries: number;
+    hit_rate: number;
+    hits: number;
+    misses: number;
+    max_entries: number;
+    usage_rate: number;
+}
+
+export interface OpsTelemetryProviderItem {
+    channel_id: number;
+    channel_name: string;
+    enabled: boolean;
+    base_url: string;
+    request_count: number;
+    success_rate: number;
+    average_latency_ms: number;
+    health_status: string;
+    health_hint: string;
+}
+
+export interface OpsTelemetryProviderHealth {
+    providers: OpsTelemetryProviderItem[];
+    active: number;
+    monitored: number;
+}
+
+export interface OpsTelemetryDrilldownShortcut {
+    key: string;
+    label: string;
+}
+
+export interface OpsTelemetrySummary {
+    hero: OpsTelemetryHeroMetrics;
+    runtime_signals: OpsTelemetryRuntimeSignals;
+    database_health: OpsTelemetryDatabaseHealth;
+    session_quota_activity: OpsTelemetrySessionQuotaActivity;
+    prompt_cache: OpsTelemetryPromptCache;
+    provider_health: OpsTelemetryProviderHealth;
+    drilldown_shortcuts: OpsTelemetryDrilldownShortcut[];
+}
+
+type OpsTelemetrySummaryServer = Omit<OpsTelemetrySummary, 'provider_health'> & {
+    provider_health: Omit<OpsTelemetryProviderHealth, 'providers'> & {
+        providers: OpsTelemetryProviderItem[] | null;
+    };
+};
+
+export function useOpsTelemetrySummary() {
+    return useQuery({
+        queryKey: ['ops', 'telemetry'],
+        queryFn: async () => apiClient.get<OpsTelemetrySummaryServer>('/api/v1/ops/telemetry'),
+        select: (data): OpsTelemetrySummary => ({
+            ...data,
+            provider_health: {
+                ...data.provider_health,
+                providers: data.provider_health.providers ?? [],
+            },
+        }),
+        refetchInterval: 30000,
+        refetchOnMount: 'always',
+    });
 }

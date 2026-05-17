@@ -3,6 +3,7 @@ package relay
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 const (
 	semanticCacheNamespaceMetadataKey = "semantic_cache_namespace"
 	semanticCacheTextMetadataKey      = "semantic_cache_text"
+	semanticCacheHitMetadataKey       = "semantic_cache_hit"
 )
 
 func semanticCacheEndpointFamily(endpointType string, inboundType inbound.InboundType) string {
@@ -55,20 +57,20 @@ func buildSemanticCacheLookupInput(apiKeyID int, endpointFamily string, req *tra
 	return semantic_cache.BuildNamespace(apiKeyID, endpointFamily, req.Model), text, true
 }
 
-func maybeServeSemanticCacheHit(c *gin.Context, req *relayRequest, endpointFamily string) (bool, error) {
+func maybeServeSemanticCacheHit(c *gin.Context, req *relayRequest, endpointFamily string) (bool, []byte, error) {
 	if c == nil || req == nil || req.internalRequest == nil {
-		return false, nil
+		return false, nil, nil
 	}
 
 	namespace, text, ok := buildSemanticCacheLookupInput(req.apiKeyID, endpointFamily, req.internalRequest)
 	if !ok {
-		return false, nil
+		return false, nil, nil
 	}
 
 	cfg, ok := loadSemanticCacheRuntimeConfig()
 	if !ok {
 		semantic_cache.RecordBypass()
-		return false, nil
+		return false, nil, nil
 	}
 	ensureSemanticCacheInitialized(cfg)
 
@@ -76,14 +78,18 @@ func maybeServeSemanticCacheHit(c *gin.Context, req *relayRequest, endpointFamil
 	if err != nil {
 		semantic_cache.RecordBypass()
 		log.Warnf("semantic cache lookup bypassed: %v", err)
-		return false, nil
+		return false, nil, nil
 	}
 
 	semantic_cache.RecordEvaluated()
 	if payload, found := semantic_cache.Lookup(namespace, embedding); found {
 		semantic_cache.RecordHit()
+		if req.internalRequest.TransformerMetadata == nil {
+			req.internalRequest.TransformerMetadata = make(map[string]string, 1)
+		}
+		req.internalRequest.TransformerMetadata[semanticCacheHitMetadataKey] = "true"
 		c.Data(http.StatusOK, "application/json", payload)
-		return true, nil
+		return true, payload, nil
 	}
 	semantic_cache.RecordMiss()
 
@@ -93,7 +99,7 @@ func maybeServeSemanticCacheHit(c *gin.Context, req *relayRequest, endpointFamil
 	req.internalRequest.TransformerMetadata[semanticCacheNamespaceMetadataKey] = namespace
 	req.internalRequest.TransformerMetadata[semanticCacheTextMetadataKey] = text
 
-	return false, nil
+	return false, nil, nil
 }
 
 func storeSemanticCacheResponse(ctx context.Context, req *transmodel.InternalLLMRequest, responseJSON []byte) {
@@ -120,6 +126,104 @@ func storeSemanticCacheResponse(ctx context.Context, req *transmodel.InternalLLM
 
 	semantic_cache.Store(namespace, text, responseJSON, embedding)
 	semantic_cache.RecordStored()
+}
+
+func isSemanticCacheHitRequest(req *transmodel.InternalLLMRequest) bool {
+	if req == nil || req.TransformerMetadata == nil {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(req.TransformerMetadata[semanticCacheHitMetadataKey]), "true")
+}
+
+func semanticCacheHitPayload(responseJSON []byte, req *transmodel.InternalLLMRequest) []byte {
+	if len(responseJSON) == 0 || !json.Valid(responseJSON) {
+		return responseJSON
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(responseJSON, &payload); err != nil {
+		return responseJSON
+	}
+
+	octopusValue, ok := payload["octopus"].(map[string]any)
+	if !ok {
+		octopusValue = map[string]any{}
+		payload["octopus"] = octopusValue
+	}
+	octopusValue["semantic_cache"] = map[string]any{
+		"hit": true,
+	}
+
+	// Cached upstream responses can carry provider usage, but provider prompt cache
+	// stats should not treat semantic-cache replay as a fresh upstream cache hit.
+	if usageValue, ok := payload["usage"].(map[string]any); ok {
+		delete(usageValue, "cached_tokens")
+		delete(usageValue, "prompt_cache_hit_tokens")
+		if promptDetails, ok := usageValue["input_token_details"].(map[string]any); ok {
+			delete(promptDetails, "cached_tokens")
+		}
+		if promptDetails, ok := usageValue["prompt_tokens_details"].(map[string]any); ok {
+			delete(promptDetails, "cached_tokens")
+		}
+		if inputDetails, ok := usageValue["input_tokens_details"].(map[string]any); ok {
+			delete(inputDetails, "cached_tokens")
+		}
+	}
+
+	normalized, err := json.Marshal(payload)
+	if err != nil {
+		return responseJSON
+	}
+	return normalized
+}
+
+func buildSemanticCacheHitInternalResponse(req *transmodel.InternalLLMRequest, payload []byte) (*transmodel.InternalLLMResponse, error) {
+	if req == nil {
+		return nil, errors.New("request is nil")
+	}
+
+	internalResponse := &transmodel.InternalLLMResponse{}
+	switch req.RawAPIFormat {
+	case transmodel.APIFormatOpenAIResponse:
+		var respPayload struct {
+			ID        string `json:"id"`
+			Object    string `json:"object"`
+			CreatedAt int64  `json:"created_at"`
+			Model     string `json:"model"`
+			Usage     *struct {
+				InputTokens int64 `json:"input_tokens"`
+				OutputTokens int64 `json:"output_tokens"`
+				TotalTokens int64 `json:"total_tokens"`
+				InputTokenDetails *struct {
+					CachedTokens int64 `json:"cached_tokens"`
+				} `json:"input_token_details"`
+			} `json:"usage"`
+		}
+		if err := json.Unmarshal(payload, &respPayload); err != nil {
+			return nil, err
+		}
+		internalResponse.ID = respPayload.ID
+		internalResponse.Object = "chat.completion"
+		internalResponse.Created = respPayload.CreatedAt
+		internalResponse.Model = respPayload.Model
+		if respPayload.Usage != nil {
+			internalResponse.Usage = &transmodel.Usage{
+				PromptTokens:     respPayload.Usage.InputTokens,
+				CompletionTokens: respPayload.Usage.OutputTokens,
+				TotalTokens:      respPayload.Usage.TotalTokens,
+			}
+			if respPayload.Usage.InputTokenDetails != nil && respPayload.Usage.InputTokenDetails.CachedTokens > 0 {
+				internalResponse.Usage.PromptTokensDetails = &transmodel.PromptTokensDetails{
+					CachedTokens: respPayload.Usage.InputTokenDetails.CachedTokens,
+				}
+			}
+		}
+	default:
+		if err := json.Unmarshal(payload, internalResponse); err != nil {
+			return nil, err
+		}
+	}
+	return internalResponse, nil
 }
 
 func semanticCacheStoreMetadata(req *transmodel.InternalLLMRequest) (string, string, bool) {

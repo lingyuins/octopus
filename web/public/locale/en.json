@@ -263,7 +263,8 @@
       "quota": "Quota",
       "health": "Health",
       "system": "System",
-      "audit": "Audit"
+      "audit": "Audit",
+      "telemetry": "Telemetry"
     },
     "actions": {
       "openSettings": "Open Settings",
@@ -275,6 +276,10 @@
     },
     "cache": {
       "description": "Review semantic-cache configuration, runtime hit signals, and capacity usage in one place.",
+      "views": {
+        "semantic": "Semantic Cache",
+        "providerPrompt": "Prompt Cache (Provider-Side)"
+      },
       "metrics": {
         "hitRate": "Hit Rate",
         "currentEntries": "Current Entries",
@@ -294,6 +299,33 @@
         "misses": "Misses",
         "maxEntries": "Max Entries",
         "usageRate": "Capacity Used"
+      },
+      "providerPrompt": {
+        "description": "Aggregate provider-side prompt caching activity from request history so you can see where cache control is active and how much input reuse you are getting.",
+        "metrics": {
+          "cacheRate": "Cache Rate",
+          "cacheReuseRatio": "Cache Reuse Ratio",
+          "cacheReadTokens": "Cache Read Tokens",
+          "cacheWriteTokens": "Cache Write Tokens",
+          "estimatedCostSaved": "Est. Cost Saved"
+        },
+        "providers": {
+          "title": "Breakdown by Provider",
+          "description": "Compare cache reads, writes, and estimated savings across providers.",
+          "empty": "No provider-side prompt cache activity is available in the last 24 hours.",
+          "columns": {
+            "name": "Name",
+            "requests": "Requests",
+            "cacheRate": "Cache Rate",
+            "cacheReadTokens": "Read Tokens",
+            "cacheWriteTokens": "Write Tokens",
+            "estimatedCostSaved": "Est. Saved"
+          }
+        },
+        "trend": {
+          "title": "Cache Trend (24h)",
+          "description": "Hourly view of cache read activity and reuse."
+        }
       }
     },
     "quota": {
@@ -414,6 +446,57 @@
         "context": "Request Context",
         "rawRecord": "Raw Record"
       }
+    },
+    "telemetry": {
+        "hero": {
+            "uptime": "Uptime",
+            "total_requests": "Total Requests",
+            "avg_latency": "Avg Latency",
+            "error_rate": "Error Rate",
+            "active_connections": "Active Connections",
+            "memory_usage": "Memory Usage"
+        },
+        "runtime_signals": {
+            "title": "Runtime Signals",
+            "p95_latency": "P95 Latency",
+            "throughput": "Throughput",
+            "memory": "Memory"
+        },
+        "database_health": {
+            "title": "Database Health",
+            "issues_label": "issues",
+            "status": {
+                "healthy": "Healthy",
+                "degraded": "Degraded"
+            }
+        },
+        "session_quota": {
+            "title": "Session & Quota Activity",
+            "active_sessions": "Active Sessions",
+            "sticky_sessions": "Sticky Sessions",
+            "quota_alerts": "Quota Alerts"
+        },
+        "prompt_cache": {
+            "title": "Semantic Cache",
+            "entries": "Entries",
+            "hit_rate": "Hit Rate",
+            "hits": "Hits",
+            "misses": "Misses"
+        },
+        "provider_health": {
+            "title": "Provider Health",
+            "active": "active",
+            "monitored": "monitored",
+            "empty": "No provider data available",
+            "name": "Name",
+            "status": "Status",
+            "latency": "Latency",
+            "requests": "Requests",
+            "success_rate": "Success Rate"
+        },
+        "drilldown": {
+            "title": "Drilldown Shortcuts"
+        }
     }
   },
   "user": {
@@ -1479,6 +1562,8 @@
       "firstToken": "TTFT",
       "totalTime": "Total",
       "input": "Input",
+      "cacheHit": "Cache Hit",
+      "semanticCacheHit": "Semantic Cache Hit",
       "output": "Output",
       "cost": "Cost",
       "requestContent": "Request Content",

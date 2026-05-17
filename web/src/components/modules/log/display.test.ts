@@ -118,3 +118,39 @@ test('resolveLogDisplayFields falls back to chat when only generic chat models e
     const result = resolveLogDisplayFields(log);
     assert.equal(result.endpointType, 'chat');
 });
+
+test('resolveLogDisplayFields exposes cache read tokens from detail or list payload', () => {
+    const log = buildLog({
+        cache_read_tokens: 120,
+    });
+
+    const fromList = resolveLogDisplayFields(log);
+    assert.equal(fromList.cacheReadTokens, 120);
+
+    const detail: RelayLogDetail = {
+        ...log,
+        cache_read_tokens: 240,
+        request_content: '{}',
+        response_content: '{}',
+    };
+    const fromDetail = resolveLogDisplayFields(log, detail);
+    assert.equal(fromDetail.cacheReadTokens, 240);
+});
+
+test('resolveLogDisplayFields exposes semantic cache hit flag from detail or list payload', () => {
+    const log = buildLog({
+        semantic_cache_hit: true,
+    });
+
+    const fromList = resolveLogDisplayFields(log);
+    assert.equal(fromList.semanticCacheHit, true);
+
+    const detail: RelayLogDetail = {
+        ...log,
+        semantic_cache_hit: false,
+        request_content: '{}',
+        response_content: '{}',
+    };
+    const fromDetail = resolveLogDisplayFields(log, detail);
+    assert.equal(fromDetail.semanticCacheHit, false);
+});

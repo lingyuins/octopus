@@ -53,6 +53,8 @@ func mediaEndpointTypeToGroupEndpointType(endpointType MediaEndpointType) string
 // directly to upstream channels, reusing the existing channel/group/balancer/circuit-breaker
 // infrastructure without going through the Inbound/Outbound transformer pipeline.
 func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
+	InflightInc()
+	defer InflightDec()
 	cfg := getMediaEndpointConfig(endpointType)
 
 	// 1. Extract model name from the request

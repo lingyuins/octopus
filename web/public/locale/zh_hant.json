@@ -263,7 +263,8 @@
       "quota": "配額",
       "health": "健康",
       "system": "系統",
-      "audit": "審計"
+      "audit": "審計",
+      "telemetry": "遙測"
     },
     "actions": {
       "openSettings": "前往設定",
@@ -275,6 +276,10 @@
     },
     "cache": {
       "description": "集中查看語意快取設定、執行態命中情況與容量占用。",
+      "views": {
+        "semantic": "語意快取",
+        "providerPrompt": "提示快取(提供方)"
+      },
       "metrics": {
         "hitRate": "命中率",
         "currentEntries": "目前條目",
@@ -294,6 +299,33 @@
         "misses": "未命中次數",
         "maxEntries": "最大條目數",
         "usageRate": "容量占用"
+      },
+      "providerPrompt": {
+        "description": "按請求日誌聚合提供方提示快取活動，查看哪些渠道啟用了提示快取，以及帶來多少輸入復用。",
+        "metrics": {
+          "cacheRate": "快取命中請求占比",
+          "cacheReuseRatio": "快取復用比",
+          "cacheReadTokens": "快取讀取 Token",
+          "cacheWriteTokens": "快取寫入 Token",
+          "estimatedCostSaved": "預估節省成本"
+        },
+        "providers": {
+          "title": "按渠道拆分",
+          "description": "聚合各提供方渠道的快取讀取、寫入與節省成本訊號。",
+          "empty": "近 24 小時暫無可統計的提供方提示快取資料。",
+          "columns": {
+            "name": "名稱",
+            "requests": "請求數",
+            "cacheRate": "快取率",
+            "cacheReadTokens": "讀取 Token",
+            "cacheWriteTokens": "寫入 Token",
+            "estimatedCostSaved": "預估節省"
+          }
+        },
+        "trend": {
+          "title": "24 小時趨勢",
+          "description": "按小時查看快取讀取量與復用變化。"
+        }
       }
     },
     "quota": {
@@ -414,6 +446,57 @@
         "context": "請求內容",
         "rawRecord": "原始記錄"
       }
+    },
+    "telemetry": {
+        "hero": {
+            "uptime": "運行時間",
+            "total_requests": "總請求",
+            "avg_latency": "平均延遲",
+            "error_rate": "錯誤率",
+            "active_connections": "活躍連接",
+            "memory_usage": "記憶體使用"
+        },
+        "runtime_signals": {
+            "title": "運行時信號",
+            "p95_latency": "P95 延遲",
+            "throughput": "吞吐量",
+            "memory": "記憶體"
+        },
+        "database_health": {
+            "title": "資料庫健康",
+            "issues_label": "個問題",
+            "status": {
+                "healthy": "健康",
+                "degraded": "降級"
+            }
+        },
+        "session_quota": {
+            "title": "會話與配額活動",
+            "active_sessions": "活躍會話",
+            "sticky_sessions": "黏性會話",
+            "quota_alerts": "配額告警"
+        },
+        "prompt_cache": {
+            "title": "語意快取",
+            "entries": "條目數",
+            "hit_rate": "命中率",
+            "hits": "命中",
+            "misses": "未命中"
+        },
+        "provider_health": {
+            "title": "供應商健康",
+            "active": "活躍",
+            "monitored": "監控",
+            "empty": "暫無供應商資料",
+            "name": "名稱",
+            "status": "狀態",
+            "latency": "延遲",
+            "requests": "請求數",
+            "success_rate": "成功率"
+        },
+        "drilldown": {
+            "title": "快捷下鑽"
+        }
     }
   },
   "user": {
@@ -1479,6 +1562,8 @@
       "firstToken": "首字",
       "totalTime": "總耗時",
       "input": "輸入",
+      "cacheHit": "命中快取",
+      "semanticCacheHit": "語意快取命中",
       "output": "輸出",
       "cost": "費用",
       "requestContent": "請求內容",

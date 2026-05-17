@@ -202,6 +202,8 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
         [displayFields.actualModelName]
     );
     const requestAPIKeyName = displayFields.requestAPIKeyName;
+    const cacheReadTokens = displayFields.cacheReadTokens;
+    const semanticCacheHit = displayFields.semanticCacheHit;
     const displayChannelName = displayFields.channelName || '-';
     const displayEndpointType = useMemo(() => {
         const rawEndpointType = displayFields.endpointType;
@@ -291,6 +293,18 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
                                     <ArrowDownToLine className="size-3.5 shrink-0 text-green-500" />
                                     <span>{t('input')} {log.input_tokens.toLocaleString()}</span>
                                 </div>
+                                {semanticCacheHit && (
+                                    <div className="flex items-center gap-1.5">
+                                        <ArrowDownToLine className="size-3.5 shrink-0 text-cyan-500" />
+                                        <span>{t('semanticCacheHit')}</span>
+                                    </div>
+                                )}
+                                {cacheReadTokens > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                        <ArrowDownToLine className="size-3.5 shrink-0 text-teal-500" />
+                                        <span>{t('cacheHit')} {cacheReadTokens.toLocaleString()}</span>
+                                    </div>
+                                )}
                                 <div className="flex items-center gap-1.5">
                                     <ArrowUpFromLine className="size-3.5 shrink-0 text-purple-500" />
                                     <span>{t('output')} {log.output_tokens.toLocaleString()}</span>
@@ -528,6 +542,18 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
                                 <Cpu className="size-3.5 text-blue-500" />
                                 <span>{t('totalTime')}: {formatDuration(log.use_time)}</span>
                             </div>
+                            {cacheReadTokens > 0 && (
+                                <div className="flex items-center gap-1.5">
+                                    <ArrowDownToLine className="size-3.5 text-teal-500" />
+                                    <span>{t('cacheHit')}: {cacheReadTokens.toLocaleString()}</span>
+                                </div>
+                            )}
+                            {semanticCacheHit && (
+                                <div className="flex items-center gap-1.5">
+                                    <ArrowDownToLine className="size-3.5 text-cyan-500" />
+                                    <span>{t('semanticCacheHit')}</span>
+                                </div>
+                            )}
                             <div className="flex items-center gap-1.5">
                                 <DollarSign className="size-3.5 text-emerald-500" />
                                 <span className="font-medium text-emerald-600 dark:text-emerald-400">

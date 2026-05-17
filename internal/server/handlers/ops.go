@@ -30,6 +30,10 @@ func init() {
 		AddRoute(
 			router.NewRoute("/system", http.MethodGet).
 				Handle(getOpsSystem),
+		).
+		AddRoute(
+			router.NewRoute("/telemetry", http.MethodGet).
+				Handle(getOpsTelemetry),
 		)
 }
 
@@ -62,6 +66,15 @@ func getOpsHealth(c *gin.Context) {
 
 func getOpsSystem(c *gin.Context) {
 	data, err := op.OpsSystemSummaryGet(c.Request.Context())
+	if err != nil {
+		resp.InternalError(c)
+		return
+	}
+	resp.Success(c, data)
+}
+
+func getOpsTelemetry(c *gin.Context) {
+	data, err := op.TelemetrySummaryGet(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return

@@ -3,6 +3,8 @@ package op
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -15,6 +17,7 @@ import (
 
 const (
 	opsHealthErrorWindow           = 24 * time.Hour
+	opsProviderPromptCacheWindow   = 24 * time.Hour
 	opsFailingGroupLimit           = 6
 	semanticCacheDefaultTTLSeconds = 3600
 	semanticCacheDefaultThreshold  = 98
@@ -22,9 +25,28 @@ const (
 	semanticCacheDefaultTimeoutSec = 10
 )
 
+var processStartTime = time.Now()
+
 type opsQuotaUsage struct {
 	RequestCount int64
 	TotalCost    float64
+}
+
+type opsProviderPromptCacheUsage struct {
+	PromptTokens             int64
+	TotalInputTokens         int64
+	CachedTokens             int64
+	CacheCreationInputTokens int64
+}
+
+type opsProviderPromptCacheAggregate struct {
+	ChannelName        string
+	RequestCount       int64
+	CachedRequestCount int64
+	TotalInputTokens   int64
+	CacheReadTokens    int64
+	CacheWriteTokens   int64
+	EstimatedCostSaved float64
 }
 
 func OpsCacheStatusGet(ctx context.Context) (*model.OpsCacheStatus, error) {
@@ -47,6 +69,7 @@ func OpsCacheStatusGet(ctx context.Context) (*model.OpsCacheStatus, error) {
 
 	hits, misses, size := semantic_cache.Stats()
 	status := buildOpsCacheStatus(enabled, semantic_cache.RuntimeEnabled(), ttlSeconds, threshold, maxEntries, hits, misses, size)
+	status.ProviderPromptCache = buildOpsProviderPromptCacheSummary(ctx)
 	return &status, nil
 }
 
@@ -225,6 +248,211 @@ func buildOpsCacheStatus(
 		HitRate:        hitRate,
 		UsageRate:      usageRate,
 	}
+}
+
+func buildOpsProviderPromptCacheSummary(ctx context.Context) model.OpsProviderPromptCacheSummary {
+	now := time.Now()
+	start := now.Add(-23 * time.Hour).Truncate(time.Hour)
+	logs := loadOpsProviderPromptCacheLogs(ctx, start)
+	return buildOpsProviderPromptCacheSummaryFromLogs(logs, start)
+}
+
+func buildOpsProviderPromptCacheSummaryFromLogs(
+	logs []model.RelayLog,
+	start time.Time,
+) model.OpsProviderPromptCacheSummary {
+	const bucketCount = 24
+
+	summary := model.OpsProviderPromptCacheSummary{
+		Providers: []model.OpsProviderPromptCacheProviderItem{},
+		Trend:     make([]model.OpsProviderPromptCacheTrendPoint, bucketCount),
+	}
+
+	for i := 0; i < bucketCount; i++ {
+		summary.Trend[i] = model.OpsProviderPromptCacheTrendPoint{
+			Timestamp: start.Add(time.Duration(i) * time.Hour).Unix(),
+		}
+	}
+
+	providers := make(map[int]opsProviderPromptCacheAggregate)
+	var totalInputTokens int64
+
+	for _, relayLog := range logs {
+		usage, ok := parseOpsProviderPromptCacheUsage(relayLog.ResponseContent)
+		if !ok {
+			continue
+		}
+		if signals, ok := parseProviderPromptCacheUsageSignals(relayLog.ResponseContent); ok && signals.SemanticCacheHit {
+			continue
+		}
+
+		aggregate := providers[relayLog.ChannelId]
+		if aggregate.ChannelName == "" {
+			aggregate.ChannelName = strings.TrimSpace(relayLog.ChannelName)
+		}
+		aggregate.RequestCount++
+		if usage.CachedTokens > 0 {
+			aggregate.CachedRequestCount++
+		}
+		aggregate.TotalInputTokens += usage.TotalInputTokens
+		totalInputTokens += usage.TotalInputTokens
+		aggregate.CacheReadTokens += usage.CachedTokens
+		aggregate.CacheWriteTokens += usage.CacheCreationInputTokens
+		aggregate.EstimatedCostSaved += estimateOpsProviderPromptCacheSaved(relayLog.ActualModelName, usage)
+		providers[relayLog.ChannelId] = aggregate
+
+		bucketIndex := int((time.Unix(relayLog.Time, 0).Truncate(time.Hour).Sub(start)) / time.Hour)
+		if bucketIndex >= 0 && bucketIndex < bucketCount {
+			summary.Trend[bucketIndex].RequestCount++
+			if usage.CachedTokens > 0 {
+				summary.Trend[bucketIndex].CachedRequestCount++
+			}
+			summary.Trend[bucketIndex].CacheReadTokens += usage.CachedTokens
+			summary.Trend[bucketIndex].CacheWriteTokens += usage.CacheCreationInputTokens
+			summary.Trend[bucketIndex].EstimatedCostSaved += estimateOpsProviderPromptCacheSaved(relayLog.ActualModelName, usage)
+		}
+	}
+
+	for channelID, aggregate := range providers {
+		summary.RequestCount += aggregate.RequestCount
+		summary.CachedRequestCount += aggregate.CachedRequestCount
+		summary.CacheReadTokens += aggregate.CacheReadTokens
+		summary.CacheWriteTokens += aggregate.CacheWriteTokens
+		summary.EstimatedCostSaved += aggregate.EstimatedCostSaved
+
+		item := model.OpsProviderPromptCacheProviderItem{
+			ChannelID:          channelID,
+			ChannelName:        resolveOpsProviderPromptCacheChannelName(channelID, aggregate.ChannelName),
+			RequestCount:       aggregate.RequestCount,
+			CachedRequestCount: aggregate.CachedRequestCount,
+			CacheRate:          percent(aggregate.CachedRequestCount, aggregate.RequestCount),
+			CacheReuseRatio:    percent(aggregate.CacheReadTokens, aggregate.TotalInputTokens),
+			CacheReadTokens:    aggregate.CacheReadTokens,
+			CacheWriteTokens:   aggregate.CacheWriteTokens,
+			EstimatedCostSaved: aggregate.EstimatedCostSaved,
+		}
+		summary.Providers = append(summary.Providers, item)
+	}
+
+	sort.SliceStable(summary.Providers, func(i, j int) bool {
+		if summary.Providers[i].EstimatedCostSaved != summary.Providers[j].EstimatedCostSaved {
+			return summary.Providers[i].EstimatedCostSaved > summary.Providers[j].EstimatedCostSaved
+		}
+		if summary.Providers[i].CacheReadTokens != summary.Providers[j].CacheReadTokens {
+			return summary.Providers[i].CacheReadTokens > summary.Providers[j].CacheReadTokens
+		}
+		if summary.Providers[i].RequestCount != summary.Providers[j].RequestCount {
+			return summary.Providers[i].RequestCount > summary.Providers[j].RequestCount
+		}
+		return summary.Providers[i].ChannelName < summary.Providers[j].ChannelName
+	})
+
+	summary.CacheRate = percent(summary.CachedRequestCount, summary.RequestCount)
+	summary.CacheReuseRatio = percent(summary.CacheReadTokens, totalInputTokens)
+	for i := range summary.Trend {
+		summary.Trend[i].CacheRate = percent(summary.Trend[i].CachedRequestCount, summary.Trend[i].RequestCount)
+	}
+
+	return summary
+}
+
+func resolveOpsProviderPromptCacheChannelName(channelID int, channelName string) string {
+	if name := strings.TrimSpace(channelName); name != "" {
+		return name
+	}
+	if channelID == 0 {
+		return "Unknown"
+	}
+	return fmt.Sprintf("Channel %d", channelID)
+}
+
+func loadOpsProviderPromptCacheLogs(ctx context.Context, since time.Time) []model.RelayLog {
+	logs := make([]model.RelayLog, 0)
+	seen := make(map[int64]struct{})
+	relayLogCacheLock.Lock()
+	for _, relayLog := range relayLogCache {
+		if relayLog.Time < since.Unix() {
+			continue
+		}
+		logs = append(logs, relayLog)
+		seen[relayLog.ID] = struct{}{}
+	}
+	relayLogCacheLock.Unlock()
+
+	keepEnabled, err := SettingGetBool(model.SettingKeyRelayLogKeepEnabled)
+	if err != nil || !keepEnabled {
+		return logs
+	}
+
+	var dbLogs []model.RelayLog
+	if err := db.GetDB().WithContext(ctx).
+		Select("id", "time", "channel_id", "channel_name", "actual_model_name", "response_content").
+		Where("time >= ?", since.Unix()).
+		Order("time ASC").
+		Find(&dbLogs).Error; err != nil {
+		return logs
+	}
+
+	for _, relayLog := range dbLogs {
+		if _, ok := seen[relayLog.ID]; ok {
+			continue
+		}
+		logs = append(logs, relayLog)
+	}
+	return logs
+}
+
+func parseOpsProviderPromptCacheUsage(responseContent string) (opsProviderPromptCacheUsage, bool) {
+	signals, ok := parseProviderPromptCacheUsageSignals(responseContent)
+	if !ok {
+		return opsProviderPromptCacheUsage{}, false
+	}
+
+	usage := opsProviderPromptCacheUsage{
+		PromptTokens:             signals.PromptTokens,
+		CachedTokens:             signals.CachedTokens,
+		CacheCreationInputTokens: signals.CacheCreationInputTokens,
+	}
+	usage.TotalInputTokens = usage.PromptTokens
+	if usage.CacheCreationInputTokens > 0 {
+		usage.TotalInputTokens += usage.CachedTokens + usage.CacheCreationInputTokens
+	}
+
+	if usage.TotalInputTokens <= 0 && usage.CachedTokens <= 0 && usage.CacheCreationInputTokens <= 0 {
+		return opsProviderPromptCacheUsage{}, false
+	}
+	return usage, true
+}
+
+func estimateOpsProviderPromptCacheSaved(modelName string, usage opsProviderPromptCacheUsage) float64 {
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" {
+		return 0
+	}
+
+	price, err := LLMGet(strings.ToLower(modelName))
+	if err != nil || price.Input <= 0 {
+		return 0
+	}
+
+	cacheReadSavings := float64(usage.CachedTokens) * (price.Input - price.CacheRead) * 1e-6
+	cacheWriteCost := 0.0
+	if price.CacheWrite > 0 {
+		cacheWriteCost = float64(usage.CacheCreationInputTokens) * (price.CacheWrite - price.Input) * 1e-6
+	}
+
+	saved := cacheReadSavings - cacheWriteCost
+	if saved < 0 {
+		return 0
+	}
+	return saved
+}
+
+func percent(part int64, total int64) float64 {
+	if total <= 0 || part <= 0 {
+		return 0
+	}
+	return float64(part) / float64(total) * 100
 }
 
 func buildSemanticCacheRuntimeConfigFromSettings() (semantic_cache.RuntimeConfig, bool, error) {
@@ -597,4 +825,188 @@ func opsQuotaStatusRank(status string) int {
 	default:
 		return 4
 	}
+}
+
+func TelemetrySummaryGet(ctx context.Context) (*model.OpsTelemetrySummary, error) {
+	summary := &model.OpsTelemetrySummary{}
+
+	// ── Hero ──
+	totalStats := StatsTotalGet()
+	totalRequests := totalStats.RequestSuccess + totalStats.RequestFailed
+	var avgLatencyMs float64
+	if totalRequests > 0 {
+		avgLatencyMs = float64(totalStats.WaitTime) / float64(totalRequests)
+	}
+	var errorRate float64
+	if totalRequests > 0 {
+		errorRate = float64(totalStats.RequestFailed) / float64(totalRequests) * 100
+	}
+
+	summary.Hero = model.OpsTelemetryHeroMetrics{
+		UptimeSeconds:     int64(time.Since(processStartTime).Seconds()),
+		TotalRequests:     totalRequests,
+		AvgLatencyMs:      avgLatencyMs,
+		ErrorRate:         errorRate,
+		ActiveConnections: 0, // inaccessible from relay due to import cycle
+		MemoryUsageMB:     processMemoryMB(),
+	}
+
+	// ── RuntimeSignals ──
+	memMB := processMemoryMB()
+
+	var p95LatencyMs float64
+	var throughputRPS float64
+	// Trend snapshots are stored in internal/relay; unavailable here due to import cycle.
+	summary.RuntimeSignals = model.OpsTelemetryRuntimeSignals{
+		P95LatencyMs:   p95LatencyMs,
+		ThroughputRPS:  throughputRPS,
+		MemoryMB:       memMB,
+		TrendSnapshots: nil,
+	}
+
+	// ── DatabaseHealth ──
+	dbOK := pingDatabase(ctx)
+	taskOK := opsTaskRuntimeOK()
+	dbStatus := "healthy"
+	var dbIssues []string
+	if !dbOK {
+		dbStatus = "degraded"
+		dbIssues = append(dbIssues, "Database connection failed")
+	}
+	if !taskOK {
+		if dbStatus == "healthy" {
+			dbStatus = "degraded"
+		}
+		dbIssues = append(dbIssues, "Background task runtime degraded")
+	}
+
+	summary.DatabaseHealth = model.OpsTelemetryDatabaseHealth{
+		Status:  dbStatus,
+		Issues:  dbIssues,
+		Repairs: 0,
+	}
+
+	// ── SessionQuotaActivity ──
+	apiKeys, err := APIKeyList(ctx)
+	sessionsByAPIKey := 0
+	if err == nil {
+		sessionsByAPIKey = len(apiKeys)
+	}
+
+	summary.SessionQuotaActivity = model.OpsTelemetrySessionQuotaActivity{
+		ActiveSessions:      0, // inaccessible from relay due to import cycle
+		StickyBoundSessions: 0, // inaccessible from balancer due to import cycle
+		QuotaAlerts:         0,
+		SessionsByAPIKey:    sessionsByAPIKey,
+		QuotaMonitors:       0,
+	}
+
+	// ── PromptCache ──
+	cacheStatus, err := OpsCacheStatusGet(ctx)
+	if err == nil {
+		summary.PromptCache = model.OpsTelemetryPromptCache{
+			Entries:    cacheStatus.CurrentEntries,
+			HitRate:    cacheStatus.HitRate,
+			Hits:       cacheStatus.Hits,
+			Misses:     cacheStatus.Misses,
+			MaxEntries: cacheStatus.MaxEntries,
+			UsageRate:  cacheStatus.UsageRate,
+		}
+	}
+
+	// ── ProviderHealth ──
+	channels, err := ChannelList(ctx)
+	if err == nil {
+		statsChannels := StatsChannelList()
+		statsMap := make(map[int]model.StatsChannel, len(statsChannels))
+		for _, sc := range statsChannels {
+			statsMap[sc.ChannelID] = sc
+		}
+
+		providers := make([]model.OpsTelemetryProviderItem, 0, len(channels))
+		active := 0
+		for _, ch := range channels {
+			stats := statsMap[ch.ID]
+			requests := stats.RequestSuccess + stats.RequestFailed
+			var successRate float64
+			if requests > 0 {
+				successRate = float64(stats.RequestSuccess) / float64(requests) * 100
+			}
+			var avgLat float64
+			if requests > 0 {
+				avgLat = float64(stats.WaitTime) / float64(requests)
+			}
+
+			healthStatus := "healthy"
+			healthHint := "Normal"
+			if !ch.Enabled {
+				healthStatus = "disabled"
+				healthHint = "Channel disabled"
+			} else if requests > 0 && float64(stats.RequestFailed)/float64(requests) > 0.5 {
+				healthStatus = "degraded"
+				healthHint = "High failure rate"
+			} else if requests > 0 && stats.RequestFailed > 0 {
+				healthStatus = "warning"
+				healthHint = "Some failures"
+			}
+
+			baseURL := ""
+			if len(ch.BaseUrls) > 0 {
+				baseURL = ch.BaseUrls[0].URL
+			}
+
+			providers = append(providers, model.OpsTelemetryProviderItem{
+				ChannelID:        ch.ID,
+				ChannelName:      ch.Name,
+				Enabled:          ch.Enabled,
+				BaseURL:          baseURL,
+				RequestCount:     requests,
+				SuccessRate:      successRate,
+				AverageLatencyMs: avgLat,
+				HealthStatus:     healthStatus,
+				HealthHint:       healthHint,
+			})
+
+			if ch.Enabled {
+				active++
+			}
+		}
+
+		sort.SliceStable(providers, func(i, j int) bool {
+			aStatus := providers[i].HealthStatus
+			bStatus := providers[j].HealthStatus
+			aBad := aStatus == "degraded" || aStatus == "disabled"
+			bBad := bStatus == "degraded" || bStatus == "disabled"
+			if aBad != bBad {
+				return aBad
+			}
+			if providers[i].RequestCount != providers[j].RequestCount {
+				return providers[i].RequestCount > providers[j].RequestCount
+			}
+			return providers[i].ChannelName < providers[j].ChannelName
+		})
+
+		summary.ProviderHealth = model.OpsTelemetryProviderHealth{
+			Providers: providers,
+			Active:    active,
+			Monitored: len(channels),
+		}
+	}
+
+	// ── DrilldownShortcuts ──
+	summary.DrilldownShortcuts = []model.OpsTelemetryDrilldownShortcut{
+		{Key: "cache", Label: "Prompt Cache"},
+		{Key: "quota", Label: "Quota Summary"},
+		{Key: "health", Label: "Health Status"},
+		{Key: "system", Label: "System Config"},
+		{Key: "audit", Label: "Audit Log"},
+	}
+
+	return summary, nil
+}
+
+func processMemoryMB() int64 {
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	return int64(mem.Alloc / (1024 * 1024))
 }

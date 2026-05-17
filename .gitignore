@@ -9,3 +9,14 @@ AGENTS.md
 .learnings/
 *.dev.err.log
 *.dev.out.log
+
+# local build/runtime artifacts
+.gocache/
+.gotmp*/
+.gh-release/
+.sisyphus/
+.superpowers/
+.tmp/
+.uploads/
+octopus.exe
+backend.dev.restart.log

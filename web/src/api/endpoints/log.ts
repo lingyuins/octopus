@@ -39,6 +39,8 @@ export interface RelayLog {
     actual_model_name: string;   // 实际使用模型名称
     input_tokens: number;        // 输入Token
     output_tokens: number;       // 输出Token
+    semantic_cache_hit?: boolean;// 语义缓存命中
+    cache_read_tokens?: number;  // 提供方提示缓存命中 Token
     ftut: number;                // 首字时间(毫秒)
     use_time: number;            // 总用时(毫秒)
     cost: number;                // 消耗费用

@@ -35,6 +35,8 @@ type RelayLog struct {
 	ActualModelName   string           `json:"actual_model_name" gorm:"column:actual_model_name"`       // 实际使用模型名称
 	InputTokens       int              `json:"input_tokens" gorm:"column:input_tokens"`                 // 输入Token
 	OutputTokens      int              `json:"output_tokens" gorm:"column:output_tokens"`               // 输出 Token
+	SemanticCacheHit  bool             `json:"semantic_cache_hit" gorm:"-"`
+	CacheReadTokens   int              `json:"cache_read_tokens" gorm:"-"`                              // 提供方提示缓存命中 Token
 	Ftut              int              `json:"ftut" gorm:"column:ftut"`                                 // 首字时间(毫秒)
 	UseTime           int              `json:"use_time" gorm:"column:use_time"`                         // 总用时(毫秒)
 	Cost              float64          `json:"cost" gorm:"column:cost"`                                 // 消耗费用
@@ -58,12 +60,15 @@ type RelayLogListItem struct {
 	ActualModelName   string           `json:"actual_model_name" gorm:"column:actual_model_name"`
 	InputTokens       int              `json:"input_tokens" gorm:"column:input_tokens"`
 	OutputTokens      int              `json:"output_tokens" gorm:"column:output_tokens"`
+	SemanticCacheHit  bool             `json:"semantic_cache_hit" gorm:"-"`
+	CacheReadTokens   int              `json:"cache_read_tokens" gorm:"-"`
 	Ftut              int              `json:"ftut" gorm:"column:ftut"`
 	UseTime           int              `json:"use_time" gorm:"column:use_time"`
 	Cost              float64          `json:"cost" gorm:"column:cost"`
 	Error             string           `json:"error" gorm:"column:error"`
 	Attempts          []ChannelAttempt `json:"attempts" gorm:"column:attempts;serializer:json"`
 	TotalAttempts     int              `json:"total_attempts" gorm:"column:total_attempts"`
+	ResponseContent   string           `json:"-" gorm:"column:response_content"`
 }
 
 // TableName explicitly returns "-" for DTO structs to prevent GORM auto-mapping.
@@ -86,11 +91,14 @@ func (r *RelayLog) ToListItem() RelayLogListItem {
 		ActualModelName:   r.ActualModelName,
 		InputTokens:       r.InputTokens,
 		OutputTokens:      r.OutputTokens,
+		SemanticCacheHit:  r.SemanticCacheHit,
+		CacheReadTokens:   r.CacheReadTokens,
 		Ftut:              r.Ftut,
 		UseTime:           r.UseTime,
 		Cost:              r.Cost,
 		Error:             r.Error,
 		Attempts:          r.Attempts,
 		TotalAttempts:     r.TotalAttempts,
+		ResponseContent:   r.ResponseContent,
 	}
 }

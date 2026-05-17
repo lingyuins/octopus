@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"encoding/json"
 	"testing"
 
 	appmodel "github.com/lingyuins/octopus/internal/model"
@@ -148,5 +149,38 @@ func TestSemanticCacheRuntimeStatsCounters(t *testing.T) {
 	}
 	if stats.StoredResponses != 1 {
 		t.Fatalf("stored_responses = %d, want 1", stats.StoredResponses)
+	}
+}
+
+func TestSemanticCacheHitPayload_AddsSemanticHitMarkerAndRemovesProviderCachedTokens(t *testing.T) {
+	payload := []byte(`{"usage":{"input_tokens":100,"cached_tokens":40,"input_token_details":{"cached_tokens":40},"prompt_tokens_details":{"cached_tokens":40}}}`)
+	normalized := semanticCacheHitPayload(payload, &transmodel.InternalLLMRequest{})
+
+	var parsed struct {
+		Octopus struct {
+			SemanticCache struct {
+				Hit bool `json:"hit"`
+			} `json:"semantic_cache"`
+		} `json:"octopus"`
+		Usage map[string]any `json:"usage"`
+	}
+	if err := json.Unmarshal(normalized, &parsed); err != nil {
+		t.Fatalf("unmarshal normalized payload: %v", err)
+	}
+	if !parsed.Octopus.SemanticCache.Hit {
+		t.Fatal("expected semantic cache hit marker")
+	}
+	if _, ok := parsed.Usage["cached_tokens"]; ok {
+		t.Fatal("expected top-level cached_tokens to be removed")
+	}
+	if inputTokenDetails, ok := parsed.Usage["input_token_details"].(map[string]any); ok {
+		if _, exists := inputTokenDetails["cached_tokens"]; exists {
+			t.Fatal("expected input_token_details.cached_tokens to be removed")
+		}
+	}
+	if promptTokenDetails, ok := parsed.Usage["prompt_tokens_details"].(map[string]any); ok {
+		if _, exists := promptTokenDetails["cached_tokens"]; exists {
+			t.Fatal("expected prompt_tokens_details.cached_tokens to be removed")
+		}
 	}
 }

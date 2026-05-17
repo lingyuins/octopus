@@ -52,3 +52,13 @@ func SetSticky(apiKeyID int, requestModel string, channelID, keyID int) {
 		Timestamp:    time.Now(),
 	})
 }
+
+// StickyCount returns the number of entries in the global sticky session store.
+func StickyCount() int {
+	count := 0
+	globalSession.Range(func(key, value any) bool {
+		count++
+		return true
+	})
+	return count
+}

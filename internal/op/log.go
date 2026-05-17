@@ -268,7 +268,7 @@ func RelayLogList(ctx context.Context, startTime, endTime *int, page, pageSize i
 			if idx < 0 {
 				break
 			}
-			result = append(result, cachedLogs[idx].ToListItem())
+			result = append(result, enrichRelayLogListItem(cachedLogs[idx].ToListItem(), cachedLogs[idx].ResponseContent))
 		}
 	}
 
@@ -284,7 +284,7 @@ func RelayLogList(ctx context.Context, startTime, endTime *int, page, pageSize i
 			query := db.GetDB().WithContext(ctx).
 				Select("id", "time", "request_model_name", "request_api_key_id", "request_api_key_name",
 					"endpoint_type", "channel_id", "channel_name", "actual_model_name",
-					"input_tokens", "output_tokens", "ftut", "use_time",
+					"input_tokens", "output_tokens", "response_content", "ftut", "use_time",
 					"cost", "error", "attempts", "total_attempts")
 			if startTime != nil {
 				query = query.Where("time >= ?", *startTime)
@@ -297,11 +297,31 @@ func RelayLogList(ctx context.Context, startTime, endTime *int, page, pageSize i
 			if err := query.Order("id DESC").Offset(dbOffset).Limit(remaining).Find(&dbLogs).Error; err != nil {
 				return nil, err
 			}
-			result = append(result, dbLogs...)
+			for _, dbLog := range dbLogs {
+				result = append(result, enrichRelayLogListItem(dbLog, dbLog.ResponseContent))
+			}
 		}
 	}
 
 	return result, nil
+}
+
+func relayLogCacheReadTokens(responseContent string) int {
+	usage, ok := parseProviderPromptCacheUsageSignals(responseContent)
+	if !ok || usage.CachedTokens <= 0 {
+		return 0
+	}
+	return int(usage.CachedTokens)
+}
+
+func enrichRelayLogListItem(item model.RelayLogListItem, responseContent string) model.RelayLogListItem {
+	if usage, ok := parseProviderPromptCacheUsageSignals(responseContent); ok {
+		item.SemanticCacheHit = usage.SemanticCacheHit
+		if !usage.SemanticCacheHit {
+			item.CacheReadTokens = int(usage.CachedTokens)
+		}
+	}
+	return item
 }
 
 func RelayLogClear(ctx context.Context) error {
@@ -324,10 +344,22 @@ func RelayLogGetByID(ctx context.Context, id int64) (*model.RelayLog, error) {
 		for i := range relayLogCache {
 			if relayLogCache[i].ID == id {
 				cached := relayLogCache[i]
+				if usage, ok := parseProviderPromptCacheUsageSignals(cached.ResponseContent); ok {
+					cached.SemanticCacheHit = usage.SemanticCacheHit
+					if !usage.SemanticCacheHit {
+						cached.CacheReadTokens = int(usage.CachedTokens)
+					}
+				}
 				return &cached, nil
 			}
 		}
 		return nil, nil
+	}
+	if usage, ok := parseProviderPromptCacheUsageSignals(relayLog.ResponseContent); ok {
+		relayLog.SemanticCacheHit = usage.SemanticCacheHit
+		if !usage.SemanticCacheHit {
+			relayLog.CacheReadTokens = int(usage.CachedTokens)
+		}
 	}
 	return &relayLog, nil
 }

@@ -160,6 +160,168 @@ func TestBuildOpsAIRouteServices_ReturnsEmptySliceForNilConfigs(t *testing.T) {
 	}
 }
 
+func TestParseOpsProviderPromptCacheUsage_OpenAIStyle(t *testing.T) {
+	usage, ok := parseOpsProviderPromptCacheUsage(`{"usage":{"input_tokens":1000,"input_tokens_details":{"cached_tokens":250},"output_tokens":10}}`)
+	if !ok {
+		t.Fatal("expected provider prompt cache usage to be parsed")
+	}
+	if usage.PromptTokens != 1000 {
+		t.Fatalf("PromptTokens = %d, want 1000", usage.PromptTokens)
+	}
+	if usage.CachedTokens != 250 {
+		t.Fatalf("CachedTokens = %d, want 250", usage.CachedTokens)
+	}
+	if usage.CacheCreationInputTokens != 0 {
+		t.Fatalf("CacheCreationInputTokens = %d, want 0", usage.CacheCreationInputTokens)
+	}
+	if usage.TotalInputTokens != 1000 {
+		t.Fatalf("TotalInputTokens = %d, want 1000", usage.TotalInputTokens)
+	}
+}
+
+func TestParseOpsProviderPromptCacheUsage_PromptTokensDetailsStyle(t *testing.T) {
+	usage, ok := parseOpsProviderPromptCacheUsage(`{"usage":{"prompt_tokens":254,"prompt_tokens_details":{"cached_tokens":192},"output_tokens":161}}`)
+	if !ok {
+		t.Fatal("expected provider prompt cache usage to be parsed")
+	}
+	if usage.PromptTokens != 254 {
+		t.Fatalf("PromptTokens = %d, want 254", usage.PromptTokens)
+	}
+	if usage.CachedTokens != 192 {
+		t.Fatalf("CachedTokens = %d, want 192", usage.CachedTokens)
+	}
+	if usage.CacheCreationInputTokens != 0 {
+		t.Fatalf("CacheCreationInputTokens = %d, want 0", usage.CacheCreationInputTokens)
+	}
+	if usage.TotalInputTokens != 254 {
+		t.Fatalf("TotalInputTokens = %d, want 254", usage.TotalInputTokens)
+	}
+}
+
+func TestParseOpsProviderPromptCacheUsage_AnthropicStyle(t *testing.T) {
+	usage, ok := parseOpsProviderPromptCacheUsage(`{"usage":{"input_tokens":600,"input_tokens_details":{"cached_tokens":300},"cache_creation_input_tokens":120}}`)
+	if !ok {
+		t.Fatal("expected provider prompt cache usage to be parsed")
+	}
+	if usage.PromptTokens != 600 {
+		t.Fatalf("PromptTokens = %d, want 600", usage.PromptTokens)
+	}
+	if usage.CachedTokens != 300 {
+		t.Fatalf("CachedTokens = %d, want 300", usage.CachedTokens)
+	}
+	if usage.CacheCreationInputTokens != 120 {
+		t.Fatalf("CacheCreationInputTokens = %d, want 120", usage.CacheCreationInputTokens)
+	}
+	if usage.TotalInputTokens != 1020 {
+		t.Fatalf("TotalInputTokens = %d, want 1020", usage.TotalInputTokens)
+	}
+}
+
+func TestParseOpsProviderPromptCacheUsage_PromptCacheHitTokensFallback(t *testing.T) {
+	usage, ok := parseOpsProviderPromptCacheUsage(`{"usage":{"prompt_tokens":512,"prompt_cache_hit_tokens":128,"output_tokens":64}}`)
+	if !ok {
+		t.Fatal("expected provider prompt cache usage to be parsed")
+	}
+	if usage.PromptTokens != 512 {
+		t.Fatalf("PromptTokens = %d, want 512", usage.PromptTokens)
+	}
+	if usage.CachedTokens != 128 {
+		t.Fatalf("CachedTokens = %d, want 128", usage.CachedTokens)
+	}
+	if usage.TotalInputTokens != 512 {
+		t.Fatalf("TotalInputTokens = %d, want 512", usage.TotalInputTokens)
+	}
+}
+
+func TestParseOpsProviderPromptCacheUsage_TopLevelCachedTokensFallback(t *testing.T) {
+	usage, ok := parseOpsProviderPromptCacheUsage(`{"usage":{"input_tokens":900,"cached_tokens":180,"output_tokens":32}}`)
+	if !ok {
+		t.Fatal("expected provider prompt cache usage to be parsed")
+	}
+	if usage.PromptTokens != 900 {
+		t.Fatalf("PromptTokens = %d, want 900", usage.PromptTokens)
+	}
+	if usage.CachedTokens != 180 {
+		t.Fatalf("CachedTokens = %d, want 180", usage.CachedTokens)
+	}
+	if usage.TotalInputTokens != 900 {
+		t.Fatalf("TotalInputTokens = %d, want 900", usage.TotalInputTokens)
+	}
+}
+
+func TestBuildOpsProviderPromptCacheSummaryFromLogs_AggregatesByChannelAndTrend(t *testing.T) {
+	restoreLLM := snapshotLLMCacheState()
+	defer restoreLLM()
+	llmModelCache.Clear()
+	llmModelCache.Set("claude-3-5-sonnet-20241022", model.LLMPrice{
+		Input:      3,
+		Output:     15,
+		CacheRead:  0.3,
+		CacheWrite: 3.75,
+	})
+	llmModelCache.Set("gpt-4o", model.LLMPrice{
+		Input:      2.5,
+		Output:     10,
+		CacheRead:  1.25,
+		CacheWrite: 0,
+	})
+
+	start := time.Unix(1_700_000_000, 0).UTC().Truncate(time.Hour)
+	logs := []model.RelayLog{
+		{
+			Time:            start.Add(1 * time.Hour).Unix(),
+			ChannelId:       1,
+			ChannelName:     "anthropic",
+			ActualModelName: "claude-3-5-sonnet-20241022",
+			ResponseContent: `{"usage":{"input_tokens":600,"input_tokens_details":{"cached_tokens":300},"cache_creation_input_tokens":120}}`,
+		},
+		{
+			Time:            start.Add(1 * time.Hour).Unix(),
+			ChannelId:       1,
+			ChannelName:     "anthropic",
+			ActualModelName: "claude-3-5-sonnet-20241022",
+			ResponseContent: `{"usage":{"input_tokens":400,"output_tokens":20}}`,
+		},
+		{
+			Time:            start.Add(3 * time.Hour).Unix(),
+			ChannelId:       2,
+			ChannelName:     "openai",
+			ActualModelName: "gpt-4o",
+			ResponseContent: `{"usage":{"input_tokens":1000,"input_tokens_details":{"cached_tokens":250},"output_tokens":10}}`,
+		},
+	}
+
+	summary := buildOpsProviderPromptCacheSummaryFromLogs(logs, start)
+
+	if summary.RequestCount != 3 {
+		t.Fatalf("RequestCount = %d, want 3", summary.RequestCount)
+	}
+	if summary.CachedRequestCount != 2 {
+		t.Fatalf("CachedRequestCount = %d, want 2", summary.CachedRequestCount)
+	}
+	if summary.CacheReadTokens != 550 {
+		t.Fatalf("CacheReadTokens = %d, want 550", summary.CacheReadTokens)
+	}
+	if summary.CacheWriteTokens != 120 {
+		t.Fatalf("CacheWriteTokens = %d, want 120", summary.CacheWriteTokens)
+	}
+	if len(summary.Providers) != 2 {
+		t.Fatalf("Providers len = %d, want 2", len(summary.Providers))
+	}
+	if summary.Providers[0].ChannelName != "openai" && summary.Providers[0].ChannelName != "anthropic" {
+		t.Fatalf("unexpected provider ordering: %+v", summary.Providers)
+	}
+	if summary.Trend[1].RequestCount != 2 {
+		t.Fatalf("trend[1].RequestCount = %d, want 2", summary.Trend[1].RequestCount)
+	}
+	if summary.Trend[1].CachedRequestCount != 1 {
+		t.Fatalf("trend[1].CachedRequestCount = %d, want 1", summary.Trend[1].CachedRequestCount)
+	}
+	if summary.Trend[3].CacheReadTokens != 250 {
+		t.Fatalf("trend[3].CacheReadTokens = %d, want 250", summary.Trend[3].CacheReadTokens)
+	}
+}
+
 func TestRefreshSemanticCacheRuntime_ResetsDisabledOrIncompleteConfig(t *testing.T) {
 	restore := snapshotSettingCache()
 	defer restore()
@@ -300,5 +462,75 @@ func seedDefaultSettingsForTest(overrides map[model.SettingKey]string) {
 			continue
 		}
 		settingCache.Set(key, value)
+	}
+}
+
+func TestTelemetrySummaryGet_ReturnsValidData(t *testing.T) {
+	ctx := context.Background()
+	summary, err := TelemetrySummaryGet(ctx)
+	if err != nil {
+		t.Fatalf("TelemetrySummaryGet returned error: %v", err)
+	}
+	if summary == nil {
+		t.Fatal("TelemetrySummaryGet returned nil summary")
+	}
+	// Hero must have non-negative uptime
+	if summary.Hero.UptimeSeconds < 0 {
+		t.Error("uptime_seconds should be >= 0")
+	}
+	// Active connections should be >= 0
+	if summary.Hero.ActiveConnections < 0 {
+		t.Error("active_connections should be >= 0")
+	}
+	// Must have exactly 5 drilldown shortcuts
+	if len(summary.DrilldownShortcuts) != 5 {
+		t.Errorf("expected 5 drilldown shortcuts, got %d", len(summary.DrilldownShortcuts))
+	}
+}
+
+func TestTelemetrySummaryGet_DrilldownKeys(t *testing.T) {
+	ctx := context.Background()
+	summary, err := TelemetrySummaryGet(ctx)
+	if err != nil {
+		t.Fatalf("TelemetrySummaryGet returned error: %v", err)
+	}
+	expectedKeys := []string{"cache", "quota", "health", "system", "audit"}
+	for i, sc := range summary.DrilldownShortcuts {
+		if sc.Key != expectedKeys[i] {
+			t.Errorf("shortcut[%d]: expected key %q, got %q", i, expectedKeys[i], sc.Key)
+		}
+	}
+}
+
+func TestTelemetrySummaryGet_DatabaseHealthDefaults(t *testing.T) {
+	ctx := context.Background()
+	summary, err := TelemetrySummaryGet(ctx)
+	if err != nil {
+		t.Fatalf("TelemetrySummaryGet returned error: %v", err)
+	}
+	// Repairs should be 0 (phase 1 placeholder)
+	if summary.DatabaseHealth.Repairs != 0 {
+		t.Error("database_health.repairs should be 0 in phase 1")
+	}
+	// Status should be one of the known values
+	validStatuses := map[string]bool{"healthy": true, "degraded": true}
+	if !validStatuses[summary.DatabaseHealth.Status] {
+		t.Errorf("unexpected database_health.status: %q", summary.DatabaseHealth.Status)
+	}
+}
+
+func TestTelemetrySummaryGet_ProviderHealthDefaults(t *testing.T) {
+	ctx := context.Background()
+	summary, err := TelemetrySummaryGet(ctx)
+	if err != nil {
+		t.Fatalf("TelemetrySummaryGet returned error: %v", err)
+	}
+	// Monitored should equal len(providers)
+	if summary.ProviderHealth.Monitored != len(summary.ProviderHealth.Providers) {
+		t.Errorf("monitored=%d but providers len=%d", summary.ProviderHealth.Monitored, len(summary.ProviderHealth.Providers))
+	}
+	// Active should be <= Monitored
+	if summary.ProviderHealth.Active > summary.ProviderHealth.Monitored {
+		t.Error("active should be <= monitored")
 	}
 }

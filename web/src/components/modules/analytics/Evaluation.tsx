@@ -1,17 +1,12 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Activity, ArrowRight, Database, Orbit, Radar, Route, Waves } from 'lucide-react';
+import { Activity, ArrowRight, Orbit, Radar, Route } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import {
-    type SemanticCacheEvaluationSummary,
-    useAnalyticsEvaluationRuntime,
-    useAnalyticsEvaluationSummary,
-} from '@/api/endpoints/analytics';
+import { useAnalyticsEvaluationRuntime } from '@/api/endpoints/analytics';
 import { useNavStore } from '@/components/modules/navbar';
 import { Button } from '@/components/ui/button';
-import { formatCount } from '@/lib/utils';
-import { ObservatorySection, StatusBadge, formatPercent } from './shared';
+import { ObservatorySection, StatusBadge } from './shared';
 
 function getStatusTone(status?: string) {
     switch (status) {
@@ -27,35 +22,6 @@ function getStatusTone(status?: string) {
         default:
             return 'neutral' as const;
     }
-}
-
-function getSemanticCacheStatus(
-    semanticCache: SemanticCacheEvaluationSummary | undefined,
-    hasError: boolean,
-) {
-    if (hasError && !semanticCache) {
-        return { tone: 'neutral' as const, key: 'unavailable' as const };
-    }
-    if (!semanticCache) {
-        return { tone: 'neutral' as const, key: 'loading' as const };
-    }
-    if (semanticCache.runtime_enabled) {
-        return { tone: 'success' as const, key: 'runtimeOn' as const };
-    }
-    if (semanticCache.enabled) {
-        return { tone: 'warning' as const, key: 'runtimeOff' as const };
-    }
-    return { tone: 'neutral' as const, key: 'disabled' as const };
-}
-
-function formatMetricCount(value: number | undefined) {
-    const { formatted } = formatCount(value);
-    return `${formatted.value}${formatted.unit}`;
-}
-
-function formatMetricPercent(value: number | undefined) {
-    const { formatted } = formatPercent(value);
-    return `${formatted.value}${formatted.unit}`;
 }
 
 function SummaryStat({
@@ -112,10 +78,7 @@ export function Evaluation() {
     const t = useTranslations('analytics');
     const { setActiveItem } = useNavStore();
     const sectionDescription = t('evaluation.description');
-    const summaryDescription = t('evaluation.semanticCache.summaryDescription');
     const runtime = useAnalyticsEvaluationRuntime();
-    const semanticCacheQuery = useAnalyticsEvaluationSummary();
-    const semanticCache = semanticCacheQuery.data?.semantic_cache;
     const aiRoute = runtime.aiRouteProgress;
     const groupTest = runtime.groupTestProgress;
     const passedCount = (groupTest?.results ?? []).filter((result) => result.passed).length;
@@ -137,10 +100,6 @@ export function Evaluation() {
             : groupTestHasFailures
                 ? t('evaluation.summary.partialFailed')
                 : t('evaluation.summary.allPassed');
-    const semanticCacheStatus = getSemanticCacheStatus(
-        semanticCache,
-        !semanticCache && !!semanticCacheQuery.error,
-    );
     const statusButtonClassName = 'rounded-lg border-border/25 bg-card text-foreground shadow-sm hover:bg-card hover:text-foreground';
 
     return (
@@ -150,7 +109,7 @@ export function Evaluation() {
             description={sectionDescription}
             icon={Radar}
         >
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 <EntryCard
                     icon={Activity}
                     title={t('evaluation.availability.title')}
@@ -183,22 +142,6 @@ export function Evaluation() {
                     action={
                         <Button className={statusButtonClassName} onClick={() => setActiveItem('group')}>
                             {t('evaluation.actions.openAIRoute')}
-                            <ArrowRight className="size-4" />
-                        </Button>
-                    }
-                />
-                <EntryCard
-                    icon={Database}
-                    title={t('evaluation.semanticCache.title')}
-                    description={t('evaluation.semanticCache.description')}
-                    hint={t('evaluation.semanticCache.hint')}
-                    status={{
-                        label: t(`evaluation.semanticCache.status.${semanticCacheStatus.key}`),
-                        tone: semanticCacheStatus.tone,
-                    }}
-                    action={
-                        <Button className={statusButtonClassName} onClick={() => setActiveItem('setting')}>
-                            {t('evaluation.actions.openSemanticCache')}
                             <ArrowRight className="size-4" />
                         </Button>
                     }
@@ -296,101 +239,6 @@ export function Evaluation() {
                         )}
                     </article>
                 </div>
-
-                <article className="rounded-lg border border-border/30 bg-card p-4 md:p-5">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="min-w-0">
-                            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/12 bg-card px-3 py-1 text-[0.68rem] font-semibold text-primary">
-                                <Waves className="h-3.5 w-3.5" />
-                                {t('evaluation.semanticCache.summaryTitle')}
-                            </div>
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                <Database className="h-4 w-4" />
-                            </div>
-                            <h4 className="mt-4 text-sm font-semibold">{t('evaluation.semanticCache.summaryTitle')}</h4>
-                            {summaryDescription ? (
-                                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                                    {summaryDescription}
-                                </p>
-                            ) : null}
-                        </div>
-                        <div className="flex flex-col items-start gap-3 lg:items-end">
-                            <StatusBadge
-                                label={t(`evaluation.semanticCache.status.${semanticCacheStatus.key}`)}
-                                tone={semanticCacheStatus.tone}
-                            />
-                            <Button className={statusButtonClassName} onClick={() => setActiveItem('setting')}>
-                                {t('evaluation.actions.openSemanticCache')}
-                                <ArrowRight className="size-4" />
-                            </Button>
-                        </div>
-                    </div>
-
-                    {semanticCacheQuery.isLoading && !semanticCache ? (
-                        <div className="mt-4 rounded-lg border border-dashed border-border/30 bg-card p-4 text-sm text-muted-foreground">
-                            {t('states.loading')}
-                        </div>
-                    ) : !semanticCache ? (
-                        <div className="mt-4 rounded-lg border border-dashed border-border/30 bg-card p-4 text-sm text-muted-foreground">
-                            {t('evaluation.semanticCache.unavailable')}
-                        </div>
-                    ) : (
-                        <>
-                            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                                <SummaryStat
-                                    label={t('evaluation.semanticCache.metrics.hits')}
-                                    value={formatMetricCount(semanticCache.hits)}
-                                />
-                                <SummaryStat
-                                    label={t('evaluation.semanticCache.metrics.misses')}
-                                    value={formatMetricCount(semanticCache.misses)}
-                                />
-                                <SummaryStat
-                                    label={t('evaluation.semanticCache.metrics.hitRate')}
-                                    value={formatMetricPercent(semanticCache.hit_rate)}
-                                />
-                            </div>
-
-                            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-                                <SummaryStat
-                                    label={t('evaluation.semanticCache.metrics.currentEntries')}
-                                    value={formatMetricCount(semanticCache.current_entries)}
-                                />
-                                <SummaryStat
-                                    label={t('evaluation.semanticCache.metrics.maxEntries')}
-                                    value={formatMetricCount(semanticCache.max_entries)}
-                                />
-                                <SummaryStat
-                                    label={t('evaluation.semanticCache.metrics.usageRate')}
-                                    value={formatMetricPercent(semanticCache.usage_rate)}
-                                />
-                            </div>
-
-                            <div className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-5">
-                                <SummaryStat
-                                    label={t('evaluation.semanticCache.metrics.evaluatedRequests')}
-                                    value={formatMetricCount(semanticCache.evaluated_requests)}
-                                />
-                                <SummaryStat
-                                    label={t('evaluation.semanticCache.metrics.cacheHitResponses')}
-                                    value={formatMetricCount(semanticCache.cache_hit_responses)}
-                                />
-                                <SummaryStat
-                                    label={t('evaluation.semanticCache.metrics.cacheMissRequests')}
-                                    value={formatMetricCount(semanticCache.cache_miss_requests)}
-                                />
-                                <SummaryStat
-                                    label={t('evaluation.semanticCache.metrics.bypassedRequests')}
-                                    value={formatMetricCount(semanticCache.bypassed_requests)}
-                                />
-                                <SummaryStat
-                                    label={t('evaluation.semanticCache.metrics.storedResponses')}
-                                    value={formatMetricCount(semanticCache.stored_responses)}
-                                />
-                            </div>
-                        </>
-                    )}
-                </article>
             </div>
         </ObservatorySection>
     );

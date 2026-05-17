@@ -434,3 +434,16 @@ func serveRelayStreamSession(c *gin.Context, req *relayRequest) {
 		}
 	}
 }
+
+// ActiveSessionCount returns the count of active (not yet done) stream sessions.
+func ActiveSessionCount() int {
+	relayStreamSessions.mu.RLock()
+	defer relayStreamSessions.mu.RUnlock()
+	count := 0
+	for _, s := range relayStreamSessions.byKey {
+		if !s.IsDone() {
+			count++
+		}
+	}
+	return count
+}

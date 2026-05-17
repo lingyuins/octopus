@@ -263,7 +263,8 @@
       "quota": "配额",
       "health": "健康",
       "system": "系统",
-      "audit": "审计"
+      "audit": "审计",
+      "telemetry": "遥测"
     },
     "actions": {
       "openSettings": "前往设置",
@@ -275,6 +276,10 @@
     },
     "cache": {
       "description": "集中查看语义缓存配置、运行态命中情况和容量占用。",
+      "views": {
+        "semantic": "语义缓存",
+        "providerPrompt": "提示缓存(提供方)"
+      },
       "metrics": {
         "hitRate": "命中率",
         "currentEntries": "当前条目",
@@ -294,6 +299,33 @@
         "misses": "未命中次数",
         "maxEntries": "最大条目数",
         "usageRate": "容量占用"
+      },
+      "providerPrompt": {
+        "description": "按请求日志聚合提供方提示缓存活动，查看哪些渠道启用了提示缓存，以及带来了多少输入复用。",
+        "metrics": {
+          "cacheRate": "缓存命中请求占比",
+          "cacheReuseRatio": "缓存复用比",
+          "cacheReadTokens": "缓存读取 Token",
+          "cacheWriteTokens": "缓存写入 Token",
+          "estimatedCostSaved": "预计节省成本"
+        },
+        "providers": {
+          "title": "按渠道拆分",
+          "description": "聚合各提供方渠道的缓存读取、写入与节省成本信号。",
+          "empty": "近 24 小时暂无可统计的提供方提示缓存数据。",
+          "columns": {
+            "name": "名称",
+            "requests": "请求数",
+            "cacheRate": "缓存率",
+            "cacheReadTokens": "读取 Token",
+            "cacheWriteTokens": "写入 Token",
+            "estimatedCostSaved": "预计节省"
+          }
+        },
+        "trend": {
+          "title": "24 小时趋势",
+          "description": "按小时查看缓存读取量和复用变化。"
+        }
       }
     },
     "quota": {
@@ -414,6 +446,57 @@
         "context": "请求上下文",
         "rawRecord": "原始记录"
       }
+    },
+    "telemetry": {
+        "hero": {
+            "uptime": "运行时间",
+            "total_requests": "总请求",
+            "avg_latency": "平均延迟",
+            "error_rate": "错误率",
+            "active_connections": "活跃连接",
+            "memory_usage": "内存使用"
+        },
+        "runtime_signals": {
+            "title": "运行时信号",
+            "p95_latency": "P95 延迟",
+            "throughput": "吞吐量",
+            "memory": "内存"
+        },
+        "database_health": {
+            "title": "数据库健康",
+            "issues_label": "个问题",
+            "status": {
+                "healthy": "健康",
+                "degraded": "降级"
+            }
+        },
+        "session_quota": {
+            "title": "会话与配额活动",
+            "active_sessions": "活跃会话",
+            "sticky_sessions": "粘性会话",
+            "quota_alerts": "配额告警"
+        },
+        "prompt_cache": {
+            "title": "语义缓存",
+            "entries": "条目数",
+            "hit_rate": "命中率",
+            "hits": "命中",
+            "misses": "未命中"
+        },
+        "provider_health": {
+            "title": "供应商健康",
+            "active": "活跃",
+            "monitored": "监控",
+            "empty": "暂无供应商数据",
+            "name": "名称",
+            "status": "状态",
+            "latency": "延迟",
+            "requests": "请求数",
+            "success_rate": "成功率"
+        },
+        "drilldown": {
+            "title": "快捷下钻"
+        }
     }
   },
   "user": {
@@ -1479,6 +1562,8 @@
       "firstToken": "首字",
       "totalTime": "总耗时",
       "input": "输入",
+      "cacheHit": "命中缓存",
+      "semanticCacheHit": "语义缓存命中",
       "output": "输出",
       "cost": "费用",
       "requestContent": "请求内容",

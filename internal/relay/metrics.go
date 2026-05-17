@@ -204,8 +204,19 @@ func (m *RelayMetrics) saveLog(ctx context.Context, err error, duration time.Dur
 				insert := fmt.Sprintf(`"usage":{"cache_creation_input_tokens":%d,`, m.InternalResponse.Usage.CacheCreationInputTokens)
 				respJSON = []byte(strings.Replace(respStr, old, insert, 1))
 			}
+			if isSemanticCacheHitRequest(m.InternalRequest) {
+				relayLog.SemanticCacheHit = true
+				if relayLog.ChannelName == "" {
+					relayLog.ChannelName = "Semantic Cache"
+				}
+				respJSON = semanticCacheHitPayload(respJSON, m.InternalRequest)
+			}
 			relayLog.ResponseContent = string(respJSON)
 		}
+	}
+
+	if !relayLog.SemanticCacheHit {
+		relayLog.CacheReadTokens = opRelayLogCacheReadTokens(relayLog.ResponseContent)
 	}
 
 	// 错误信息
@@ -216,6 +227,93 @@ func (m *RelayMetrics) saveLog(ctx context.Context, err error, duration time.Dur
 	if logErr := op.RelayLogAdd(ctx, relayLog); logErr != nil {
 		log.Warnf("failed to save relay log: %v", logErr)
 	}
+}
+
+func opRelayLogCacheReadTokens(responseContent string) int {
+	signals, ok := opParseProviderPromptCacheUsageSignals(responseContent)
+	if !ok || signals.SemanticCacheHit || signals.CachedTokens <= 0 {
+		return 0
+	}
+	return int(signals.CachedTokens)
+}
+
+func opParseProviderPromptCacheUsageSignals(responseContent string) (struct {
+	PromptTokens             int64
+	CachedTokens             int64
+	CacheCreationInputTokens int64
+	SemanticCacheHit         bool
+}, bool) {
+	type payload struct {
+		Octopus *struct {
+			SemanticCache *struct {
+				Hit bool `json:"hit"`
+			} `json:"semantic_cache"`
+		} `json:"octopus"`
+		Usage *struct {
+			InputTokens        int64 `json:"input_tokens"`
+			PromptTokens       int64 `json:"prompt_tokens"`
+			CachedTokens       int64 `json:"cached_tokens"`
+			PromptCacheHit     int64 `json:"prompt_cache_hit_tokens"`
+			InputTokensDetails *struct {
+				CachedTokens int64 `json:"cached_tokens"`
+			} `json:"input_tokens_details"`
+			InputTokenDetails *struct {
+				CachedTokens int64 `json:"cached_tokens"`
+			} `json:"input_token_details"`
+			PromptTokensDetails *struct {
+				CachedTokens int64 `json:"cached_tokens"`
+			} `json:"prompt_tokens_details"`
+			CacheCreationInputTokens *int64 `json:"cache_creation_input_tokens"`
+		} `json:"usage"`
+	}
+
+	var parsed payload
+	if err := json.Unmarshal([]byte(strings.TrimSpace(responseContent)), &parsed); err != nil || (parsed.Usage == nil && parsed.Octopus == nil) {
+		return struct {
+			PromptTokens             int64
+			CachedTokens             int64
+			CacheCreationInputTokens int64
+			SemanticCacheHit         bool
+		}{}, false
+	}
+
+	result := struct {
+		PromptTokens             int64
+		CachedTokens             int64
+		CacheCreationInputTokens int64
+		SemanticCacheHit         bool
+	}{}
+	if parsed.Usage != nil {
+		result.PromptTokens = parsed.Usage.InputTokens
+		if result.PromptTokens <= 0 {
+			result.PromptTokens = parsed.Usage.PromptTokens
+		}
+		if parsed.Usage.InputTokensDetails != nil {
+			result.CachedTokens = parsed.Usage.InputTokensDetails.CachedTokens
+		}
+		if result.CachedTokens <= 0 && parsed.Usage.InputTokenDetails != nil {
+			result.CachedTokens = parsed.Usage.InputTokenDetails.CachedTokens
+		}
+		if result.CachedTokens <= 0 && parsed.Usage.PromptTokensDetails != nil {
+			result.CachedTokens = parsed.Usage.PromptTokensDetails.CachedTokens
+		}
+		if result.CachedTokens <= 0 {
+			result.CachedTokens = parsed.Usage.CachedTokens
+		}
+		if result.CachedTokens <= 0 {
+			result.CachedTokens = parsed.Usage.PromptCacheHit
+		}
+		if parsed.Usage.CacheCreationInputTokens != nil {
+			result.CacheCreationInputTokens = *parsed.Usage.CacheCreationInputTokens
+		}
+	}
+	if parsed.Octopus != nil && parsed.Octopus.SemanticCache != nil {
+		result.SemanticCacheHit = parsed.Octopus.SemanticCache.Hit
+	}
+	if result.PromptTokens <= 0 && result.CachedTokens <= 0 && result.CacheCreationInputTokens <= 0 && !result.SemanticCacheHit {
+		return result, false
+	}
+	return result, true
 }
 
 func filterMessageForLog(msg *transformerModel.Message) *transformerModel.Message {
