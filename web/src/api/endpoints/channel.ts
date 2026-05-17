@@ -69,12 +69,21 @@ export type ChannelKey = {
     remark: string;
 };
 
+export type ChannelGroup = {
+    id: number;
+    name: string;
+    is_default: boolean;
+    created_at: number;
+    updated_at: number;
+};
+
 /**
  * 渠道完整数据（与后端 model.Channel 对齐；数组字段在前端保证为 []）
  */
 export type Channel = {
     id: number;
     name: string;
+    group_id: number;
     type: ChannelType;
     enabled: boolean;
     base_urls: BaseUrl[];
@@ -104,6 +113,7 @@ type ChannelServer = Omit<Channel, 'base_urls' | 'custom_header' | 'keys'> & {
  */
 export type CreateChannelRequest = {
     name: string;
+    group_id?: number;
     type: ChannelType;
     enabled?: boolean;
     base_urls: BaseUrl[];
@@ -126,6 +136,7 @@ export type CreateChannelRequest = {
 export type UpdateChannelRequest = {
     id: number;
     name?: string;
+    group_id?: number;
     type?: ChannelType;
     enabled?: boolean;
     base_urls?: BaseUrl[];
@@ -243,6 +254,55 @@ export function useCreateChannel() {
         },
         onError: (error) => {
             logger.error('渠道创建失败:', error);
+        },
+    });
+}
+
+export function useChannelGroupList() {
+    return useQuery({
+        queryKey: ['channel-groups', 'list'],
+        queryFn: async () => {
+            return apiClient.get<ChannelGroup[]>('/api/v1/channel/group/list');
+        },
+        refetchOnMount: 'always',
+    });
+}
+
+export function useCreateChannelGroup() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (data: { name: string }) => {
+            return apiClient.post<ChannelGroup>('/api/v1/channel/group/create', data);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['channel-groups', 'list'] });
+        },
+    });
+}
+
+export function useUpdateChannelGroup() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (data: { id: number; name: string }) => {
+            return apiClient.post<ChannelGroup>('/api/v1/channel/group/update', data);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['channel-groups', 'list'] });
+        },
+    });
+}
+
+export function useDeleteChannelGroup() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (id: number) => {
+            return apiClient.delete<null>(`/api/v1/channel/group/delete/${id}`);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['channel-groups', 'list'] });
         },
     });
 }

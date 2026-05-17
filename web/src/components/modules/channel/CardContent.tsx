@@ -49,6 +49,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [formData, setFormData] = useState<ChannelFormData>({
         name: channel.name,
+        group_id: channel.group_id,
         type: channel.type,
         enabled: channel.enabled,
         base_urls: channel.base_urls?.length ? channel.base_urls : [{ url: '', delay: 0, suffix_mode: 'auto' }],
@@ -100,6 +101,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
 
         // only send changed fields to avoid accidental clears
         if (formData.name !== channel.name) req.name = formData.name;
+        if (formData.group_id !== channel.group_id) req.group_id = formData.group_id;
         if (formData.type !== channel.type) req.type = formData.type;
         if (formData.enabled !== channel.enabled) req.enabled = formData.enabled;
         if (!baseUrlsEqual(formData.base_urls, channel.base_urls)) {

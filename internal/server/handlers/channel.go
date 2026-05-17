@@ -56,6 +56,25 @@ func init() {
 			router.NewRoute("/test", http.MethodPost).
 				Use(middleware.RequirePermission(auth.PermChannelsWrite)).
 				Handle(testChannel),
+		).
+		AddRoute(
+			router.NewRoute("/group/list", http.MethodGet).
+				Handle(listChannelGroup),
+		).
+		AddRoute(
+			router.NewRoute("/group/create", http.MethodPost).
+				Use(middleware.RequirePermission(auth.PermChannelsWrite)).
+				Handle(createChannelGroup),
+		).
+		AddRoute(
+			router.NewRoute("/group/update", http.MethodPost).
+				Use(middleware.RequirePermission(auth.PermChannelsWrite)).
+				Handle(updateChannelGroup),
+		).
+		AddRoute(
+			router.NewRoute("/group/delete/:id", http.MethodDelete).
+				Use(middleware.RequirePermission(auth.PermChannelsWrite)).
+				Handle(deleteChannelGroup),
 		)
 	router.NewGroupRouter("/api/v1/channel").
 		Use(middleware.Auth()).
@@ -207,6 +226,76 @@ func syncChannel(c *gin.Context) {
 	resp.Success(c, nil)
 }
 
+func listChannelGroup(c *gin.Context) {
+	groups, err := op.ChannelGroupList(c.Request.Context())
+	if err != nil {
+		resp.InternalError(c)
+		return
+	}
+	resp.Success(c, groups)
+}
+
+func createChannelGroup(c *gin.Context) {
+	var req struct {
+		Name string `json:"name" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+
+	group, err := op.ChannelGroupCreate(req.Name, c.Request.Context())
+	if err != nil {
+		if status, msg, ok := classifyChannelMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
+		resp.InternalError(c)
+		return
+	}
+	resp.Success(c, group)
+}
+
+func updateChannelGroup(c *gin.Context) {
+	var req struct {
+		ID   int    `json:"id" binding:"required"`
+		Name string `json:"name" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+
+	group, err := op.ChannelGroupUpdate(req.ID, req.Name, c.Request.Context())
+	if err != nil {
+		if status, msg, ok := classifyChannelMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
+		resp.InternalError(c)
+		return
+	}
+	resp.Success(c, group)
+}
+
+func deleteChannelGroup(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidParam)
+		return
+	}
+
+	if err := op.ChannelGroupDelete(id, c.Request.Context()); err != nil {
+		if status, msg, ok := classifyChannelMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
+		resp.InternalError(c)
+		return
+	}
+	resp.Success(c, nil)
+}
+
 func getLastSyncTime(c *gin.Context) {
 	time := task.GetLastSyncModelsTime()
 	resp.Success(c, time)
@@ -222,6 +311,16 @@ func classifyChannelMutationError(err error) (int, string, bool) {
 	switch {
 	case strings.Contains(msg, "channel not found"):
 		return http.StatusNotFound, "channel not found", true
+	case strings.Contains(msg, "channel group not found"):
+		return http.StatusNotFound, "channel group not found", true
+	case strings.Contains(msg, "channel group name is required"):
+		return http.StatusBadRequest, "channel group name is required", true
+	case strings.Contains(msg, "default channel group not found"):
+		return http.StatusServiceUnavailable, "default channel group not found", true
+	case strings.Contains(msg, "default channel group cannot be deleted"):
+		return http.StatusBadRequest, "default channel group cannot be deleted", true
+	case strings.Contains(msg, "channel group is not empty"):
+		return http.StatusConflict, "channel group is not empty", true
 	case strings.Contains(msg, "request rewrite profile is required when enabled"),
 		strings.Contains(msg, "unsupported request rewrite profile"),
 		strings.Contains(msg, "unsupported tool role strategy"),
@@ -236,6 +335,9 @@ func classifyChannelMutationError(err error) (int, string, bool) {
 	case strings.Contains(msg, "unique constraint failed: channels.name"),
 		strings.Contains(msg, "duplicate entry") && strings.Contains(msg, "channels.name"):
 		return http.StatusConflict, "channel name already exists", true
+	case strings.Contains(msg, "unique constraint failed: channel_groups.name"),
+		strings.Contains(msg, "duplicate entry") && strings.Contains(msg, "channel_groups.name"):
+		return http.StatusConflict, "channel group name already exists", true
 	default:
 		return 0, "", false
 	}

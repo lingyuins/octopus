@@ -32,6 +32,15 @@ func ChannelCreate(channel *model.Channel, ctx context.Context) error {
 		if err := channel.RequestRewrite.Validate(channel.Type); err != nil {
 			return err
 		}
+		if channel.GroupID == 0 {
+			defaultGroupID, err := ChannelGroupDefaultID(ctx)
+			if err != nil {
+				return err
+			}
+			channel.GroupID = defaultGroupID
+		} else if _, err := ChannelGroupGet(channel.GroupID, ctx); err != nil {
+			return err
+		}
 	}
 	if err := db.GetDB().WithContext(ctx).Create(channel).Error; err != nil {
 		return err
@@ -178,6 +187,22 @@ func ChannelUpdate(req *model.ChannelUpdateRequest, ctx context.Context) (*model
 	if req.Name != nil {
 		selectFields = append(selectFields, "name")
 		updates.Name = *req.Name
+	}
+	if req.GroupID != nil {
+		groupID := *req.GroupID
+		if groupID == 0 {
+			defaultGroupID, err := ChannelGroupDefaultID(ctx)
+			if err != nil {
+				tx.Rollback()
+				return nil, err
+			}
+			groupID = defaultGroupID
+		} else if _, err := ChannelGroupGet(groupID, ctx); err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+		selectFields = append(selectFields, "group_id")
+		updates.GroupID = groupID
 	}
 	if req.Type != nil {
 		selectFields = append(selectFields, "type")

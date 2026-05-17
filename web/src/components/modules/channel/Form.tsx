@@ -5,6 +5,7 @@ import {
     SystemMessageStrategy,
     ToolRoleStrategy,
     type Channel,
+    useChannelGroupList,
     type RequestRewriteConfig,
     useFetchModel,
     useTestChannel,
@@ -50,6 +51,7 @@ export interface ChannelKeyFormItem {
 
 export interface ChannelFormData {
     name: string;
+    group_id: number;
     type: ChannelType;
     base_urls: Channel['base_urls'];
     custom_header: Channel['custom_header'];
@@ -364,6 +366,7 @@ export function ChannelForm({
     onShowTemplatePicker,
 }: ChannelFormProps) {
     const t = useTranslations('channel.form');
+    const { data: channelGroups = [] } = useChannelGroupList();
     const requestRewriteSupported = isRequestRewriteSupportedChannelType(formData.type);
     const sectionClassName = 'space-y-4 rounded-lg bg-card/70 p-4 md:p-5';
     const labelClassName = 'text-sm font-medium text-card-foreground';
@@ -384,6 +387,17 @@ export function ChannelForm({
             onFormDataChange({ ...formData, custom_header: [{ header_key: '', header_value: '' }] });
         }
     }, [formData, onFormDataChange]);
+
+    useEffect(() => {
+        if (formData.group_id !== 0 || channelGroups.length === 0) {
+            return;
+        }
+        const defaultGroup = channelGroups.find((item) => item.is_default) ?? channelGroups[0];
+        if (!defaultGroup) {
+            return;
+        }
+        onFormDataChange({ ...formData, group_id: defaultGroup.id });
+    }, [channelGroups, formData, onFormDataChange]);
 
     const autoModels = formData.model
         ? formData.model.split(',').map((m) => m.trim()).filter(Boolean)
@@ -629,7 +643,7 @@ export function ChannelForm({
 
             <section className={sectionClassName}>
                 <SectionHeader icon={Orbit} title={t('basicInfo')} />
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                     <div className={fieldGroupClassName}>
                         <label htmlFor={`${idPrefix}-name`} className={labelClassName}>
                         {t('name')}
@@ -663,6 +677,33 @@ export function ChannelForm({
                                 <SelectItem className="rounded-xl" value={String(ChannelType.Volcengine)}>{t('typeVolcengine')}</SelectItem>
                                 <SelectItem className="rounded-xl" value={String(ChannelType.OpenAIEmbedding)}>{t('typeOpenAIEmbedding')}</SelectItem>
                                 <SelectItem className="rounded-xl" value={String(ChannelType.Mimo)}>{t('typeMimo')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className={fieldGroupClassName}>
+                        <label htmlFor={`${idPrefix}-group`} className={labelClassName}>
+                            {t('group')}
+                        </label>
+                        <Select
+                            value={String(formData.group_id || 0)}
+                            onValueChange={(value) => onFormDataChange({ ...formData, group_id: Number(value) })}
+                        >
+                            <SelectTrigger id={`${idPrefix}-group`} className="w-full rounded-lg border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                <SelectValue placeholder={t('groupLoading')} />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-lg">
+                                {channelGroups.length > 0 ? (
+                                    channelGroups.map((group) => (
+                                        <SelectItem key={group.id} className="rounded-xl" value={String(group.id)}>
+                                            {group.name}
+                                        </SelectItem>
+                                    ))
+                                ) : (
+                                    <SelectItem className="rounded-xl" value="0">
+                                        {t('groupLoading')}
+                                    </SelectItem>
+                                )}
                             </SelectContent>
                         </Select>
                     </div>

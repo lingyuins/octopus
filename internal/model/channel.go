@@ -47,6 +47,7 @@ type RequestRewriteConfig struct {
 type Channel struct {
 	ID             int                   `json:"id" gorm:"primaryKey"`
 	Name           string                `json:"name" gorm:"unique;not null"`
+	GroupID        int                   `json:"group_id" gorm:"not null;default:0;index"`
 	Type           outbound.OutboundType `json:"type"`
 	Enabled        bool                  `json:"enabled" gorm:"default:true"`
 	BaseUrls       []BaseUrl             `json:"base_urls" gorm:"serializer:json"`
@@ -90,6 +91,7 @@ type ChannelKey struct {
 type ChannelUpdateRequest struct {
 	ID             int                    `json:"id" binding:"required"`
 	Name           *string                `json:"name,omitempty"`
+	GroupID        *int                   `json:"group_id,omitempty"`
 	Type           *outbound.OutboundType `json:"type,omitempty"`
 	Enabled        *bool                  `json:"enabled,omitempty"`
 	BaseUrls       *[]BaseUrl             `json:"base_urls,omitempty"`

@@ -29,6 +29,7 @@ export function CreateDialogContent() {
     const [showPresetPicker, setShowPresetPicker] = useState(true);
     const [formData, setFormData] = useState<ChannelFormData>({
         name: '',
+        group_id: 0,
         type: ChannelType.OpenAIChat,
         base_urls: [{ url: '', delay: 0, suffix_mode: 'auto' }],
         custom_header: [],
@@ -50,6 +51,7 @@ export function CreateDialogContent() {
     const resetFormData = () => {
         setFormData({
             name: '',
+            group_id: 0,
             type: ChannelType.OpenAIChat,
             base_urls: [{ url: '', delay: 0, suffix_mode: 'auto' }],
             custom_header: [],
@@ -95,6 +97,7 @@ export function CreateDialogContent() {
         createChannel.mutate(
             {
                 name: formData.name,
+                group_id: formData.group_id || undefined,
                 type: formData.type,
                 enabled: formData.enabled,
                 base_urls: normalizedBaseUrls,
