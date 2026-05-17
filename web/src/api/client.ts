@@ -28,6 +28,20 @@ const handleError = (error: ApiError) => {
     }
 };
 
+function createApiError(
+    code: number,
+    message: string,
+    messageKey?: string,
+    messageArgs?: Record<string, unknown>,
+): ApiError {
+    const error = new Error(message) as ApiError;
+    error.name = 'ApiError';
+    error.code = code;
+    error.message_key = messageKey;
+    error.message_args = messageArgs;
+    return error;
+}
+
 function summarizeNonJSONErrorBody(status: number, body: string, statusText: string): string {
     const text = body.trim();
     if (!text) {
@@ -74,12 +88,12 @@ async function handleResponse<T>(response: Response): Promise<T> {
             : (typeof data === 'string'
                 ? summarizeNonJSONErrorBody(response.status, data, response.statusText)
                 : response.statusText);
-        const error: ApiError = {
-            code: response.status,
-            message: resolveRuntimeI18nMessage(messageKey, messageArgs, fallbackMessage) ?? fallbackMessage,
-            message_key: messageKey,
-            message_args: messageArgs,
-        };
+        const error = createApiError(
+            response.status,
+            resolveRuntimeI18nMessage(messageKey, messageArgs, fallbackMessage) ?? fallbackMessage,
+            messageKey,
+            messageArgs,
+        );
 
         handleError(error);
         throw error;

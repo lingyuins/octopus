@@ -4,6 +4,16 @@ import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@ta
 import { useState } from 'react';
 import { toast } from '@/components/common/Toast';
 
+function getErrorMessage(error: unknown, fallback = 'An error occurred') {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+    if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
+        return error.message;
+    }
+    return fallback;
+}
+
 export default function QueryProvider({ children }: { children: React.ReactNode }) {
     const [queryClient] = useState(
         () =>
@@ -29,14 +39,14 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
                 queryCache: new QueryCache({
                     onError: (error, query) => {
                         if (query.meta?.skipGlobalErrorHandler) return;
-                        const message = error instanceof Error ? error.message : 'An error occurred';
+                        const message = getErrorMessage(error);
                         toast.error(message);
                     },
                 }),
                 mutationCache: new MutationCache({
                     onError: (error, _variables, _context, mutation) => {
                         if (mutation.meta?.skipGlobalErrorHandler) return;
-                        const message = error instanceof Error ? error.message : 'An error occurred';
+                        const message = getErrorMessage(error);
                         toast.error(message);
                     },
                 }),

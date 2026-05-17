@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
@@ -47,11 +48,27 @@ func createBootstrapAdmin(c *gin.Context) {
 			return
 		}
 		if errors.Is(err, op.ErrBootstrapCredentials) {
-			resp.Error(c, http.StatusBadRequest, err.Error())
+			messageKey, messageArgs := bootstrapCredentialMessage(err)
+			resp.ErrorWithKey(c, http.StatusBadRequest, err.Error(), messageKey, messageArgs)
 			return
 		}
 		resp.InternalError(c)
 		return
 	}
 	resp.Success(c, gin.H{"initialized": true})
+}
+
+func bootstrapCredentialMessage(err error) (string, map[string]any) {
+	message := strings.ToLower(err.Error())
+
+	switch {
+	case strings.Contains(message, "username is required"):
+		return "bootstrap.validation.usernameRequired", nil
+	case strings.Contains(message, "password is required"):
+		return "bootstrap.validation.passwordRequired", nil
+	case strings.Contains(message, "password must be at least"):
+		return "bootstrap.validation.passwordTooShort", map[string]any{"count": 12}
+	default:
+		return "bootstrap.error.generic", nil
+	}
 }

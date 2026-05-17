@@ -45,6 +45,11 @@
     "error": {
       "generic": "加载初始化状态失败",
       "server": "暂时无法获取初始化状态，请检查后端日志后重试。"
+    },
+    "validation": {
+      "usernameRequired": "请输入管理员用户名。",
+      "passwordRequired": "请输入管理员密码。",
+      "passwordTooShort": "管理员密码长度至少需要 {count} 个字符。"
     }
   },
   "apiKeyDashboard": {

@@ -13,7 +13,6 @@ import {
     useCreateChannel,
 } from '@/api/endpoints/channel';
 import { Sparkles, X } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { useTranslations } from 'next-intl';
 import {
     ChannelForm,
@@ -27,7 +26,6 @@ import { channelTemplates } from './templates';
 export function CreateDialogContent() {
     const { setIsOpen } = useMorphingDialog();
     const createChannel = useCreateChannel();
-    const isCompactViewport = useIsMobile();
     const [showPresetPicker, setShowPresetPicker] = useState(true);
     const [formData, setFormData] = useState<ChannelFormData>({
         name: '',
@@ -185,7 +183,7 @@ export function CreateDialogContent() {
                                     {tForm('template.skip')}
                                 </Button>
                             </div>
-                            <TemplatePickerGrid compact={isCompactViewport} onApplyTemplate={handleApplyTemplate} />
+                            <TemplatePickerGrid onApplyTemplate={handleApplyTemplate} />
                         </div>
                     </motion.div>
                 ) : (

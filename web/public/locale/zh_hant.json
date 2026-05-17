@@ -45,6 +45,11 @@
     "error": {
       "generic": "載入初始化狀態失敗",
       "server": "暫時無法取得初始化狀態，請檢查後端日誌後再試。"
+    },
+    "validation": {
+      "usernameRequired": "請輸入管理員帳號。",
+      "passwordRequired": "請輸入管理員密碼。",
+      "passwordTooShort": "管理員密碼長度至少需要 {count} 個字元。"
     }
   },
   "apiKeyDashboard": {

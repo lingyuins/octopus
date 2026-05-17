@@ -45,6 +45,11 @@
     "error": {
       "generic": "Failed to load setup status",
       "server": "Setup status is temporarily unavailable. Check the backend logs and try again."
+    },
+    "validation": {
+      "usernameRequired": "Please enter an admin username.",
+      "passwordRequired": "Please enter an admin password.",
+      "passwordTooShort": "Admin password must be at least {count} characters long."
     }
   },
   "apiKeyDashboard": {

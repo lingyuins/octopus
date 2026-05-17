@@ -21,6 +21,16 @@ function isApiError(error: unknown): error is ApiError {
   return typeof error === 'object' && error !== null && 'code' in error && 'message' in error;
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (isApiError(error) && typeof error.message === 'string' && error.message) {
+    return error.message;
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+}
+
 export function FirstRunSetup() {
   const t = useTranslations('bootstrap');
   const queryClient = useQueryClient();
@@ -33,6 +43,7 @@ export function FirstRunSetup() {
   const { data, isLoading, refetch, error } = useQuery({
     queryKey: ['bootstrap', 'status'],
     queryFn: async () => apiClient.get<BootstrapStatusResponse>('/api/v1/bootstrap/status', undefined, false),
+    meta: { skipGlobalErrorHandler: true },
     retry: false,
     staleTime: 0,
     refetchOnWindowFocus: false,
@@ -47,6 +58,7 @@ export function FirstRunSetup() {
   const createAdminMutation = useMutation({
     mutationFn: async (payload: BootstrapCreateAdminRequest) =>
       apiClient.post<{ initialized: boolean }>('/api/v1/bootstrap/create-admin', payload, undefined, false),
+    meta: { skipGlobalErrorHandler: true },
     onSuccess: async () => {
       setErrorText(null);
       setSetupComplete(true);
@@ -55,7 +67,7 @@ export function FirstRunSetup() {
       await refetch();
     },
     onError: (err: unknown) => {
-      const message = err instanceof Error ? err.message : t('error.generic');
+      const message = getErrorMessage(err, t('error.generic'));
       setErrorText(message);
       toast.error(message);
     },
