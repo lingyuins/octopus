@@ -135,7 +135,10 @@ export function CreateDialogContent() {
                             type="button"
                             variant="outline"
                             size="icon"
-                            onClick={() => setShowPresetPicker(false)}
+                            onClick={() => {
+                                resetFormData();
+                                setIsOpen(false);
+                            }}
                             aria-label={tForm('template.skip')}
                             className="h-9 w-9 rounded-md border-border bg-card opacity-80 transition-all duration-150 hover:bg-muted hover:opacity-100"
                         >
@@ -165,23 +168,23 @@ export function CreateDialogContent() {
                         className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto"
                     >
                         <div className="rounded-lg bg-card/70 p-4 md:p-5">
-                            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                                <div className="space-y-2">
-                                    <div className="inline-flex items-center gap-2 rounded-full border border-primary/12 bg-card px-3 py-1 text-[0.68rem] font-semibold text-primary">
+                            <div className="mb-4 space-y-2">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="inline-flex min-w-0 items-center gap-2 rounded-full border border-primary/12 bg-card px-3 py-1 text-[0.68rem] font-semibold text-primary">
                                         <Sparkles className="size-3.5" />
                                         {tForm('template.label')}
                                     </div>
-                                    <p className="text-xs leading-5 text-muted-foreground">{tForm('template.pickerHint')}</p>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setShowPresetPicker(false)}
+                                        className="h-8 shrink-0 rounded-lg text-xs text-muted-foreground transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out active:scale-[0.98]"
+                                    >
+                                        {tForm('template.skip')}
+                                    </Button>
                                 </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setShowPresetPicker(false)}
-                                    className="h-8 rounded-lg text-xs text-muted-foreground transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out active:scale-[0.98]"
-                                >
-                                    {tForm('template.skip')}
-                                </Button>
+                                <p className="text-xs leading-5 text-muted-foreground">{tForm('template.pickerHint')}</p>
                             </div>
                             <TemplatePickerGrid onApplyTemplate={handleApplyTemplate} />
                         </div>
