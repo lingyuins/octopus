@@ -3,7 +3,6 @@
 import { PageWrapper } from '@/components/common/PageWrapper';
 import { SettingAppearance } from './Appearance';
 import { SettingSystem } from './System';
-import { SettingLLMPrice } from './LLMPrice';
 import { SettingAccount } from './Account';
 import { SettingInfo } from './Info';
 import { SettingLLMSync } from './LLMSync';
@@ -27,7 +26,6 @@ export function Setting() {
         { id: 'setting-log', node: <SettingLog /> },
         { id: 'setting-info', node: <SettingInfo /> },
         { id: 'setting-system', node: <SettingSystem /> },
-        { id: 'setting-llmprice', node: <SettingLLMPrice /> },
         { id: 'setting-llmsync', node: <SettingLLMSync /> },
         { id: 'setting-circuit-breaker', node: <SettingCircuitBreaker /> },
         { id: 'setting-backup', node: <SettingBackup /> },

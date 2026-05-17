@@ -1097,7 +1097,7 @@
       "updateFailed": "价格更新失败"
     },
     "llmSync": {
-      "title": "渠道同步",
+      "title": "自动任务",
       "syncInterval": {
         "label": "自动同步间隔（小时）",
         "placeholder": "请输入间隔（小时）"

@@ -1097,7 +1097,7 @@
       "updateFailed": "價格更新失敗"
     },
     "llmSync": {
-      "title": "供應源同步",
+      "title": "自動任務",
       "syncInterval": {
         "label": "自動同步間隔（小時）",
         "placeholder": "請輸入間隔（小時）"

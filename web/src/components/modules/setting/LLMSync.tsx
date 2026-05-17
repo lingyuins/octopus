@@ -2,29 +2,33 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { RefreshCw, Clock } from 'lucide-react';
+import { RefreshCw, Clock, DollarSign } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { useSettingList, useSetSetting, SettingKey } from '@/api/endpoints/setting';
-import { useLastSyncTime, useSyncChannel } from '@/api/endpoints/channel';
 import { toast } from '@/components/common/Toast';
 
 export function SettingLLMSync() {
     const t = useTranslations('setting');
     const { data: settings } = useSettingList();
     const setSetting = useSetSetting();
-    const syncChannel = useSyncChannel();
-    const { data: lastSyncTime } = useLastSyncTime();
 
     const [syncInterval, setSyncInterval] = useState('');
+    const [updateInterval, setUpdateInterval] = useState('');
     const initialSyncInterval = useRef('');
+    const initialUpdateInterval = useRef('');
 
     useEffect(() => {
         if (settings) {
-            const interval = settings.find(s => s.key === SettingKey.SyncLLMInterval);
-            if (interval) {
-                queueMicrotask(() => setSyncInterval(interval.value));
-                initialSyncInterval.current = interval.value;
+            const syncIntervalSetting = settings.find(s => s.key === SettingKey.SyncLLMInterval);
+            if (syncIntervalSetting) {
+                queueMicrotask(() => setSyncInterval(syncIntervalSetting.value));
+                initialSyncInterval.current = syncIntervalSetting.value;
+            }
+
+            const updateIntervalSetting = settings.find(s => s.key === SettingKey.ModelInfoUpdateInterval);
+            if (updateIntervalSetting) {
+                queueMicrotask(() => setUpdateInterval(updateIntervalSetting.value));
+                initialUpdateInterval.current = updateIntervalSetting.value;
             }
         }
     }, [settings]);
@@ -35,27 +39,14 @@ export function SettingLLMSync() {
         setSetting.mutate({ key, value }, {
             onSuccess: () => {
                 toast.success(t('saved'));
-                initialSyncInterval.current = value;
+                if (key === SettingKey.SyncLLMInterval) {
+                    initialSyncInterval.current = value;
+                }
+                if (key === SettingKey.ModelInfoUpdateInterval) {
+                    initialUpdateInterval.current = value;
+                }
             }
         });
-    };
-
-    const handleManualSync = () => {
-        syncChannel.mutate(undefined, {
-            onSuccess: () => {
-                toast.success(t('llmSync.syncSuccess'));
-            },
-            onError: () => {
-                toast.error(t('llmSync.syncFailed'));
-            }
-        });
-    };
-
-    const formatLastSyncTime = (timeStr: string | undefined) => {
-        if (!timeStr) return t('llmSync.neverSynced');
-        const date = new Date(timeStr);
-        if (date.getFullYear() === 1) return t('llmSync.neverSynced');
-        return date.toLocaleString();
     };
 
     return (
@@ -65,7 +56,6 @@ export function SettingLLMSync() {
                 {t('llmSync.title')}
             </h2>
 
-            {/* 同步间隔 */}
             <div className="flex flex-col gap-3 rounded-lg border-border/30 bg-card p-4 shadow-sm md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-3">
                     <Clock className="h-5 w-5 text-muted-foreground" />
@@ -81,26 +71,19 @@ export function SettingLLMSync() {
                 />
             </div>
 
-            {/* 手动同步 */}
             <div className="flex flex-col gap-3 rounded-lg border-border/30 bg-card p-4 shadow-sm md:flex-row md:items-center md:justify-between">
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-3">
-                        <RefreshCw className="h-5 w-5 text-muted-foreground" />
-                        <span className="text-sm font-medium">{t('llmSync.manualSync.label')}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground ml-8">
-                        {t('llmSync.lastSync')}: {formatLastSyncTime(lastSyncTime)}
-                    </span>
+                <div className="flex items-center gap-3">
+                    <DollarSign className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-sm font-medium">{t('llmPrice.updateInterval.label')}</span>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleManualSync}
-                    disabled={syncChannel.isPending}
-                    className="rounded-xl"
-                >
-                    {syncChannel.isPending ? t('llmSync.manualSync.syncing') : t('llmSync.manualSync.button')}
-                </Button>
+                <Input
+                    type="number"
+                    value={updateInterval}
+                    onChange={(e) => setUpdateInterval(e.target.value)}
+                    onBlur={() => handleSave(SettingKey.ModelInfoUpdateInterval, updateInterval, initialUpdateInterval.current)}
+                    placeholder={t('llmPrice.updateInterval.placeholder')}
+                    className="w-48 rounded-xl"
+                />
             </div>
         </div>
     );

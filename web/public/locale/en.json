@@ -1097,7 +1097,7 @@
       "updateFailed": "Failed to update price"
     },
     "llmSync": {
-      "title": "Channel Sync",
+      "title": "Automated Tasks",
       "syncInterval": {
         "label": "Auto Sync Interval (hours)",
         "placeholder": "Enter interval in hours"
