@@ -141,6 +141,34 @@ func LLMBatchCreate(llmInfos []model.LLMInfo, ctx context.Context) error {
 	}
 	return nil
 }
+
+func LLMBatchUpdate(llmInfos []model.LLMInfo, ctx context.Context) error {
+	if len(llmInfos) == 0 {
+		return nil
+	}
+
+	for _, llmInfo := range llmInfos {
+		llmInfo.Name = strings.ToLower(strings.TrimSpace(llmInfo.Name))
+		if llmInfo.Name == "" {
+			continue
+		}
+		if err := db.GetDB().WithContext(ctx).
+			Model(&model.LLMInfo{}).
+			Where("name = ?", llmInfo.Name).
+			Updates(map[string]any{
+				"input":       llmInfo.Input,
+				"output":      llmInfo.Output,
+				"cache_read":  llmInfo.CacheRead,
+				"cache_write": llmInfo.CacheWrite,
+			}).Error; err != nil {
+			return err
+		}
+		llmModelCache.Set(llmInfo.Name, llmInfo.LLMPrice)
+	}
+
+	return nil
+}
+
 func LLMGet(name string) (model.LLMPrice, error) {
 	price, ok := llmModelCache.Get(name)
 	if !ok {

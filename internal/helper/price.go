@@ -55,3 +55,31 @@ func LLMPriceDeleteFromDBWithNoPrice(modelNames []string, ctx context.Context) e
 	}
 	return nil
 }
+
+func LLMPriceRefreshExistingModels(ctx context.Context) error {
+	models, err := op.LLMList(ctx)
+	if err != nil {
+		return err
+	}
+
+	updates := make([]model.LLMInfo, 0, len(models))
+	for _, existing := range models {
+		modelPrice := price.GetLLMPrice(existing.Name)
+		if modelPrice == nil {
+			continue
+		}
+		if existing.Input == modelPrice.Input &&
+			existing.Output == modelPrice.Output &&
+			existing.CacheRead == modelPrice.CacheRead &&
+			existing.CacheWrite == modelPrice.CacheWrite {
+			continue
+		}
+
+		updates = append(updates, model.LLMInfo{
+			Name:     existing.Name,
+			LLMPrice: *modelPrice,
+		})
+	}
+
+	return op.LLMBatchUpdate(updates, ctx)
+}

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lingyuins/octopus/internal/helper"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op"
 	"github.com/lingyuins/octopus/internal/price"
@@ -193,6 +194,10 @@ func deleteLLM(c *gin.Context) {
 func updateLLMPrice(c *gin.Context) {
 	err := price.UpdateLLMPrice(c.Request.Context())
 	if err != nil {
+		resp.InternalError(c)
+		return
+	}
+	if err := helper.LLMPriceRefreshExistingModels(c.Request.Context()); err != nil {
 		resp.InternalError(c)
 		return
 	}
