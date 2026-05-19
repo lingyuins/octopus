@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 	"sync"
@@ -70,6 +71,8 @@ type groupModelTestProgressEntry struct {
 var groupProbeProgress sync.Map
 
 var groupProbeProgressTTL = 10 * time.Minute
+
+const maxConcurrentGroupModelTests = 6
 
 func TestGroupModels(ctx context.Context, group *appmodel.Group, channels map[int]appmodel.Channel) (*GroupModelTestSummary, error) {
 	if conf.IsDevMockSuccess() {
@@ -249,66 +252,48 @@ func runGroupModelTest(ctx context.Context, group *appmodel.Group, channels map[
 	}
 
 	summary := &GroupModelTestSummary{Total: len(group.Items), Results: make([]GroupModelTestResult, 0, len(group.Items))}
-	for _, item := range group.Items {
-		result := GroupModelTestResult{
-			ItemID:    item.ID,
-			ChannelID: item.ChannelID,
-			ModelName: item.ModelName,
-			Attempts:  3,
-		}
+	workerCount := int(math.Min(float64(len(group.Items)), maxConcurrentGroupModelTests))
+	if workerCount < 1 {
+		workerCount = 1
+	}
 
-		channel, ok := channels[item.ChannelID]
-		if !ok {
-			result.Message = "channel not found"
-			appendGroupTestResult(summary, progress, result)
-			continue
-		}
-		result.ChannelName = channel.Name
-		if !channel.Enabled {
-			result.Message = "channel disabled"
-			appendGroupTestResult(summary, progress, result)
-			continue
-		}
+	type indexedResult struct {
+		index  int
+		result GroupModelTestResult
+	}
 
-		usedKey := channel.GetChannelKey()
-		if strings.TrimSpace(usedKey.ChannelKey) == "" {
-			result.Message = "no available key"
-			appendGroupTestResult(summary, progress, result)
-			continue
-		}
+	resultsByIndex := make([]GroupModelTestResult, len(group.Items))
+	jobs := make(chan int)
+	results := make(chan indexedResult, len(group.Items))
+	var wg sync.WaitGroup
 
-		outAdapter := outbound.Get(channel.Type)
-		if outAdapter == nil {
-			result.Message = fmt.Sprintf("unsupported channel type: %d", channel.Type)
-			appendGroupTestResult(summary, progress, result)
-			continue
-		}
+	for workerIndex := 0; workerIndex < workerCount; workerIndex++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for index := range jobs {
+				results <- indexedResult{index: index, result: testGroupModelItem(ctx, group.EndpointType, group.Items[index], channels)}
+			}
+		}()
+	}
 
-		if err := validateGroupProbeChannelType(group.EndpointType, channel.Type); err != nil {
-			result.Message = err.Error()
-			appendGroupTestResult(summary, progress, result)
-			continue
-		}
-
-		for attempt := 1; attempt <= 3; attempt++ {
-			if attempt > 1 && ctx.Err() != nil {
-				result.Message = ctx.Err().Error()
+	go func() {
+		for index := range group.Items {
+			if ctx.Err() != nil {
 				break
 			}
-			statusCode, responseText, err := sendGroupProbeRequest(ctx, outAdapter, &channel, usedKey.ChannelKey, group.EndpointType, item.ModelName)
-			result.StatusCode = statusCode
-			result.ResponseText = responseText
-			if err == nil {
-				result.Passed = true
-				result.Attempts = attempt
-				result.Message = "ok"
-				summary.Passed = true
-				break
-			}
-			result.Attempts = attempt
-			result.Message = err.Error()
+			jobs <- index
 		}
+		close(jobs)
+		wg.Wait()
+		close(results)
+	}()
 
+	for indexed := range results {
+		resultsByIndex[indexed.index] = indexed.result
+	}
+
+	for _, result := range resultsByIndex {
 		appendGroupTestResult(summary, progress, result)
 	}
 
@@ -320,6 +305,63 @@ func runGroupModelTest(ctx context.Context, group *appmodel.Group, channels map[
 	}
 
 	return summary, nil
+}
+
+func testGroupModelItem(ctx context.Context, endpointType string, item appmodel.GroupItem, channels map[int]appmodel.Channel) GroupModelTestResult {
+	result := GroupModelTestResult{
+		ItemID:    item.ID,
+		ChannelID: item.ChannelID,
+		ModelName: item.ModelName,
+		Attempts:  3,
+	}
+
+	channel, ok := channels[item.ChannelID]
+	if !ok {
+		result.Message = "channel not found"
+		return result
+	}
+	result.ChannelName = channel.Name
+	if !channel.Enabled {
+		result.Message = "channel disabled"
+		return result
+	}
+
+	usedKey := channel.GetChannelKey()
+	if strings.TrimSpace(usedKey.ChannelKey) == "" {
+		result.Message = "no available key"
+		return result
+	}
+
+	outAdapter := outbound.Get(channel.Type)
+	if outAdapter == nil {
+		result.Message = fmt.Sprintf("unsupported channel type: %d", channel.Type)
+		return result
+	}
+
+	if err := validateGroupProbeChannelType(endpointType, channel.Type); err != nil {
+		result.Message = err.Error()
+		return result
+	}
+
+	for attempt := 1; attempt <= 3; attempt++ {
+		if attempt > 1 && ctx.Err() != nil {
+			result.Message = ctx.Err().Error()
+			break
+		}
+		statusCode, responseText, err := sendGroupProbeRequest(ctx, outAdapter, &channel, usedKey.ChannelKey, endpointType, item.ModelName)
+		result.StatusCode = statusCode
+		result.ResponseText = responseText
+		if err == nil {
+			result.Passed = true
+			result.Attempts = attempt
+			result.Message = "ok"
+			break
+		}
+		result.Attempts = attempt
+		result.Message = err.Error()
+	}
+
+	return result
 }
 
 func appendGroupTestResult(summary *GroupModelTestSummary, progress *GroupModelTestProgress, result GroupModelTestResult) {

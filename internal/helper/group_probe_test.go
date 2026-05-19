@@ -80,8 +80,8 @@ func TestSendGroupProbeRequest_EmbeddingsUseEmbeddingPayload(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/embeddings" {
-			t.Fatalf("request path = %q, want /embeddings", r.URL.Path)
+		if r.URL.Path != "/v1/embeddings" {
+			t.Fatalf("request path = %q, want /v1/embeddings", r.URL.Path)
 		}
 		if got := r.Header.Get("Authorization"); got != "Bearer sk-test" {
 			t.Fatalf("Authorization = %q, want Bearer sk-test", got)

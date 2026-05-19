@@ -175,7 +175,7 @@ export function ChannelGroupManagerPanel({
                 </div>
             ) : null}
 
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 max-h-64 space-y-2 overflow-y-auto pr-1 md:max-h-72">
                 {isLoading ? (
                     <div className="rounded-lg border border-dashed border-border/30 bg-card p-4 text-sm text-muted-foreground">
                         {t('loading')}
