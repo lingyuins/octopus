@@ -80,7 +80,7 @@ export function Rank() {
             );
         }
         return (
-            <div className="max-h-[328px] space-y-2.5 overflow-y-auto pr-1 [scrollbar-width:thin]">
+            <div className="max-h-[196px] space-y-2.5 overflow-y-auto pr-1 [scrollbar-width:thin]">
                 {channels.map((channel, index) => {
                     const rank = index + 1;
 
@@ -172,7 +172,7 @@ export function Rank() {
         }
 
         return (
-            <div className="max-h-[328px] space-y-2.5 overflow-y-auto pr-1 [scrollbar-width:thin]">
+            <div className="max-h-[196px] space-y-2.5 overflow-y-auto pr-1 [scrollbar-width:thin]">
                 {apiKeys.map((apiKey, index) => {
                     const rank = index + 1;
                     const successCount = apiKey.request_success.raw;

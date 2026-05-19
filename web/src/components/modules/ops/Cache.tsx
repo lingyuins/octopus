@@ -208,7 +208,7 @@ function ProviderPromptCacheView({
             </div>
 
             <article className="rounded-xl border border-border/60 bg-card p-4">
-                <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="grid gap-6">
                     <div className="space-y-3">
                         <div>
                             <h4 className="text-sm font-semibold">{t('cache.providerPrompt.providers.title')}</h4>
@@ -245,12 +245,12 @@ function ProviderPromptCacheView({
                                             </th>
                                         </tr>
                                     </thead>
-                                        <tbody>
-                                            {data.providers.map((provider) => (
-                                                <ProviderPromptCacheRow key={provider.channel_id} provider={provider} />
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                    <tbody>
+                                        {data.providers.map((provider) => (
+                                            <ProviderPromptCacheRow key={provider.channel_id} provider={provider} />
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         )}
                     </div>

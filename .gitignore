@@ -18,5 +18,14 @@ AGENTS.md
 .superpowers/
 .tmp/
 .uploads/
+.playwright-cli/
+*-load.yaml
+opencode.json
 octopus.exe
+octopus-server.exe
 backend.dev.restart.log
+backend_err.txt
+backend_out.txt
+frontend_err.txt
+frontend_out.txt
+
