@@ -491,18 +491,29 @@ export function GroupCard({ group }: { group: Group }) {
     const handleRemoveFailedMembers = useCallback(() => {
         if (!group.id) return;
 
+        const failedResults = (testProgress?.results ?? []).filter((result) => !result.passed);
         const failedItemIds = new Set(
-            (testProgress?.results ?? [])
-                .filter((result) => !result.passed)
+            failedResults
                 .map((result) => result.item_id)
                 .filter((itemId): itemId is number => typeof itemId === 'number')
         );
+        const failedClientIds = new Set(
+            failedResults
+                .map((result) => result.client_id)
+                .filter((clientId): clientId is string => typeof clientId === 'string' && clientId.length > 0)
+        );
+        const failedFallbackKeys = new Set(
+            failedResults.map((result) => modelChannelKey(result.channel_id, result.model_name))
+        );
 
-        if (failedItemIds.size === 0) {
+        if (failedItemIds.size === 0 && failedClientIds.size === 0 && failedFallbackKeys.size === 0) {
             return;
         }
 
         const nextMembers = members.filter((member) => {
+            if (failedClientIds.has(member.id) || failedFallbackKeys.has(member.id)) {
+                return false;
+            }
             if (typeof member.item_id !== 'number') {
                 return true;
             }
