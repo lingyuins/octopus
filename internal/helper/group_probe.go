@@ -21,7 +21,19 @@ type GroupModelTestRequest struct {
 	GroupID int `json:"group_id" binding:"required"`
 }
 
+type GroupModelDraftTestItem struct {
+	ClientID  string `json:"client_id" binding:"required"`
+	ChannelID int    `json:"channel_id" binding:"required"`
+	ModelName string `json:"model_name" binding:"required"`
+}
+
+type GroupModelDraftTestRequest struct {
+	EndpointType string                    `json:"endpoint_type" binding:"required"`
+	Items        []GroupModelDraftTestItem `json:"items" binding:"required"`
+}
+
 type GroupModelTestResult struct {
+	ClientID     string `json:"client_id,omitempty"`
 	ItemID       int    `json:"item_id"`
 	ChannelID    int    `json:"channel_id"`
 	ChannelName  string `json:"channel_name"`
@@ -100,10 +112,12 @@ func StartGroupModelTest(group *appmodel.Group, channels map[int]appmodel.Channe
 		Results: make([]GroupModelTestResult, 0, len(group.Items)),
 	}
 	storeGroupModelProgress(progress)
+	log.Infof("start group test: group=%s progress_id=%s items=%d channels=%d", group.Name, id, len(group.Items), len(channels))
 
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
+				log.Errorf("group model test panic: group=%s progress_id=%s err=%v", group.Name, id, r)
 				failed := cloneGroupModelProgress(progress)
 				failed.Done = true
 				failed.Passed = false
@@ -115,11 +129,94 @@ func StartGroupModelTest(group *appmodel.Group, channels map[int]appmodel.Channe
 		defer cancel()
 
 		if _, err := runGroupModelTest(ctx, group, channels, progress); err != nil {
+			log.Errorf("group model test failed: group=%s progress_id=%s err=%v", group.Name, id, err)
 			failed := cloneGroupModelProgress(progress)
 			failed.Done = true
 			failed.Message = err.Error()
 			storeGroupModelProgress(&failed)
+			return
 		}
+		log.Infof("group model test completed: group=%s progress_id=%s", group.Name, id)
+	}()
+
+	cloned := cloneGroupModelProgress(progress)
+	return &cloned, nil
+}
+
+func StartDraftGroupModelTest(endpointType string, items []GroupModelDraftTestItem, channels map[int]appmodel.Channel) (*GroupModelTestProgress, error) {
+	log.Infof("start draft group test: endpoint_type=%s items=%d channels=%d", endpointType, len(items), len(channels))
+	group := &appmodel.Group{
+		Name:         "draft-group-test",
+		EndpointType: appmodel.NormalizeEndpointType(endpointType),
+		Items:        make([]appmodel.GroupItem, 0, len(items)),
+	}
+
+	for index, item := range items {
+		log.Infof("draft group test item: index=%d channel_id=%d model=%s", index, item.ChannelID, strings.TrimSpace(item.ModelName))
+		group.Items = append(group.Items, appmodel.GroupItem{
+			ID:        index + 1,
+			ChannelID: item.ChannelID,
+			ModelName: strings.TrimSpace(item.ModelName),
+			Priority:  index + 1,
+			Weight:    1,
+		})
+	}
+
+	id := uuid.NewString()
+	progress := &GroupModelTestProgress{
+		ID:      id,
+		Total:   len(group.Items),
+		Results: make([]GroupModelTestResult, 0, len(group.Items)),
+	}
+	storeGroupModelProgress(progress)
+
+	clientIDs := make(map[int]string, len(items))
+	for index, item := range items {
+		clientIDs[index+1] = strings.TrimSpace(item.ClientID)
+	}
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Errorf("draft group model test panic: progress_id=%s err=%v", id, r)
+				failed := cloneGroupModelProgress(progress)
+				failed.Done = true
+				failed.Passed = false
+				failed.Message = fmt.Sprintf("internal error: %v", r)
+				storeGroupModelProgress(&failed)
+			}
+		}()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
+		summary, err := runGroupModelTest(ctx, group, channels, progress)
+		if err != nil {
+			log.Errorf("draft group model test failed: progress_id=%s err=%v", id, err)
+			failed := cloneGroupModelProgress(progress)
+			failed.Done = true
+			failed.Message = err.Error()
+			for i := range failed.Results {
+				if clientID, ok := clientIDs[failed.Results[i].ItemID]; ok {
+					failed.Results[i].ClientID = clientID
+				}
+			}
+			storeGroupModelProgress(&failed)
+			return
+		}
+
+		final := cloneGroupModelProgress(progress)
+		final.Passed = summary.Passed
+		final.Completed = summary.Completed
+		final.Total = summary.Total
+		final.Done = true
+		final.Results = append([]GroupModelTestResult(nil), summary.Results...)
+		for i := range final.Results {
+			if clientID, ok := clientIDs[final.Results[i].ItemID]; ok {
+				final.Results[i].ClientID = clientID
+			}
+		}
+		storeGroupModelProgress(&final)
 	}()
 
 	cloned := cloneGroupModelProgress(progress)
@@ -226,6 +323,7 @@ func runGroupModelTest(ctx context.Context, group *appmodel.Group, channels map[
 }
 
 func appendGroupTestResult(summary *GroupModelTestSummary, progress *GroupModelTestProgress, result GroupModelTestResult) {
+	log.Infof("group test result: item_id=%d channel_id=%d model=%s passed=%t status=%d message=%s", result.ItemID, result.ChannelID, result.ModelName, result.Passed, result.StatusCode, result.Message)
 	summary.Results = append(summary.Results, result)
 	summary.Completed = len(summary.Results)
 	if result.Passed {
@@ -369,8 +467,12 @@ func validateGroupProbeChannelType(endpointType string, channelType outbound.Out
 		if !outbound.IsEmbeddingChannelType(channelType) {
 			return fmt.Errorf("channel type %d does not support endpoint type %s", channelType, appmodel.EndpointTypeEmbeddings)
 		}
+		return nil
 	case appmodel.EndpointTypeAll:
-		fallthrough
+		if !outbound.IsChatChannelType(channelType) {
+			return fmt.Errorf("channel type %d does not support endpoint type %s", channelType, appmodel.EndpointTypeAll)
+		}
+		return nil
 	default:
 		if appmodel.IsConversationEndpointType(normalizedEndpointType) {
 			if !outbound.IsChatChannelType(channelType) {

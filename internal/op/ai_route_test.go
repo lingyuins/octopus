@@ -110,6 +110,57 @@ func TestNormalizeAIRouteEntriesKeepsDifferentEndpointTypesSeparated(t *testing.
 	}
 }
 
+func TestNormalizeAIRouteEntriesSeparatesFreeTierModels(t *testing.T) {
+	routes := []model.AIRouteEntry{
+		{
+			EndpointType:   model.EndpointTypeAll,
+			RequestedModel: "glm-5.1",
+			Items: []model.AIRouteItemSpec{
+				{ChannelID: 1, UpstreamModel: "glm-5.1-free"},
+			},
+		},
+		{
+			EndpointType:   model.EndpointTypeAll,
+			RequestedModel: "glm-5.1",
+			Items: []model.AIRouteItemSpec{
+				{ChannelID: 2, UpstreamModel: "glm-5.1"},
+			},
+		},
+	}
+
+	got := normalizeAIRouteEntries(routes)
+	if len(got) != 2 {
+		t.Fatalf("normalizeAIRouteEntries() len = %d, want 2", len(got))
+	}
+
+	if got[0].RequestedModel != "glm-5.1-free" {
+		t.Fatalf("normalizeAIRouteEntries()[0].RequestedModel = %q, want %q", got[0].RequestedModel, "glm-5.1-free")
+	}
+	if got[1].RequestedModel != "glm-5.1" {
+		t.Fatalf("normalizeAIRouteEntries()[1].RequestedModel = %q, want %q", got[1].RequestedModel, "glm-5.1")
+	}
+}
+
+func TestNormalizeAIRouteEntriesPreservesExistingFreeTierSuffix(t *testing.T) {
+	routes := []model.AIRouteEntry{
+		{
+			EndpointType:   model.EndpointTypeAll,
+			RequestedModel: "glm-5.1-free",
+			Items: []model.AIRouteItemSpec{
+				{ChannelID: 1, UpstreamModel: "glm-5.1-free"},
+			},
+		},
+	}
+
+	got := normalizeAIRouteEntries(routes)
+	if len(got) != 1 {
+		t.Fatalf("normalizeAIRouteEntries() len = %d, want 1", len(got))
+	}
+	if got[0].RequestedModel != "glm-5.1-free" {
+		t.Fatalf("normalizeAIRouteEntries()[0].RequestedModel = %q, want %q", got[0].RequestedModel, "glm-5.1-free")
+	}
+}
+
 func TestAutoCorrectAIRouteTableRoutesRenamesConflictingEndpointTypes(t *testing.T) {
 	routes := []model.AIRouteEntry{
 		{

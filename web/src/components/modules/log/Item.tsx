@@ -204,6 +204,8 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
     const requestAPIKeyName = displayFields.requestAPIKeyName;
     const cacheReadTokens = displayFields.cacheReadTokens;
     const semanticCacheHit = displayFields.semanticCacheHit;
+    const effectiveInputTokens = Math.max(0, log.input_tokens - cacheReadTokens);
+    const inputLabel = cacheReadTokens > 0 ? t('realInput') : t('input');
     const displayChannelName = displayFields.channelName || '-';
     const displayEndpointType = useMemo(() => {
         const rawEndpointType = displayFields.endpointType;
@@ -291,7 +293,7 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <ArrowDownToLine className="size-3.5 shrink-0 text-green-500" />
-                                    <span>{t('input')} {log.input_tokens.toLocaleString()}</span>
+                                    <span>{inputLabel} {effectiveInputTokens.toLocaleString()}</span>
                                 </div>
                                 {semanticCacheHit && (
                                     <div className="flex items-center gap-1.5">

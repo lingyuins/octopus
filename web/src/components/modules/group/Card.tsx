@@ -3,14 +3,14 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Trash2, X, Pencil, Activity, Loader2, CircleCheck, CircleX, Clock3, Layers, Waves, Orbit, TestTubeDiagonal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { type Group, useDeleteGroup, useUpdateGroup, useTestGroup, useGroupTestProgress, type GroupTestResult } from '@/api/endpoints/group';
+import { type Group, useDeleteGroup, useUpdateGroup, useTestGroup, useTestDraftGroup, useGroupTestProgress, type GroupTestResult } from '@/api/endpoints/group';
 import { useModelChannelList } from '@/api/endpoints/model';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/common/Toast';
 import { CopyIconButton } from '@/components/common/CopyButton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
-import type { SelectedMember } from './ItemList';
+import type { MemberAvailabilityMeta, SelectedMember } from './ItemList';
 import { MemberList } from './ItemList';
 import { GroupEditor, type GroupEditorValues } from './Editor';
 import { AIRouteButton } from './AIRouteButton';
@@ -30,12 +30,42 @@ import { Progress } from '@/components/ui/progress';
 
 interface EditDialogContentProps {
     group: Group;
-    displayMembers: SelectedMember[];
+    editMembers: SelectedMember[];
     isSubmitting: boolean;
     onSubmit: (values: GroupEditorValues, onDone?: () => void) => void;
+    onTestAvailability: () => void;
+    onRemoveFailedModels: () => void;
+    isTestingAvailability: boolean;
+    canRemoveFailedModels: boolean;
+    testProgressCompleted: number;
+    testProgressTotal: number;
+    testProgressValue: number;
+    testResults: GroupTestResult[];
+    availabilityByMemberId: Record<string, MemberAvailabilityMeta>;
+    availabilitySummary?: {
+        unavailableCount: number;
+        availableCount: number;
+        allAvailable: boolean;
+        fullyMatched: boolean;
+    };
 }
 
-function EditDialogContent({ group, displayMembers, isSubmitting, onSubmit }: EditDialogContentProps) {
+function EditDialogContent({
+    group,
+    editMembers,
+    isSubmitting,
+    onSubmit,
+    onTestAvailability,
+    onRemoveFailedModels,
+    isTestingAvailability,
+    canRemoveFailedModels,
+    testProgressCompleted,
+    testProgressTotal,
+    testProgressValue,
+    testResults,
+    availabilityByMemberId,
+    availabilitySummary,
+}: EditDialogContentProps) {
     const { setIsOpen } = useMorphingDialog();
     const t = useTranslations('group');
     return (
@@ -68,25 +98,134 @@ function EditDialogContent({ group, displayMembers, isSubmitting, onSubmit }: Ed
                     </div>
                 </header>
             </MorphingDialogTitle>
-            <MorphingDialogDescription className="flex-1 min-h-0 overflow-hidden">
-                <GroupEditor
-                    key={`edit-group-${group.id}`}
-                    initial={{
-                        name: group.name,
-                        endpoint_type: normalizeEndpointType(group.endpoint_type),
-                        match_regex: group.match_regex ?? '',
-                        condition: group.condition ?? '',
-                        mode: group.mode,
-                        first_token_time_out: group.first_token_time_out ?? 0,
-                        session_keep_time: group.session_keep_time ?? 0,
-                        members: displayMembers,
-                    }}
-                    submitText={t('detail.actions.save')}
-                    submittingText={t('create.submitting')}
-                    isSubmitting={isSubmitting}
-                    onCancel={() => setIsOpen(false)}
-                    onSubmit={(v) => onSubmit(v, () => setIsOpen(false))}
-                />
+            <MorphingDialogDescription className="flex-1 min-h-0 overflow-y-auto">
+                <div className="space-y-4 pr-1">
+                    {group.id ? (
+                        <section className="rounded-lg border border-border/25 bg-card p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="space-y-1">
+                                    <h3 className="text-sm font-semibold text-foreground">{t('detail.availability.title')}</h3>
+                                    <p className="text-xs text-muted-foreground">{t('detail.availability.description')}</p>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {canRemoveFailedModels ? (
+                                        <button
+                                            type="button"
+                                            onClick={onRemoveFailedModels}
+                                            className="inline-flex h-9 items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/8 px-3 text-sm font-medium text-destructive transition-colors hover:bg-destructive/12"
+                                        >
+                                            <Trash2 className="size-4" />
+                                            {t('detail.actions.removeFailedModels')}
+                                        </button>
+                                    ) : null}
+                                    <button
+                                        type="button"
+                                        onClick={onTestAvailability}
+                                        disabled={isTestingAvailability || !group.id}
+                                        className={cn(
+                                            'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-colors',
+                                            isTestingAvailability
+                                                ? 'cursor-not-allowed border-border/25 bg-muted text-muted-foreground'
+                                                : 'border-primary/20 bg-primary text-primary-foreground hover:opacity-90'
+                                        )}
+                                    >
+                                        {isTestingAvailability ? <Loader2 className="size-4 animate-spin" /> : <TestTubeDiagonal className="size-4" />}
+                                        {t('detail.availability.testAll')}
+                                    </button>
+                                </div>
+                            </div>
+                            {(isTestingAvailability || availabilitySummary) ? (
+                                <div className="mt-4 space-y-3">
+                                    <Progress value={testProgressValue} className="h-2" />
+                                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                        <span>{t('card.testProgressCount', { completed: testProgressCompleted, total: testProgressTotal || editMembers.length })}</span>
+                                        {availabilitySummary?.fullyMatched ? (
+                                            <span className={cn(
+                                                'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium',
+                                                availabilitySummary.allAvailable
+                                                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600'
+                                                    : 'border-destructive/20 bg-destructive/10 text-destructive'
+                                            )}>
+                                                {availabilitySummary.allAvailable ? t('toast.testAllPassed') : t('toast.testPartialFailed')}
+                                            </span>
+                                        ) : null}
+                                        {availabilitySummary?.fullyMatched ? (
+                                            <span className="text-destructive">
+                                                {t('detail.availability.unavailableCount', { count: availabilitySummary.unavailableCount })}
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                    <div className="rounded-lg border border-border/20 bg-background/40">
+                                        <MemberList
+                                            members={editMembers}
+                                            onReorder={() => undefined}
+                                            onRemove={() => undefined}
+                                            autoScrollOnAdd={false}
+                                            showConfirmDelete={false}
+                                            showWeight={group.mode === GroupMode.Weighted || group.mode === GroupMode.Auto}
+                                            availabilityById={availabilityByMemberId}
+                                        />
+                                    </div>
+                                    {testResults.length > 0 ? (
+                                        <div className="rounded-lg border border-border/20 bg-background/50 p-3">
+                                            <div className="mb-2 text-xs font-medium text-foreground">{t('detail.availability.resultTitle')}</div>
+                                            <div className="space-y-2">
+                                                {testResults.map((result) => (
+                                                    <div
+                                                        key={result.client_id || `${result.item_id}-${result.channel_id}-${result.model_name}`}
+                                                        className={cn(
+                                                            'rounded-md border px-3 py-2 text-xs',
+                                                            result.passed
+                                                                ? 'border-emerald-500/15 bg-emerald-500/5'
+                                                                : 'border-destructive/15 bg-destructive/5'
+                                                        )}
+                                                    >
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                            <span className="font-medium text-foreground">{result.model_name}</span>
+                                                            <span className="text-muted-foreground">@ {result.channel_name}</span>
+                                                            <span className={cn(result.passed ? 'text-emerald-600' : 'text-destructive')}>
+                                                                {result.passed ? t('detail.availability.resultPassed') : t('detail.availability.resultFailed')}
+                                                            </span>
+                                                            {result.status_code > 0 ? (
+                                                                <span className="text-muted-foreground">HTTP {result.status_code}</span>
+                                                            ) : null}
+                                                            <span className="text-muted-foreground">{t('detail.availability.resultAttempts', { count: result.attempts })}</span>
+                                                        </div>
+                                                        {result.message ? (
+                                                            <div className="mt-1 break-all text-muted-foreground">{result.message}</div>
+                                                        ) : null}
+                                                        {!result.passed && result.response_text ? (
+                                                            <div className="mt-1 break-all text-muted-foreground/90">{result.response_text}</div>
+                                                        ) : null}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                        </section>
+                    ) : null}
+
+                    <GroupEditor
+                        key={`edit-group-${group.id}`}
+                        initial={{
+                            name: group.name,
+                            endpoint_type: normalizeEndpointType(group.endpoint_type),
+                            match_regex: group.match_regex ?? '',
+                            condition: group.condition ?? '',
+                            mode: group.mode,
+                            first_token_time_out: group.first_token_time_out ?? 0,
+                            session_keep_time: group.session_keep_time ?? 0,
+                            members: editMembers,
+                        }}
+                        submitText={t('detail.actions.save')}
+                        submittingText={t('create.submitting')}
+                        isSubmitting={isSubmitting}
+                        onCancel={() => setIsOpen(false)}
+                        onSubmit={(v) => onSubmit(v, () => setIsOpen(false))}
+                    />
+                </div>
             </MorphingDialogDescription>
         </>
     );
@@ -97,6 +236,7 @@ export function GroupCard({ group }: { group: Group }) {
     const updateGroup = useUpdateGroup();
     const deleteGroup = useDeleteGroup();
     const testGroup = useTestGroup();
+    const testDraftGroup = useTestDraftGroup();
     const { data: modelChannels = [] } = useModelChannelList();
 
     const channelNameByKey = useMemo(() => buildChannelNameByModelKey(modelChannels), [modelChannels]);
@@ -188,6 +328,27 @@ export function GroupCard({ group }: { group: Group }) {
         });
     }, [getRemovableSuggestion, t, testProgress]);
 
+    const handleTestDraftGroup = useCallback(() => {
+        if (members.length === 0) return;
+        setCurrentTestId(null);
+        handledTestCompletionRef.current = null;
+        testDraftGroup.mutate({
+            endpoint_type: normalizeEndpointType(group.endpoint_type),
+            items: members.map((member) => ({
+                client_id: member.id,
+                channel_id: member.channel_id,
+                model_name: member.name,
+            })),
+        }, {
+            onSuccess: (progress) => {
+                setCurrentTestId(progress.id);
+            },
+            onError: (error: Error) => {
+                toast.error(t('toast.testRequestFailed'), { description: error.message });
+            },
+        });
+    }, [group.endpoint_type, members, t, testDraftGroup]);
+
     const handleTestGroup = useCallback(() => {
         if (!group.id) return;
         setCurrentTestId(null);
@@ -237,34 +398,6 @@ export function GroupCard({ group }: { group: Group }) {
         const member = members.find((m) => m.id === id);
         if (member?.item_id !== undefined) updateGroup.mutate({ id: group.id!, items_to_delete: [member.item_id] }, { onSuccess, onError });
     }, [members, group.id, updateGroup, onSuccess, onError]);
-
-    const handleRemoveFailedMembers = useCallback(() => {
-        if (!group.id) return;
-
-        const failedIds = Array.from(new Set(
-            (testProgress?.results ?? [])
-                .filter((result) => !result.passed)
-                .map((result) => result.item_id)
-                .filter((itemId): itemId is number => typeof itemId === 'number')
-        ));
-
-        if (failedIds.length === 0) {
-            return;
-        }
-
-        updateGroup.mutate(
-            { id: group.id, items_to_delete: failedIds },
-            {
-                onSuccess: () => {
-                    setCurrentTestId(null);
-                    handledTestCompletionRef.current = null;
-                    onSuccess();
-                    toast.success(t('toast.removedFailedModels'));
-                },
-                onError,
-            }
-        );
-    }, [group.id, onError, onSuccess, t, testProgress?.results, updateGroup]);
 
     const handleWeightChange = useCallback((id: string, weight: number) => {
         setMembers((prev) => prev.map((m) => m.id === id ? { ...m, weight } : m));
@@ -355,6 +488,50 @@ export function GroupCard({ group }: { group: Group }) {
         });
     }, [group.condition, group.endpoint_type, group.first_token_time_out, group.session_keep_time, group.id, group.items, group.match_regex, group.mode, group.name, onSuccess, onError, updateGroup]);
 
+    const handleRemoveFailedMembers = useCallback(() => {
+        if (!group.id) return;
+
+        const failedItemIds = new Set(
+            (testProgress?.results ?? [])
+                .filter((result) => !result.passed)
+                .map((result) => result.item_id)
+                .filter((itemId): itemId is number => typeof itemId === 'number')
+        );
+
+        if (failedItemIds.size === 0) {
+            return;
+        }
+
+        const nextMembers = members.filter((member) => {
+            if (typeof member.item_id !== 'number') {
+                return true;
+            }
+            return !failedItemIds.has(member.item_id);
+        });
+
+        if (nextMembers.length === members.length) {
+            return;
+        }
+
+        const values: GroupEditorValues = {
+            name: group.name,
+            endpoint_type: normalizeEndpointType(group.endpoint_type),
+            match_regex: group.match_regex ?? '',
+            condition: group.condition ?? '',
+            mode: group.mode,
+            first_token_time_out: group.first_token_time_out ?? 0,
+            session_keep_time: group.session_keep_time ?? 0,
+            members: nextMembers,
+        };
+
+        setMembers(nextMembers);
+        handleSubmitEdit(values, () => {
+            setCurrentTestId(null);
+            handledTestCompletionRef.current = null;
+            toast.success(t('toast.removedFailedModels'));
+        });
+    }, [group.condition, group.endpoint_type, group.first_token_time_out, group.id, group.match_regex, group.mode, group.name, group.session_keep_time, handleSubmitEdit, members, t, testProgress?.results]);
+
     const failedTestResults = useMemo(
         () => (testProgress?.done ? (testProgress.results ?? []).filter((result) => !result.passed) : []),
         [testProgress]
@@ -369,10 +546,55 @@ export function GroupCard({ group }: { group: Group }) {
         return map;
     }, [testProgress]);
 
-    const isTesting = testGroup.isPending || (!!currentTestId && !testProgress?.done);
+    const isTesting = testDraftGroup.isPending || (!!currentTestId && !testProgress?.done);
     const completedCount = testProgress?.completed ?? 0;
     const totalCount = testProgress?.total ?? group.items?.length ?? 0;
     const progressValue = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+    const availabilityByMemberId = useMemo(() => {
+        const map: Record<string, MemberAvailabilityMeta> = {};
+        const activeResults = testProgress?.results ?? [];
+        const resultByClientId = new Map<string, GroupTestResult>();
+        const resultByFallbackKey = new Map<string, GroupTestResult>();
+
+        activeResults.forEach((result) => {
+            if (result.client_id) {
+                resultByClientId.set(result.client_id, result);
+            }
+            resultByFallbackKey.set(modelChannelKey(result.channel_id, result.model_name), result);
+        });
+
+        members.forEach((member) => {
+            const matched = resultByClientId.get(member.id) ?? resultByFallbackKey.get(member.id);
+            if (matched) {
+                map[member.id] = {
+                    status: matched.passed ? 'available' : 'unavailable',
+                    message: matched.message || matched.response_text || undefined,
+                };
+                return;
+            }
+            map[member.id] = { status: isTesting ? 'testing' : 'idle' };
+        });
+
+        return map;
+    }, [isTesting, members, testProgress?.results]);
+
+    const availabilitySummary = useMemo(() => {
+        if (!testProgress?.done) {
+            return undefined;
+        }
+        const results = testProgress.results ?? [];
+        const resultKeys = new Set(results.map((result) => modelChannelKey(result.channel_id, result.model_name)));
+        const savedMembers = members.filter((member) => typeof member.item_id === 'number');
+        const fullyMatched = savedMembers.length > 0 && savedMembers.every((member) => resultKeys.has(member.id));
+        return {
+            unavailableCount: results.filter((result) => !result.passed).length,
+            availableCount: results.filter((result) => result.passed).length,
+            allAvailable: results.length > 0 && results.every((result) => result.passed),
+            fullyMatched,
+        };
+    }, [members, testProgress]);
+
+    const canRemoveFailedModels = Boolean(availabilitySummary?.fullyMatched && availabilitySummary.unavailableCount > 0 && !isTesting && !updateGroup.isPending);
 
     const maxVisibleMembers = 6;
     const memberRowHeightRem = 3.25;
@@ -419,9 +641,19 @@ export function GroupCard({ group }: { group: Group }) {
                             <MorphingDialogContent className="relative flex h-[calc(100dvh-2rem)] w-[min(100vw-2rem,92rem)] max-w-full flex-col overflow-hidden rounded-xl border border-border/35 bg-card px-4 py-4 text-card-foreground shadow-md  md:h-[calc(100dvh-3rem)] md:px-6">
                                 <EditDialogContent
                                     group={group}
-                                    displayMembers={displayMembers}
+                                    editMembers={members}
                                     isSubmitting={updateGroup.isPending}
                                     onSubmit={handleSubmitEdit}
+                                    onTestAvailability={handleTestDraftGroup}
+                                    onRemoveFailedModels={handleRemoveFailedMembers}
+                                    isTestingAvailability={isTesting}
+                                    canRemoveFailedModels={canRemoveFailedModels}
+                                    testProgressCompleted={completedCount}
+                                    testProgressTotal={totalCount}
+                                    testProgressValue={progressValue}
+                                    testResults={testProgress?.results ?? []}
+                                    availabilityByMemberId={availabilityByMemberId}
+                                    availabilitySummary={availabilitySummary}
                                 />
                             </MorphingDialogContent>
                         </MorphingDialogContainer>

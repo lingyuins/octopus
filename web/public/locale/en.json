@@ -453,55 +453,55 @@
       }
     },
     "telemetry": {
-        "hero": {
-            "uptime": "Uptime",
-            "total_requests": "Total Requests",
-            "avg_latency": "Avg Latency",
-            "error_rate": "Error Rate",
-            "active_connections": "Active Connections",
-            "memory_usage": "Memory Usage"
-        },
-        "runtime_signals": {
-            "title": "Runtime Signals",
-            "p95_latency": "P95 Latency",
-            "throughput": "Throughput",
-            "memory": "Memory"
-        },
-        "database_health": {
-            "title": "Database Health",
-            "issues_label": "issues",
-            "status": {
-                "healthy": "Healthy",
-                "degraded": "Degraded"
-            }
-        },
-        "session_quota": {
-            "title": "Session & Quota Activity",
-            "active_sessions": "Active Sessions",
-            "sticky_sessions": "Sticky Sessions",
-            "quota_alerts": "Quota Alerts"
-        },
-        "prompt_cache": {
-            "title": "Semantic Cache",
-            "entries": "Entries",
-            "hit_rate": "Hit Rate",
-            "hits": "Hits",
-            "misses": "Misses"
-        },
-        "provider_health": {
-            "title": "Provider Health",
-            "active": "active",
-            "monitored": "monitored",
-            "empty": "No provider data available",
-            "name": "Name",
-            "status": "Status",
-            "latency": "Latency",
-            "requests": "Requests",
-            "success_rate": "Success Rate"
-        },
-        "drilldown": {
-            "title": "Drilldown Shortcuts"
+      "hero": {
+        "uptime": "Uptime",
+        "total_requests": "Total Requests",
+        "avg_latency": "Avg Latency",
+        "error_rate": "Error Rate",
+        "active_connections": "Active Connections",
+        "memory_usage": "Memory Usage"
+      },
+      "runtime_signals": {
+        "title": "Runtime Signals",
+        "p95_latency": "P95 Latency",
+        "throughput": "Throughput",
+        "memory": "Memory"
+      },
+      "database_health": {
+        "title": "Database Health",
+        "issues_label": "issues",
+        "status": {
+          "healthy": "Healthy",
+          "degraded": "Degraded"
         }
+      },
+      "session_quota": {
+        "title": "Session & Quota Activity",
+        "active_sessions": "Active Sessions",
+        "sticky_sessions": "Sticky Sessions",
+        "quota_alerts": "Quota Alerts"
+      },
+      "prompt_cache": {
+        "title": "Semantic Cache",
+        "entries": "Entries",
+        "hit_rate": "Hit Rate",
+        "hits": "Hits",
+        "misses": "Misses"
+      },
+      "provider_health": {
+        "title": "Provider Health",
+        "active": "active",
+        "monitored": "monitored",
+        "empty": "No provider data available",
+        "name": "Name",
+        "status": "Status",
+        "latency": "Latency",
+        "requests": "Requests",
+        "success_rate": "Success Rate"
+      },
+      "drilldown": {
+        "title": "Drilldown Shortcuts"
+      }
     }
   },
   "user": {
@@ -1109,7 +1109,7 @@
       },
       "manualSync": {
         "label": "Manual Channel Sync",
-        "button": "Sync Now",
+        "button": "Sync Channel Models Now",
         "syncing": "Syncing..."
       },
       "lastSync": "Last Sync",
@@ -1404,6 +1404,17 @@
       "endpointType": "API Type: {value}"
     },
     "detail": {
+      "availability": {
+        "title": "Full availability check",
+        "description": "Test every model in this group and highlight unavailable ones.",
+        "testAll": "Test all models",
+        "unavailableBadge": "Unavailable",
+        "unavailableCount": "{count, plural, one {# unavailable model} other {# unavailable models}}",
+        "resultTitle": "Check details",
+        "resultPassed": "Passed",
+        "resultFailed": "Failed",
+        "resultAttempts": "Retried {count} times"
+      },
       "actions": {
         "edit": "Edit",
         "cancel": "Cancel",
@@ -1567,6 +1578,7 @@
       "firstToken": "TTFT",
       "totalTime": "Total",
       "input": "Input",
+      "realInput": "Actual Input",
       "cacheHit": "Cache Hit",
       "semanticCacheHit": "Semantic Cache Hit",
       "output": "Output",
@@ -1645,7 +1657,7 @@
     },
     "groupManager": {
       "title": "Channel Groups",
-      "hint": "Used only for management and display on the channel page. It does not affect routing or relay behavior.",
+      "hint": "Used for channel page management and display, and also as a grouping reference during AI route generation, but it does not directly rewrite existing routing or relay results.",
       "create": "New Group",
       "createPlaceholder": "Enter a channel group name",
       "rename": "Rename",

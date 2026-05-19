@@ -1159,7 +1159,7 @@ func normalizeAIRouteEntries(routes []model.AIRouteEntry) []model.AIRouteEntry {
 	order := make([]string, 0, len(routes))
 
 	for _, route := range routes {
-		requestedModel := strings.TrimSpace(route.RequestedModel)
+		requestedModel := normalizeAIRouteRequestedModel(route)
 		if requestedModel == "" {
 			continue
 		}
@@ -1205,6 +1205,46 @@ func normalizeAIRouteEntries(routes []model.AIRouteEntry) []model.AIRouteEntry {
 	}
 
 	return result
+}
+
+func normalizeAIRouteRequestedModel(route model.AIRouteEntry) string {
+	requestedModel := strings.TrimSpace(route.RequestedModel)
+	if requestedModel == "" {
+		return ""
+	}
+
+	if !aiRouteItemsContainFreeTier(route.Items) {
+		return requestedModel
+	}
+
+	if aiRouteHasTierSuffix(requestedModel) {
+		return requestedModel
+	}
+
+	return requestedModel + "-free"
+}
+
+func aiRouteItemsContainFreeTier(items []model.AIRouteItemSpec) bool {
+	for _, item := range items {
+		if aiRouteLooksLikeFreeTierModel(item.UpstreamModel) {
+			return true
+		}
+	}
+	return false
+}
+
+func aiRouteLooksLikeFreeTierModel(modelName string) bool {
+	name := strings.ToLower(strings.TrimSpace(modelName))
+	if name == "" {
+		return false
+	}
+
+	return strings.Contains(name, "free") || strings.Contains(name, "公益")
+}
+
+func aiRouteHasTierSuffix(requestedModel string) bool {
+	name := strings.ToLower(strings.TrimSpace(requestedModel))
+	return strings.HasSuffix(name, "-free") || strings.HasSuffix(name, "-公益")
 }
 
 func dedupeAIRouteItems(items []model.AIRouteItemSpec) []model.AIRouteItemSpec {

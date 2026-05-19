@@ -453,55 +453,55 @@
       }
     },
     "telemetry": {
-        "hero": {
-            "uptime": "運行時間",
-            "total_requests": "總請求",
-            "avg_latency": "平均延遲",
-            "error_rate": "錯誤率",
-            "active_connections": "活躍連接",
-            "memory_usage": "記憶體使用"
-        },
-        "runtime_signals": {
-            "title": "運行時信號",
-            "p95_latency": "P95 延遲",
-            "throughput": "吞吐量",
-            "memory": "記憶體"
-        },
-        "database_health": {
-            "title": "資料庫健康",
-            "issues_label": "個問題",
-            "status": {
-                "healthy": "健康",
-                "degraded": "降級"
-            }
-        },
-        "session_quota": {
-            "title": "會話與配額活動",
-            "active_sessions": "活躍會話",
-            "sticky_sessions": "黏性會話",
-            "quota_alerts": "配額告警"
-        },
-        "prompt_cache": {
-            "title": "語意快取",
-            "entries": "條目數",
-            "hit_rate": "命中率",
-            "hits": "命中",
-            "misses": "未命中"
-        },
-        "provider_health": {
-            "title": "供應商健康",
-            "active": "活躍",
-            "monitored": "監控",
-            "empty": "暫無供應商資料",
-            "name": "名稱",
-            "status": "狀態",
-            "latency": "延遲",
-            "requests": "請求數",
-            "success_rate": "成功率"
-        },
-        "drilldown": {
-            "title": "快捷下鑽"
+      "hero": {
+        "uptime": "運行時間",
+        "total_requests": "總請求",
+        "avg_latency": "平均延遲",
+        "error_rate": "錯誤率",
+        "active_connections": "活躍連接",
+        "memory_usage": "記憶體使用"
+      },
+      "runtime_signals": {
+        "title": "運行時信號",
+        "p95_latency": "P95 延遲",
+        "throughput": "吞吐量",
+        "memory": "記憶體"
+      },
+      "database_health": {
+        "title": "資料庫健康",
+        "issues_label": "個問題",
+        "status": {
+          "healthy": "健康",
+          "degraded": "降級"
         }
+      },
+      "session_quota": {
+        "title": "會話與配額活動",
+        "active_sessions": "活躍會話",
+        "sticky_sessions": "黏性會話",
+        "quota_alerts": "配額告警"
+      },
+      "prompt_cache": {
+        "title": "語意快取",
+        "entries": "條目數",
+        "hit_rate": "命中率",
+        "hits": "命中",
+        "misses": "未命中"
+      },
+      "provider_health": {
+        "title": "供應商健康",
+        "active": "活躍",
+        "monitored": "監控",
+        "empty": "暫無供應商資料",
+        "name": "名稱",
+        "status": "狀態",
+        "latency": "延遲",
+        "requests": "請求數",
+        "success_rate": "成功率"
+      },
+      "drilldown": {
+        "title": "快捷下鑽"
+      }
     }
   },
   "user": {
@@ -1404,6 +1404,17 @@
       "endpointType": "API 分類：{value}"
     },
     "detail": {
+      "availability": {
+        "title": "?????????",
+        "description": "???????????????????",
+        "testAll": "??????",
+        "unavailableBadge": "???",
+        "unavailableCount": "{count} ??????",
+        "resultTitle": "????",
+        "resultPassed": "??",
+        "resultFailed": "??",
+        "resultAttempts": "?? {count} ?"
+      },
       "actions": {
         "edit": "編輯",
         "cancel": "取消",
@@ -1580,7 +1591,8 @@
       "retryDetails": "重試詳情",
       "attempts": "次嘗試",
       "success": "成功",
-      "failed": "失敗"
+      "failed": "失敗",
+      "realInput": "真實輸入"
     }
   },
   "channel": {
@@ -1645,7 +1657,7 @@
     },
     "groupManager": {
       "title": "渠道分組",
-      "hint": "僅用於渠道頁面的管理與展示，不影響現有路由與轉發邏輯。",
+      "hint": "用於渠道頁面的管理與展示，也會作為 AI 路由生成時的分組參考，但不會直接改寫現有路由與轉發結果。",
       "create": "新增分組",
       "createPlaceholder": "輸入渠道分組名稱",
       "rename": "重新命名",

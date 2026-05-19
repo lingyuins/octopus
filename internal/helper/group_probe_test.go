@@ -66,6 +66,13 @@ func TestValidateGroupProbeChannelType_RejectsMismatchedEmbeddingChannel(t *test
 	}
 }
 
+func TestValidateGroupProbeChannelType_AllAcceptsChatChannel(t *testing.T) {
+	err := validateGroupProbeChannelType(appmodel.EndpointTypeAll, outbound.OutboundTypeOpenAIChat)
+	if err != nil {
+		t.Fatalf("validateGroupProbeChannelType() error = %v, want nil", err)
+	}
+}
+
 func TestSendGroupProbeRequest_EmbeddingsUseEmbeddingPayload(t *testing.T) {
 	type outboundRequest struct {
 		Model string `json:"model"`

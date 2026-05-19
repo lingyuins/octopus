@@ -47,6 +47,11 @@ func init() {
 				Handle(startGroupTest),
 		).
 		AddRoute(
+			router.NewRoute("/test-draft", http.MethodPost).
+				Use(middleware.RequirePermission(auth.PermGroupsWrite)).
+				Handle(startDraftGroupTest),
+		).
+		AddRoute(
 			router.NewRoute("/test/progress/:id", http.MethodGet).
 				Handle(getGroupTestProgress),
 		).
@@ -187,6 +192,38 @@ func startGroupTest(c *gin.Context) {
 	}
 
 	progress, err := helper.StartGroupModelTest(group, channels)
+	if err != nil {
+		resp.Error(c, http.StatusBadRequest, "failed to start group test")
+		return
+	}
+	resp.Success(c, progress)
+}
+
+func startDraftGroupTest(c *gin.Context) {
+	var req helper.GroupModelDraftTestRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+
+	if len(req.Items) == 0 {
+		resp.Error(c, http.StatusBadRequest, "group has no items")
+		return
+	}
+
+	channels := make(map[int]model.Channel, len(req.Items))
+	for _, item := range req.Items {
+		if _, ok := channels[item.ChannelID]; ok {
+			continue
+		}
+		channel, err := op.ChannelGet(item.ChannelID, c.Request.Context())
+		if err != nil {
+			continue
+		}
+		channels[item.ChannelID] = *channel
+	}
+
+	progress, err := helper.StartDraftGroupModelTest(req.EndpointType, req.Items, channels)
 	if err != nil {
 		resp.Error(c, http.StatusBadRequest, "failed to start group test")
 		return

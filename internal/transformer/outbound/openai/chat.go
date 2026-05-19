@@ -17,7 +17,8 @@ type ChatOutbound struct{}
 
 func (o *ChatOutbound) TransformRequest(ctx context.Context, request *model.InternalLLMRequest, baseUrl, key string) (*http.Request, error) {
 	compatRequest := cloneRequestForOpenAICompat(request)
-	sanitizeRequestForOpenAICompat(compatRequest, baseUrl)
+	isMimoChannel := strings.Contains(strings.ToLower(strings.TrimSpace(baseUrl)), "xiaomimimo")
+	sanitizeRequestForOpenAICompat(compatRequest, baseUrl, isMimoChannel)
 
 	// Convert developer role to system role for compatibility
 	for i := range compatRequest.Messages {
@@ -77,21 +78,21 @@ func cloneRequestForOpenAICompat(request *model.InternalLLMRequest) *model.Inter
 	return &cloned
 }
 
-func sanitizeRequestForOpenAICompat(request *model.InternalLLMRequest, baseURL string) {
+func sanitizeRequestForOpenAICompat(request *model.InternalLLMRequest, baseURL string, isMimoChannel bool) {
 	if request == nil {
 		return
 	}
 
-	normalizeDeepSeekReasoningCompat(request, baseURL)
+	normalizeDeepSeekReasoningCompat(request, baseURL, isMimoChannel)
 
 	// Only apply generic reasoning-effort normalization to non-provider-specific
 	// reasoning-compatible targets. DeepSeek and Mimo already handle effort
 	// mapping in the call above.
-	if !isReasoningCompatRequest(baseURL, request) {
+	if !isReasoningCompatRequest(baseURL, request, isMimoChannel) {
 		request.ReasoningEffort = normalizeOpenAICompatReasoningEffort(request.ReasoningEffort)
 	}
 
-	preserveDeepSeekReasoning := shouldPreserveDeepSeekReasoning(baseURL, request)
+	preserveDeepSeekReasoning := shouldPreserveDeepSeekReasoning(baseURL, request, isMimoChannel)
 	if preserveDeepSeekReasoning {
 		attachStandaloneDeepSeekReasoningMessages(request)
 	}
@@ -100,7 +101,7 @@ func sanitizeRequestForOpenAICompat(request *model.InternalLLMRequest, baseURL s
 		sanitizeMessageForOpenAICompat(&request.Messages[i], preserveDeepSeekReasoning)
 	}
 
-	if !isReasoningCompatRequest(baseURL, request) {
+	if !isReasoningCompatRequest(baseURL, request, isMimoChannel) {
 		request.ExtraBody = nil
 	}
 	request.Include = nil
@@ -121,8 +122,8 @@ func sanitizeMessageForOpenAICompat(msg *model.Message, preserveDeepSeekReasonin
 	}
 }
 
-func shouldPreserveDeepSeekReasoning(baseURL string, request *model.InternalLLMRequest) bool {
-	return isReasoningCompatRequest(baseURL, request)
+func shouldPreserveDeepSeekReasoning(baseURL string, request *model.InternalLLMRequest, isMimoChannel bool) bool {
+	return isReasoningCompatRequest(baseURL, request, isMimoChannel)
 }
 
 func attachStandaloneDeepSeekReasoningMessages(request *model.InternalLLMRequest) {

@@ -8,21 +8,26 @@ import (
 )
 
 func isDeepSeekCompatRequest(baseURL string, request *model.InternalLLMRequest) bool {
-	return isProviderReasoningCompatRequest(baseURL, request, "deepseek")
+	return isProviderReasoningCompatRequest(baseURL, request, false, "deepseek")
 }
 
 func isMimoCompatRequest(baseURL string, request *model.InternalLLMRequest) bool {
-	return isProviderReasoningCompatRequest(baseURL, request, "mimo")
+	return isProviderReasoningCompatRequest(baseURL, request, true, "mimo")
 }
 
-func isReasoningCompatRequest(baseURL string, request *model.InternalLLMRequest) bool {
-	return isDeepSeekCompatRequest(baseURL, request) || isMimoCompatRequest(baseURL, request)
+func isReasoningCompatRequest(baseURL string, request *model.InternalLLMRequest, isMimoChannel bool) bool {
+	return isProviderReasoningCompatRequest(baseURL, request, isMimoChannel, "deepseek") ||
+		isProviderReasoningCompatRequest(baseURL, request, isMimoChannel, "mimo")
 }
 
-func isProviderReasoningCompatRequest(baseURL string, request *model.InternalLLMRequest, provider string) bool {
+func isProviderReasoningCompatRequest(baseURL string, request *model.InternalLLMRequest, isMimoChannel bool, provider string) bool {
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	if provider == "" {
 		return false
+	}
+
+	if provider == "mimo" && isMimoChannel {
+		return true
 	}
 
 	lowerBaseURL := strings.ToLower(strings.TrimSpace(baseURL))
@@ -41,11 +46,19 @@ func isProviderReasoningCompatRequest(baseURL string, request *model.InternalLLM
 	}
 
 	lowerModelName := strings.ToLower(strings.TrimSpace(request.Model))
-	return strings.Contains(lowerModelName, provider)
+	if strings.Contains(lowerModelName, provider) {
+		return true
+	}
+
+	if provider == "mimo" {
+		return strings.Contains(lowerModelName, "xiaomi")
+	}
+
+	return false
 }
 
-func normalizeDeepSeekReasoningCompat(request *model.InternalLLMRequest, baseURL string) {
-	if request == nil || !isReasoningCompatRequest(baseURL, request) {
+func normalizeDeepSeekReasoningCompat(request *model.InternalLLMRequest, baseURL string, isMimoChannel bool) {
+	if request == nil || !isReasoningCompatRequest(baseURL, request, isMimoChannel) {
 		return
 	}
 

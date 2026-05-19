@@ -43,6 +43,7 @@ export interface Group {
 }
 
 export interface GroupTestResult {
+    client_id?: string;
     item_id: number;
     channel_id: number;
     channel_name: string;
@@ -65,6 +66,17 @@ export interface GroupTestProgress extends GroupTestSummary {
     id: string;
     done: boolean;
     message?: string;
+}
+
+export interface GroupDraftTestRequestItem {
+    client_id: string;
+    channel_id: number;
+    model_name: string;
+}
+
+export interface GroupDraftTestRequest {
+    endpoint_type: string;
+    items: GroupDraftTestRequestItem[];
 }
 
 export interface AutoGroupCreatedItem {
@@ -653,6 +665,21 @@ export function useTestGroup() {
     });
 }
 
+export function useTestDraftGroup() {
+    return useMutation({
+        mutationFn: async (payload: GroupDraftTestRequest) => {
+            const progress = await apiClient.post<GroupTestProgress>('/api/v1/group/test-draft', payload);
+            return normalizeGroupTestProgress(progress);
+        },
+        onSuccess: (data) => {
+            logger.log('draft group test success', data);
+        },
+        onError: (error) => {
+            logger.error('draft group test failed', error);
+        },
+    });
+}
+
 export function useGroupTestProgress(progressId: string | null) {
     return useQuery({
         queryKey: ['groups', 'test-progress', progressId],
@@ -697,4 +724,3 @@ export function useGroupTestProgress(progressId: string | null) {
 //         },
 //     });
 // }
-

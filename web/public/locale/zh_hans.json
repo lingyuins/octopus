@@ -453,55 +453,55 @@
       }
     },
     "telemetry": {
-        "hero": {
-            "uptime": "运行时间",
-            "total_requests": "总请求",
-            "avg_latency": "平均延迟",
-            "error_rate": "错误率",
-            "active_connections": "活跃连接",
-            "memory_usage": "内存使用"
-        },
-        "runtime_signals": {
-            "title": "运行时信号",
-            "p95_latency": "P95 延迟",
-            "throughput": "吞吐量",
-            "memory": "内存"
-        },
-        "database_health": {
-            "title": "数据库健康",
-            "issues_label": "个问题",
-            "status": {
-                "healthy": "健康",
-                "degraded": "降级"
-            }
-        },
-        "session_quota": {
-            "title": "会话与配额活动",
-            "active_sessions": "活跃会话",
-            "sticky_sessions": "粘性会话",
-            "quota_alerts": "配额告警"
-        },
-        "prompt_cache": {
-            "title": "语义缓存",
-            "entries": "条目数",
-            "hit_rate": "命中率",
-            "hits": "命中",
-            "misses": "未命中"
-        },
-        "provider_health": {
-            "title": "供应商健康",
-            "active": "活跃",
-            "monitored": "监控",
-            "empty": "暂无供应商数据",
-            "name": "名称",
-            "status": "状态",
-            "latency": "延迟",
-            "requests": "请求数",
-            "success_rate": "成功率"
-        },
-        "drilldown": {
-            "title": "快捷下钻"
+      "hero": {
+        "uptime": "运行时间",
+        "total_requests": "总请求",
+        "avg_latency": "平均延迟",
+        "error_rate": "错误率",
+        "active_connections": "活跃连接",
+        "memory_usage": "内存使用"
+      },
+      "runtime_signals": {
+        "title": "运行时信号",
+        "p95_latency": "P95 延迟",
+        "throughput": "吞吐量",
+        "memory": "内存"
+      },
+      "database_health": {
+        "title": "数据库健康",
+        "issues_label": "个问题",
+        "status": {
+          "healthy": "健康",
+          "degraded": "降级"
         }
+      },
+      "session_quota": {
+        "title": "会话与配额活动",
+        "active_sessions": "活跃会话",
+        "sticky_sessions": "粘性会话",
+        "quota_alerts": "配额告警"
+      },
+      "prompt_cache": {
+        "title": "语义缓存",
+        "entries": "条目数",
+        "hit_rate": "命中率",
+        "hits": "命中",
+        "misses": "未命中"
+      },
+      "provider_health": {
+        "title": "供应商健康",
+        "active": "活跃",
+        "monitored": "监控",
+        "empty": "暂无供应商数据",
+        "name": "名称",
+        "status": "状态",
+        "latency": "延迟",
+        "requests": "请求数",
+        "success_rate": "成功率"
+      },
+      "drilldown": {
+        "title": "快捷下钻"
+      }
     }
   },
   "user": {
@@ -1109,7 +1109,7 @@
       },
       "manualSync": {
         "label": "手动同步渠道",
-        "button": "立即同步",
+        "button": "立即同步渠道模型",
         "syncing": "同步中..."
       },
       "lastSync": "上次同步",
@@ -1404,6 +1404,17 @@
       "endpointType": "API 分类：{value}"
     },
     "detail": {
+      "availability": {
+        "title": "分组全量可用性检测",
+        "description": "检测该分组内全部模型，并标出不可用项。",
+        "testAll": "检测全部模型",
+        "unavailableBadge": "不可用",
+        "unavailableCount": "{count} 个模型不可用",
+        "resultTitle": "检测明细",
+        "resultPassed": "通过",
+        "resultFailed": "失败",
+        "resultAttempts": "重试 {count} 次"
+      },
       "actions": {
         "edit": "编辑",
         "cancel": "取消",
@@ -1580,7 +1591,8 @@
       "retryDetails": "重试详情",
       "attempts": "次尝试",
       "success": "成功",
-      "failed": "失败"
+      "failed": "失败",
+      "realInput": "真实输入"
     }
   },
   "channel": {
@@ -1645,7 +1657,7 @@
     },
     "groupManager": {
       "title": "渠道分组",
-      "hint": "仅用于渠道页面的管理和展示，不影响现有路由与转发逻辑。",
+      "hint": "用于渠道页面的管理与展示，也会作为 AI 路由生成时的分组参考，但不会直接改写现有路由与转发结果。",
       "create": "新建分组",
       "createPlaceholder": "输入渠道分组名称",
       "rename": "重命名",

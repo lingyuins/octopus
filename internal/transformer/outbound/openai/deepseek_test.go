@@ -90,7 +90,7 @@ func TestDeepSeekReasoningContentPreserved(t *testing.T) {
 	baseURL := "https://api.deepseek.com/v1"
 
 	compatRequest := cloneRequestForOpenAICompat(request)
-	sanitizeRequestForOpenAICompat(compatRequest, baseURL)
+	sanitizeRequestForOpenAICompat(compatRequest, baseURL, false)
 
 	for i := range compatRequest.Messages {
 		normalizeMessageForOpenAICompat(&compatRequest.Messages[i])
@@ -201,7 +201,7 @@ func TestDeepSeekReasoningEffortEnablesThinking(t *testing.T) {
 	}
 
 	compatRequest := cloneRequestForOpenAICompat(request)
-	sanitizeRequestForOpenAICompat(compatRequest, "https://api.deepseek.com/v1")
+	sanitizeRequestForOpenAICompat(compatRequest, "https://api.deepseek.com/v1", false)
 
 	body, err := json.Marshal(compatRequest)
 	if err != nil {
@@ -246,7 +246,7 @@ func TestDeepSeekNoThinkingWhenNotDetected(t *testing.T) {
 	}
 
 	compatRequest := cloneRequestForOpenAICompat(request)
-	sanitizeRequestForOpenAICompat(compatRequest, "https://api.openai.com/v1")
+	sanitizeRequestForOpenAICompat(compatRequest, "https://api.openai.com/v1", false)
 
 	body, err := json.Marshal(compatRequest)
 	if err != nil {
@@ -296,7 +296,7 @@ func TestDeepSeekDistinctReasoningPerTurn(t *testing.T) {
 	}
 
 	compatRequest := cloneRequestForOpenAICompat(request)
-	sanitizeRequestForOpenAICompat(compatRequest, "https://api.deepseek.com/v1")
+	sanitizeRequestForOpenAICompat(compatRequest, "https://api.deepseek.com/v1", false)
 	for i := range compatRequest.Messages {
 		normalizeMessageForOpenAICompat(&compatRequest.Messages[i])
 	}
@@ -333,6 +333,122 @@ func TestDeepSeekDistinctReasoningPerTurn(t *testing.T) {
 	}
 	if toolCallReasonings[2] != reasoning3 {
 		t.Errorf("tool_call[2] has wrong reasoning: %q, expected %q", toolCallReasonings[2], reasoning3)
+	}
+}
+
+func TestMimoReasoningContentPreservedForXiaomiModel(t *testing.T) {
+	reasoningContent := "need to think before tool call"
+	request := &model.InternalLLMRequest{
+		Model: "Xiaomi-Token-Plan",
+		Messages: []model.Message{
+			{Role: "user", Content: model.MessageContent{Content: strPtr("hello")}},
+			{Role: "assistant", ReasoningContent: &reasoningContent},
+			{Role: "assistant", ToolCalls: []model.ToolCall{{
+				ID:   "call_mimo_0",
+				Type: "function",
+				Function: model.FunctionCall{
+					Name:      "plan",
+					Arguments: `{}`,
+				},
+			}}},
+		},
+		TransformerMetadata: map[string]string{
+			model.TransformerMetadataGroupEndpointType: "mimo",
+		},
+	}
+
+	compatRequest := cloneRequestForOpenAICompat(request)
+	sanitizeRequestForOpenAICompat(compatRequest, "https://api.xiaomimimo.com/v1", true)
+	for i := range compatRequest.Messages {
+		normalizeMessageForOpenAICompat(&compatRequest.Messages[i])
+	}
+
+	body, err := json.Marshal(compatRequest)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+
+	messages, ok := parsed["messages"].([]interface{})
+	if !ok {
+		t.Fatal("no messages in output")
+	}
+
+	foundToolCallReasoning := false
+	for _, msgRaw := range messages {
+		msg, ok := msgRaw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if msg["tool_calls"] == nil {
+			continue
+		}
+		rc, _ := msg["reasoning_content"].(string)
+		if rc == reasoningContent {
+			foundToolCallReasoning = true
+			break
+		}
+	}
+
+	if !foundToolCallReasoning {
+		t.Fatal("mimo/xiaomi tool_calls message should preserve reasoning_content")
+	}
+}
+
+func TestMimoReasoningPreservedByChannelTypeEvenWhenGroupLooksChat(t *testing.T) {
+	reasoningContent := "thinking for mimo tool call"
+	request := &model.InternalLLMRequest{
+		Model: "mimo-v2.5-pro",
+		Messages: []model.Message{
+			{Role: "user", Content: model.MessageContent{Content: strPtr("hello")}},
+			{Role: "assistant", ReasoningContent: &reasoningContent},
+			{Role: "assistant", ToolCalls: []model.ToolCall{{
+				ID:   "call_mimo_chat_group",
+				Type: "function",
+				Function: model.FunctionCall{Name: "plan", Arguments: `{}`},
+			}}},
+		},
+		TransformerMetadata: map[string]string{
+			model.TransformerMetadataGroupEndpointType: "chat",
+		},
+	}
+
+	compatRequest := cloneRequestForOpenAICompat(request)
+	sanitizeRequestForOpenAICompat(compatRequest, "https://example.com/v1", true)
+	for i := range compatRequest.Messages {
+		normalizeMessageForOpenAICompat(&compatRequest.Messages[i])
+	}
+
+	body, err := json.Marshal(compatRequest)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+
+	messages := parsed["messages"].([]interface{})
+	foundToolCallReasoning := false
+	for _, msgRaw := range messages {
+		msg := msgRaw.(map[string]interface{})
+		if msg["tool_calls"] == nil {
+			continue
+		}
+		rc, _ := msg["reasoning_content"].(string)
+		if rc == reasoningContent {
+			foundToolCallReasoning = true
+			break
+		}
+	}
+
+	if !foundToolCallReasoning {
+		t.Fatal("mimo channel type should preserve reasoning_content even when group endpoint type is chat")
 	}
 }
 

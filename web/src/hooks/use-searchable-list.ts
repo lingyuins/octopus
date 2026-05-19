@@ -54,8 +54,14 @@ export function useSearchableList<T>({
     const searchTerm = useSearchStore((s) => s.getSearchTerm(pageKey));
     const sortField = useToolbarViewOptionsStore((s) => s.getSortField(pageKey));
     const sortOrder = useToolbarViewOptionsStore((s) => s.getSortOrder(pageKey));
-    const resolvedGetItemId = getItemId ?? ((item: T) => (item as SortableItem).id);
-    const resolvedGetItemName = getItemName ?? ((item: T) => (item as SortableItem).name);
+    const resolvedGetItemId = useMemo(
+        () => getItemId ?? ((item: T) => (item as SortableItem).id),
+        [getItemId]
+    );
+    const resolvedGetItemName = useMemo(
+        () => getItemName ?? ((item: T) => (item as SortableItem).name),
+        [getItemName]
+    );
 
     const sortedItems = useMemo(() => {
         if (!data) return [];
@@ -93,7 +99,7 @@ export function createChannelFilterPredicate(filter: ChannelFilter) {
 }
 
 export function createGroupFilterPredicate(filter: GroupFilter) {
-    return (item: GroupItem, _filterValue: string) => {
+    return (item: GroupItem) => {
         if (filter === 'with-members') return (item.items?.length || 0) > 0;
         if (filter === 'empty') return (item.items?.length || 0) === 0;
         return true;

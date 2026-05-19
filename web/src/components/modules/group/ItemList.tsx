@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { GripVertical, X, Trash2, Waves, Dot } from 'lucide-react';
+import { GripVertical, X, Trash2, Waves, Dot, CircleAlert, CircleCheck, Loader2 } from 'lucide-react';
 import {
     DragDropContext,
     Draggable,
@@ -20,6 +20,13 @@ export interface SelectedMember extends LLMChannel {
     id: string;
     item_id?: number;
     weight?: number;
+}
+
+export type MemberAvailabilityStatus = 'idle' | 'testing' | 'available' | 'unavailable';
+
+export interface MemberAvailabilityMeta {
+    status: MemberAvailabilityStatus;
+    message?: string;
 }
 
 function reorderList<T>(list: T[], startIndex: number, endIndex: number): T[] {
@@ -46,6 +53,7 @@ function MemberItem({
     layoutScope,
     dnd,
     isDragging,
+    availability,
 }: {
     member: SelectedMember;
     onRemove: (id: string) => void;
@@ -57,10 +65,13 @@ function MemberItem({
     layoutScope?: string;
     dnd: MemberItemDnd;
     isDragging: boolean;
+    availability?: MemberAvailabilityMeta;
 }) {
     const { Avatar: ModelAvatar } = getModelIcon(member.name);
+    const t = useTranslations('group');
     const [confirmDelete, setConfirmDelete] = useState(false);
     const isDisabled = member.enabled === false;
+    const availabilityStatus = availability?.status ?? 'idle';
 
     return (
         <div
@@ -82,6 +93,7 @@ function MemberItem({
                 'group/item relative flex items-center gap-2 overflow-hidden rounded-lg border border-border/30 bg-card px-3 py-2.5 select-none transition-[opacity,transform,border-color,box-shadow,background-color] duration-200',
                 isRemoving && 'opacity-0',
                 isDisabled && 'opacity-60 grayscale',
+                availabilityStatus === 'unavailable' && 'border-destructive/40 bg-destructive/5',
                 !isRemoving && !isDragging && 'hover:-translate-y-0.5 hover:border-primary/16 hover:bg-card',
                 isDragging && 'border-primary/30 bg-card'
             )}>
@@ -110,15 +122,31 @@ function MemberItem({
                 </span>
 
                 <div className="relative flex min-w-0 flex-1 flex-col">
-                    <Tooltip side="top" sideOffset={10} align="start">
-                        <TooltipTrigger className={cn(
-                            'text-sm font-medium truncate leading-tight',
-                            isDisabled && 'text-muted-foreground'
-                        )}>
-                            {member.name}
-                        </TooltipTrigger>
-                        <TooltipContent key={member.name}>{member.name}</TooltipContent>
-                    </Tooltip>
+                    <div className="flex min-w-0 items-center gap-2">
+                        <Tooltip side="top" sideOffset={10} align="start">
+                            <TooltipTrigger className={cn(
+                                'min-w-0 text-sm font-medium truncate leading-tight',
+                                isDisabled && 'text-muted-foreground',
+                                availabilityStatus === 'unavailable' && 'text-destructive'
+                            )}>
+                                {member.name}
+                            </TooltipTrigger>
+                            <TooltipContent key={member.name}>{member.name}</TooltipContent>
+                        </Tooltip>
+                        {availabilityStatus === 'testing' ? <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" /> : null}
+                        {availabilityStatus === 'available' ? <CircleCheck className="size-3.5 shrink-0 text-emerald-500" /> : null}
+                        {availabilityStatus === 'unavailable' ? (
+                            <Tooltip side="top" sideOffset={10} align="center">
+                                <TooltipTrigger asChild>
+                                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-destructive/25 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+                                        <CircleAlert className="size-3" />
+                                        {t('detail.availability.unavailableBadge')}
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>{availability?.message || t('detail.availability.unavailableBadge')}</TooltipContent>
+                            </Tooltip>
+                        ) : null}
+                    </div>
                     <span className="inline-flex items-center gap-1 truncate text-[10px] leading-tight text-muted-foreground">
                         <Dot className="size-3 opacity-70" />
                         {member.channel_name}
@@ -212,6 +240,7 @@ export interface MemberListProps {
      */
     showConfirmDelete?: boolean;
     layoutScope?: string;
+    availabilityById?: Record<string, MemberAvailabilityMeta>;
 }
 
 export function MemberList({
@@ -227,6 +256,7 @@ export function MemberList({
     showWeight = false,
     showConfirmDelete = true,
     layoutScope: externalLayoutScope,
+    availabilityById = {},
 }: MemberListProps) {
     const internalLayoutScope = useId();
     const layoutScope = externalLayoutScope ?? internalLayoutScope;
@@ -341,6 +371,7 @@ export function MemberList({
                                                     dragHandleProps: draggableProvided.dragHandleProps,
                                                 }}
                                                 isDragging={snapshot.isDragging}
+                                                availability={availabilityById[member.id]}
                                             />
                                         )}
                                     </Draggable>
