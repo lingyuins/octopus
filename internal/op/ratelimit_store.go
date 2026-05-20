@@ -1,73 +1,15 @@
 package op
 
 import (
-	"fmt"
-	"sync"
-
-	"github.com/lingyuins/octopus/internal/utils/ratelimit"
+	"github.com/lingyuins/octopus/internal/op/ratelimitstore"
 )
 
-var (
-	rateLimitRequestBuckets sync.Map // "apiKeyID:modelName" -> *ratelimit.TokenBucket
-	rateLimitTokenBuckets   sync.Map // "apiKeyID:modelName" -> *ratelimit.TokenBucket
-)
-
-func rateLimitKey(apiKeyID int, modelName string) string {
-	return fmt.Sprintf("%d:%s", apiKeyID, modelName)
-}
-
-// CheckRateLimit checks if the request is within the rate limits.
-// Returns: allowed, remaining requests, retry-after seconds.
+// Deprecated: Use ratelimitstore.CheckRateLimit from internal/op/ratelimitstore instead.
 func CheckRateLimit(apiKeyID int, modelName string, rpm int, tpm int, tokenCount int) (allowed bool, remaining int, retryAfter int) {
-	key := rateLimitKey(apiKeyID, modelName)
-
-	// Check request rate limit
-	if rpm > 0 {
-		reqBucket := getOrCreateRateLimitBucket(&rateLimitRequestBuckets, key, rpm, rpm)
-		if !reqBucket.Allow() {
-			return false, 0, int(reqBucket.ResetAt().Unix())
-		}
-	}
-
-	// Check token rate limit
-	if tpm > 0 {
-		tokenBucket := getOrCreateRateLimitBucket(&rateLimitTokenBuckets, key, tpm, tpm)
-		if tokenCount <= 0 {
-			tokenCount = 1
-		}
-		if !tokenBucket.AllowN(tokenCount) {
-			return false, 0, int(tokenBucket.ResetAt().Unix())
-		}
-	}
-
-	// Return remaining
-	if rpm > 0 {
-		reqBucket := getOrCreateRateLimitBucket(&rateLimitRequestBuckets, key, rpm, rpm)
-		remaining = reqBucket.TokensRemaining()
-	}
-	return true, remaining, 0
+	return ratelimitstore.CheckRateLimit(apiKeyID, modelName, rpm, tpm, tokenCount)
 }
 
-// ConsumeTokens deducts the actual token count from the rate limit bucket after a successful request.
+// Deprecated: Use ratelimitstore.ConsumeTokens from internal/op/ratelimitstore instead.
 func ConsumeTokens(apiKeyID int, modelName string, tpm int, tokenCount int) {
-	if tpm <= 0 || tokenCount <= 0 {
-		return
-	}
-	key := rateLimitKey(apiKeyID, modelName)
-	tokenBucket := getOrCreateRateLimitBucket(&rateLimitTokenBuckets, key, tpm, tpm)
-	tokenBucket.AllowN(tokenCount)
-}
-
-func getOrCreateRateLimitBucket(m *sync.Map, key string, ratePerMinute int, burst int) *ratelimit.TokenBucket {
-	if v, ok := m.Load(key); ok {
-		if b, ok := v.(*ratelimit.TokenBucket); ok {
-			return b
-		}
-	}
-	bucket := ratelimit.NewTokenBucket(ratePerMinute, burst)
-	actual, _ := m.LoadOrStore(key, bucket)
-	if b, ok := actual.(*ratelimit.TokenBucket); ok {
-		return b
-	}
-	return bucket
+	ratelimitstore.ConsumeTokens(apiKeyID, modelName, tpm, tokenCount)
 }
