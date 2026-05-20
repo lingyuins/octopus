@@ -117,8 +117,8 @@ export function Channel() {
         : 'grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3';
 
     return (
-        <section className="relative flex h-full min-h-0 flex-col" aria-label={pageKey}>
-            <div className="relative flex h-full min-h-0 flex-col gap-4 rounded-xl border border-border bg-card p-3 text-card-foreground md:p-4">
+        <section className="relative flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-t-xl pb-24 md:pb-4" aria-label={pageKey}>
+            <div className="relative flex min-h-full flex-col gap-4 rounded-xl border border-border bg-card p-3 text-card-foreground md:p-4">
                 <ChannelGroupManager
                     groups={channelGroups}
                     channelCountByGroup={channelCountByGroup}
@@ -144,13 +144,13 @@ export function Channel() {
                     </Button>
                 </div>
 
-                <div className="relative min-h-0 flex-1">
+                <div className="relative flex-1">
                     {isLoading ? (
                         <LoadingState />
                     ) : isError ? (
                         <ErrorState onRetry={() => refetch()} />
                     ) : (channelsData?.length ?? 0) > 0 ? (
-                        <div className="h-full space-y-4 overflow-y-auto pr-1">
+                        <div className="space-y-4 pr-1">
                             {groupedVisibleChannels.map(({ group, items }) => (
                                 <section key={group.id} className="rounded-xl border border-border/30 bg-card/70 p-3 md:p-4">
                                     <header className="mb-3 flex flex-wrap items-center gap-2">
@@ -180,7 +180,7 @@ export function Channel() {
                             ))}
                         </div>
                     ) : (
-                        <div className="flex h-full min-h-[18rem] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card">
+                        <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card px-4 py-6 text-center">
                             <Radio className="h-12 w-12 text-muted-foreground/30" strokeWidth={1.5} />
                             <p className="text-sm text-muted-foreground">{t('empty')}</p>
                         </div>

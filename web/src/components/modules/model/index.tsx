@@ -50,7 +50,7 @@ export function Model() {
     };
 
     return (
-        <section className="relative flex h-full min-h-0 flex-col gap-4" aria-label={pageKey}>
+        <section className="relative flex h-full min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain rounded-t-xl pb-24 md:pb-4" aria-label={pageKey}>
             <ModelMarketSummary
                 summary={summary}
                 onRefresh={() => updateModelPrice.mutate()}
@@ -69,7 +69,7 @@ export function Model() {
                             renderItem={(model) => <ModelItem model={model} layout={layout} />}
                         />
                     ) : (
-                        <div className="relative flex h-full min-h-[18rem] items-center justify-center overflow-hidden rounded-xl border border-dashed border-border/35 bg-card">
+                        <div className="relative flex min-h-[18rem] items-center justify-center overflow-hidden rounded-xl border border-dashed border-border/35 bg-card py-6">
                             <div className="relative flex flex-col items-center gap-4 px-6 text-center">
                                 <div className="flex items-end gap-3">
                                     <span className="h-24 w-16 rounded-lg border border-border/30 bg-card" />

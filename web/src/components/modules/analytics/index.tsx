@@ -26,7 +26,7 @@ export function Analytics() {
                 <section className="relative overflow-hidden rounded-xl border border-border/35 bg-card p-4 text-card-foreground md:p-5">
                     <div className="relative flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                         <div className="overflow-x-auto">
-                            <TabsList className="flex w-max min-w-full flex-wrap rounded-lg border-border/30 bg-card p-1 xl:min-w-0">
+                            <TabsList className="flex w-max min-w-max flex-nowrap rounded-lg border-border/30 bg-card p-1 xl:min-w-0 xl:flex-wrap">
                                 <TabsTrigger value="cache">{opsT('tabs.cache')}</TabsTrigger>
                                 <TabsTrigger value="utilization">{t('cards.utilization.title')}</TabsTrigger>
                                 <TabsTrigger value="route-health">{t('cards.routeHealth.title')}</TabsTrigger>
@@ -36,7 +36,7 @@ export function Analytics() {
 
                         <Tabs value={range} onValueChange={(value) => setRange(value as AnalyticsRange)}>
                             <div className="overflow-x-auto">
-                                <TabsList className="flex w-max min-w-full flex-wrap rounded-lg border-border/30 bg-card p-1 xl:min-w-0">
+                                <TabsList className="flex w-max min-w-max flex-nowrap rounded-lg border-border/30 bg-card p-1 xl:min-w-0 xl:flex-wrap">
                                     {RANGE_OPTIONS.map((option) => (
                                         <TabsTrigger key={option} value={option}>
                                             {t(`range.${option}`)}

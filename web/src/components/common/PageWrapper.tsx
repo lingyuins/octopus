@@ -12,7 +12,7 @@ export function PageWrapper({ children, className = 'space-y-6' }: PageWrapperPr
   const childArray = Children.toArray(children);
 
   return (
-    <motion.div className={className}>
+    <motion.div className={`min-h-0 ${className}`}>
       <AnimatePresence>
         {childArray.map((child, index) => {
           const key = isValidElement(child) ? child.key : null;

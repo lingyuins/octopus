@@ -222,7 +222,7 @@ function ProviderPromptCacheView({
                             </div>
                         ) : (
                             <div className="overflow-x-auto rounded-xl border border-border/60">
-                                <table className="w-full min-w-[720px] text-left">
+                                <table className="w-full min-w-[640px] text-left md:min-w-[720px]">
                                     <thead>
                                         <tr className="border-b border-border/40 bg-muted/30">
                                             <th className="px-3 py-2.5 text-xs font-medium text-muted-foreground">
@@ -303,7 +303,7 @@ export function Cache() {
                         {view === 'semantic' ? t('cache.description') : t('cache.providerPrompt.description')}
                     </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                     <ViewSwitcher
                         value={view}
                         onChange={setView}
