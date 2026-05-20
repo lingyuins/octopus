@@ -323,7 +323,7 @@ func Update(req *model.ChannelUpdateRequest, ctx context.Context) (*model.Channe
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	if err := refreshCacheByID(req.ID, ctx); err != nil {
+	if err := RefreshCacheByID(req.ID, ctx); err != nil {
 		return nil, err
 	}
 
@@ -409,7 +409,7 @@ func RefreshCache(ctx context.Context) error {
 	return nil
 }
 
-func refreshCacheByID(id int, ctx context.Context) error {
+func RefreshCacheByID(id int, ctx context.Context) error {
 	runtimeUpdateLock.Lock()
 	defer runtimeUpdateLock.Unlock()
 
@@ -433,6 +433,58 @@ func refreshCacheByID(id int, ctx context.Context) error {
 			keyCache.Set(k.ID, k)
 		}
 	}
+	return nil
+}
+
+// Delete performs channel DB deletion transaction (without stats/group cache cleanup).
+func Delete(id int, ctx context.Context) error {
+	ch, ok := chCache.Get(id)
+	if !ok {
+		return fmt.Errorf("channel not found")
+	}
+
+	tx := db.GetDB().WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err := tx.Model(&model.GroupItem{}).
+		Where("channel_id = ?", id).
+		Delete(&model.GroupItem{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to delete group items: %w", err)
+	}
+
+	if err := tx.Where("channel_id = ?", id).Delete(&model.ChannelKey{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to delete channel keys: %w", err)
+	}
+
+	if err := tx.Where("channel_id = ?", id).Delete(&model.StatsChannel{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to delete channel stats: %w", err)
+	}
+
+	if err := tx.Delete(&model.Channel{}, id).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to delete channel: %w", err)
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	runtimeUpdateLock.Lock()
+	chCache.Del(id)
+	for _, k := range ch.Keys {
+		if k.ID != 0 {
+			keyCache.Del(k.ID)
+		}
+	}
+	runtimeUpdateLock.Unlock()
+
 	return nil
 }
 
