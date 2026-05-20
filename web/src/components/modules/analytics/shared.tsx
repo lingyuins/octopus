@@ -98,21 +98,21 @@ export function MetricCard({
     accentClassName?: string;
 }) {
     return (
-        <article className="group relative overflow-hidden rounded-lg border border-border/30 bg-card p-4 transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-primary/18">
+        <article className="group relative min-w-0 overflow-hidden rounded-lg border border-border/30 bg-card p-3 transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-primary/18 md:p-4">
             <div className="flex items-start justify-between gap-3">
                 <div className="relative min-w-0">
-                    <div className="text-xs text-muted-foreground">{title}</div>
-                    <div className="mt-2 flex items-baseline gap-1">
-                        <span className="text-2xl font-semibold">
+                    <div className="text-[11px] leading-tight text-muted-foreground md:text-xs">{title}</div>
+                    <div className="mt-1.5 flex min-w-0 items-baseline gap-1 md:mt-2">
+                        <span className="text-[1.35rem] font-semibold leading-none md:text-2xl">
                             <AnimatedNumber value={value} />
                         </span>
-                        {unit ? <span className="text-sm text-muted-foreground">{unit}</span> : null}
+                        {unit ? <span className="text-xs text-muted-foreground md:text-sm">{unit}</span> : null}
                     </div>
-                    {helper ? <p className="mt-2 text-xs text-muted-foreground">{helper}</p> : null}
+                    {helper ? <p className="mt-1.5 break-words text-[11px] leading-tight text-muted-foreground md:mt-2 md:text-xs">{helper}</p> : null}
                 </div>
                 <div
                     className={cn(
-                        'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary',
+                        'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary md:h-10 md:w-10',
                         accentClassName,
                     )}
                 >
