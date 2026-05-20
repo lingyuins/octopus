@@ -118,7 +118,7 @@ export function Channel() {
 
     return (
         <section className="relative flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-t-xl pb-24 md:pb-4" aria-label={pageKey}>
-            <div className="relative flex min-h-full flex-col gap-4 rounded-xl border border-border bg-card p-3 text-card-foreground md:p-4">
+            <div className="relative flex flex-col gap-4 rounded-xl border border-border bg-card p-3 text-card-foreground md:p-4">
                 <ChannelGroupManager
                     groups={channelGroups}
                     channelCountByGroup={channelCountByGroup}
@@ -144,7 +144,7 @@ export function Channel() {
                     </Button>
                 </div>
 
-                <div className="relative flex-1">
+                <div className="relative">
                     {isLoading ? (
                         <LoadingState />
                     ) : isError ? (

@@ -52,16 +52,16 @@ export function Log() {
 
     return (
         <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain rounded-t-xl pb-24 md:pb-4">
-            <div className="min-h-0 flex-1">
-                {isLoading && logs.length === 0 ? (
-                    <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-border/35 bg-card">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                ) : logs.length === 0 ? (
-                    <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-dashed border-border/35 bg-card px-6 py-6 text-center">
-                        <p className="text-sm text-muted-foreground">{t('list.empty')}</p>
-                    </div>
-                ) : (
+            {isLoading && logs.length === 0 ? (
+                <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-border/35 bg-card">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+            ) : logs.length === 0 ? (
+                <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-dashed border-border/35 bg-card px-6 py-6 text-center">
+                    <p className="text-sm text-muted-foreground">{t('list.empty')}</p>
+                </div>
+            ) : (
+                <div className="min-h-0 flex-1">
                     <VirtualizedGrid
                         items={logs}
                         layout="list"
@@ -75,8 +75,8 @@ export function Log() {
                         reachEndEnabled={canLoadMore}
                         reachEndOffset={2}
                     />
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 }

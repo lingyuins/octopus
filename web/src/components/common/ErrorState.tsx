@@ -19,7 +19,7 @@ export function ErrorState({
     const t = useTranslations('common.errorState');
 
     return (
-        <div className="flex h-full min-h-[18rem] items-center justify-center">
+        <div className="flex min-h-[18rem] items-center justify-center">
             <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}

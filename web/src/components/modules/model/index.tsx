@@ -57,9 +57,9 @@ export function Model() {
                 isRefreshing={updateModelPrice.isPending}
             />
 
-            <section className="relative flex min-h-0 flex-1 flex-col rounded-xl border border-border/35 bg-card p-3 text-card-foreground md:p-4">
-                <div className="relative min-h-0 flex-1">
-                    {visibleModels.length > 0 ? (
+            {visibleModels.length > 0 ? (
+                <section className="relative flex min-h-0 flex-1 flex-col rounded-xl border border-border/35 bg-card p-3 text-card-foreground md:p-4">
+                    <div className="relative min-h-0 flex-1">
                         <VirtualizedGrid
                             items={visibleModels}
                             layout={layout}
@@ -68,22 +68,24 @@ export function Model() {
                             getItemKey={(model) => `model-${model.name}`}
                             renderItem={(model) => <ModelItem model={model} layout={layout} />}
                         />
-                    ) : (
-                        <div className="relative flex min-h-[18rem] items-center justify-center overflow-hidden rounded-xl border border-dashed border-border/35 bg-card py-6">
-                            <div className="relative flex flex-col items-center gap-4 px-6 text-center">
-                                <div className="flex items-end gap-3">
-                                    <span className="h-24 w-16 rounded-lg border border-border/30 bg-card" />
-                                    <span className="h-28 w-20 rounded-xl border border-primary/18 bg-card" />
-                                    <span className="h-20 w-14 rounded-lg border border-border/30 bg-card" />
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                    {hasAnyModel ? t('empty') : t('emptyAll')}
-                                </p>
+                    </div>
+                </section>
+            ) : (
+                <section className="rounded-xl border border-border/35 bg-card p-3 text-card-foreground md:p-4">
+                    <div className="relative flex min-h-[18rem] items-center justify-center overflow-hidden rounded-xl border border-dashed border-border/35 bg-card py-6">
+                        <div className="relative flex flex-col items-center gap-4 px-6 text-center">
+                            <div className="flex items-end gap-3">
+                                <span className="h-24 w-16 rounded-lg border border-border/30 bg-card" />
+                                <span className="h-28 w-20 rounded-xl border border-primary/18 bg-card" />
+                                <span className="h-20 w-14 rounded-lg border border-border/30 bg-card" />
                             </div>
+                            <p className="text-sm text-muted-foreground">
+                                {hasAnyModel ? t('empty') : t('emptyAll')}
+                            </p>
                         </div>
-                    )}
-                </div>
-            </section>
+                    </div>
+                </section>
+            )}
         </section>
     );
 }
