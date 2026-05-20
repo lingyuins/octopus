@@ -2,103 +2,43 @@ package op
 
 import (
 	"context"
-	"fmt"
-	"sync"
-	"time"
 
-	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/op/alert"
 )
 
-var alertStateCache sync.Map // int(ruleID) -> model.AlertStateRecord
-var alertStateMu sync.Mutex  // protects read-modify-write in AlertStateSet
+// Deprecated: Use alert.RuleList from internal/op/alert instead.
+func AlertRuleList(ctx context.Context) ([]model.AlertRule, error) { return alert.RuleList(ctx) }
 
-func AlertRuleList(ctx context.Context) ([]model.AlertRule, error) {
-	var rules []model.AlertRule
-	if err := db.GetDB().WithContext(ctx).Find(&rules).Error; err != nil {
-		return nil, err
-	}
-	return rules, nil
-}
+// Deprecated: Use alert.RuleCreate from internal/op/alert instead.
+func AlertRuleCreate(ctx context.Context, rule *model.AlertRule) error { return alert.RuleCreate(ctx, rule) }
 
-func AlertRuleCreate(ctx context.Context, rule *model.AlertRule) error {
-	return db.GetDB().WithContext(ctx).Create(rule).Error
-}
+// Deprecated: Use alert.RuleUpdate from internal/op/alert instead.
+func AlertRuleUpdate(ctx context.Context, rule *model.AlertRule) error { return alert.RuleUpdate(ctx, rule) }
 
-func AlertRuleUpdate(ctx context.Context, rule *model.AlertRule) error {
-	return db.GetDB().WithContext(ctx).Save(rule).Error
-}
+// Deprecated: Use alert.RuleDelete from internal/op/alert instead.
+func AlertRuleDelete(ctx context.Context, id int) error { return alert.RuleDelete(ctx, id) }
 
-func AlertRuleDelete(ctx context.Context, id int) error {
-	res := db.GetDB().WithContext(ctx).Delete(&model.AlertRule{}, id)
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return fmt.Errorf("alert rule not found")
-	}
-	return nil
-}
+// Deprecated: Use alert.NotifChannelList from internal/op/alert instead.
+func AlertNotifChannelList(ctx context.Context) ([]model.AlertNotifChannel, error) { return alert.NotifChannelList(ctx) }
 
-func AlertNotifChannelList(ctx context.Context) ([]model.AlertNotifChannel, error) {
-	var channels []model.AlertNotifChannel
-	if err := db.GetDB().WithContext(ctx).Find(&channels).Error; err != nil {
-		return nil, err
-	}
-	return channels, nil
-}
+// Deprecated: Use alert.NotifChannelCreate from internal/op/alert instead.
+func AlertNotifChannelCreate(ctx context.Context, ch *model.AlertNotifChannel) error { return alert.NotifChannelCreate(ctx, ch) }
 
-func AlertNotifChannelCreate(ctx context.Context, ch *model.AlertNotifChannel) error {
-	return db.GetDB().WithContext(ctx).Create(ch).Error
-}
+// Deprecated: Use alert.NotifChannelUpdate from internal/op/alert instead.
+func AlertNotifChannelUpdate(ctx context.Context, ch *model.AlertNotifChannel) error { return alert.NotifChannelUpdate(ctx, ch) }
 
-func AlertNotifChannelUpdate(ctx context.Context, ch *model.AlertNotifChannel) error {
-	return db.GetDB().WithContext(ctx).Save(ch).Error
-}
+// Deprecated: Use alert.NotifChannelDelete from internal/op/alert instead.
+func AlertNotifChannelDelete(ctx context.Context, id int) error { return alert.NotifChannelDelete(ctx, id) }
 
-func AlertNotifChannelDelete(ctx context.Context, id int) error {
-	return db.GetDB().WithContext(ctx).Delete(&model.AlertNotifChannel{}, id).Error
-}
+// Deprecated: Use alert.StateGet from internal/op/alert instead.
+func AlertStateGet(ruleID int) model.AlertStateRecord { return alert.StateGet(ruleID) }
 
-func AlertStateGet(ruleID int) model.AlertStateRecord {
-	if v, ok := alertStateCache.Load(ruleID); ok {
-		if record, ok := v.(model.AlertStateRecord); ok {
-			return record
-		}
-	}
-	return model.AlertStateRecord{RuleID: ruleID, State: model.AlertStateOK}
-}
+// Deprecated: Use alert.StateSet from internal/op/alert instead.
+func AlertStateSet(ruleID int, state model.AlertState) { alert.StateSet(ruleID, state) }
 
-func AlertStateSet(ruleID int, state model.AlertState) {
-	alertStateMu.Lock()
-	defer alertStateMu.Unlock()
+// Deprecated: Use alert.HistoryList from internal/op/alert instead.
+func AlertHistoryList(ctx context.Context, limit int) ([]model.AlertHistory, error) { return alert.HistoryList(ctx, limit) }
 
-	record := AlertStateGet(ruleID)
-	record.State = state
-	now := timeNow()
-	if state == model.AlertStateFiring {
-		record.LastFiredAt = now
-		record.FiredCount++
-	} else if state == model.AlertStateResolved {
-		record.LastResolvedAt = now
-	}
-	record.LastCheckedAt = now
-	alertStateCache.Store(ruleID, record)
-}
-
-func AlertHistoryList(ctx context.Context, limit int) ([]model.AlertHistory, error) {
-	if limit <= 0 {
-		limit = 100
-	}
-	var history []model.AlertHistory
-	if err := db.GetDB().WithContext(ctx).Order("time DESC").Limit(limit).Find(&history).Error; err != nil {
-		return nil, err
-	}
-	return history, nil
-}
-
-func AlertHistoryAdd(ctx context.Context, entry *model.AlertHistory) error {
-	return db.GetDB().WithContext(ctx).Create(entry).Error
-}
-
-var timeNow = func() int64 { return time.Now().UnixMilli() }
+// Deprecated: Use alert.HistoryAdd from internal/op/alert instead.
+func AlertHistoryAdd(ctx context.Context, entry *model.AlertHistory) error { return alert.HistoryAdd(ctx, entry) }
