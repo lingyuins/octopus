@@ -9,6 +9,8 @@ AGENTS.md
 .learnings/
 *.dev.err.log
 *.dev.out.log
+*_dev.err.log
+*_dev.out.log
 
 # local build/runtime artifacts
 .gocache/
