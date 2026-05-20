@@ -2,124 +2,28 @@ package op
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 
-	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/utils/cache"
+	"github.com/lingyuins/octopus/internal/op/setting"
 )
 
-var settingCache = cache.New[model.SettingKey, string](16)
+// Deprecated: Use setting.List from internal/op/setting instead.
+func SettingList(ctx context.Context) ([]model.Setting, error) { return setting.List(ctx) }
 
-func SettingList(ctx context.Context) ([]model.Setting, error) {
-	settings := make([]model.Setting, 0, settingCache.Len())
-	for key, value := range settingCache.GetAll() {
-		settings = append(settings, model.Setting{
-			Key:   key,
-			Value: value,
-		})
-	}
-	return settings, nil
-}
+// Deprecated: Use setting.GetString from internal/op/setting instead.
+func SettingGetString(key model.SettingKey) (string, error) { return setting.GetString(key) }
 
-func SettingGetString(key model.SettingKey) (string, error) {
-	setting, ok := settingCache.Get(key)
-	if !ok {
-		return "", fmt.Errorf("setting not found")
-	}
-	return setting, nil
-}
+// Deprecated: Use setting.SetString from internal/op/setting instead.
+func SettingSetString(key model.SettingKey, value string) error { return setting.SetString(key, value) }
 
-func SettingSetString(key model.SettingKey, value string) error {
-	valueCache, ok := settingCache.Get(key)
-	if !ok {
-		return fmt.Errorf("setting not found")
-	}
-	if valueCache == value {
-		return nil
-	}
-	result := db.GetDB().Model(&model.Setting{Key: key}).Update("Value", value)
-	if result.Error != nil {
-		return fmt.Errorf("failed to set setting: %w", result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("failed to set setting, key not found")
-	}
-	settingCache.Set(key, value)
-	return nil
-}
+// Deprecated: Use setting.GetInt from internal/op/setting instead.
+func SettingGetInt(key model.SettingKey) (int, error) { return setting.GetInt(key) }
 
-func SettingGetInt(key model.SettingKey) (int, error) {
-	setting, ok := settingCache.Get(key)
-	if !ok {
-		return 0, fmt.Errorf("setting not found")
-	}
-	return strconv.Atoi(setting)
-}
+// Deprecated: Use setting.GetBool from internal/op/setting instead.
+func SettingGetBool(key model.SettingKey) (bool, error) { return setting.GetBool(key) }
 
-func SettingGetBool(key model.SettingKey) (bool, error) {
-	setting, ok := settingCache.Get(key)
-	if !ok {
-		return false, fmt.Errorf("setting not found")
-	}
-	return strconv.ParseBool(setting)
-}
+// Deprecated: Use setting.SetInt from internal/op/setting instead.
+func SettingSetInt(key model.SettingKey, value int) error { return setting.SetInt(key, value) }
 
-func SettingSetInt(key model.SettingKey, value int) error {
-	valueCache, ok := settingCache.Get(key)
-	if !ok {
-		return fmt.Errorf("setting not found")
-	}
-	valueCacheNum, err := strconv.Atoi(valueCache)
-	if err != nil {
-		return fmt.Errorf("failed to set setting: %w", err)
-	}
-	if valueCacheNum == value {
-		return nil
-	}
-	result := db.GetDB().Model(&model.Setting{Key: key}).Update("Value", value)
-	if result.Error != nil {
-		return fmt.Errorf("failed to set setting: %w", result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("failed to set setting, key not found")
-	}
-	settingCache.Set(key, strconv.Itoa(value))
-	return nil
-}
-
-func settingRefreshCache(ctx context.Context) error {
-	db := db.GetDB().WithContext(ctx)
-
-	var settings []model.Setting
-	if err := db.Find(&settings).Error; err != nil {
-		return fmt.Errorf("failed to get settings: %w", err)
-	}
-
-	existingKeys := make(map[model.SettingKey]bool)
-	for _, setting := range settings {
-		existingKeys[setting.Key] = true
-	}
-
-	defaultSettings := model.DefaultSettings()
-	missingSettings := make([]model.Setting, 0, len(defaultSettings))
-
-	for _, defaultSetting := range defaultSettings {
-		if !existingKeys[defaultSetting.Key] {
-			missingSettings = append(missingSettings, defaultSetting)
-		}
-	}
-
-	if len(missingSettings) > 0 {
-		if err := db.CreateInBatches(missingSettings, len(missingSettings)).Error; err != nil {
-			return fmt.Errorf("failed to create missing settings: %w", err)
-		}
-		settings = append(settings, missingSettings...)
-	}
-	settingCache.Clear()
-	for _, setting := range settings {
-		settingCache.Set(setting.Key, setting.Value)
-	}
-	return nil
-}
+// settingRefreshCache is called by cache.go (same package)
+func settingRefreshCache(ctx context.Context) error { return setting.RefreshCache(ctx) }
