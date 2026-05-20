@@ -1660,6 +1660,8 @@
       "hint": "Used for channel page management and display, and also as a grouping reference during AI route generation, but it does not directly rewrite existing routing or relay results.",
       "create": "New Group",
       "createPlaceholder": "Enter a channel group name",
+      "select": "View",
+      "current": "Current",
       "rename": "Rename",
       "delete": "Delete",
       "save": "Save",

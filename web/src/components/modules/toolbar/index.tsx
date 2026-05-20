@@ -14,6 +14,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useNavStore, type NavItem } from '@/components/modules/navbar';
 import { CreateDialogContent as ChannelCreateContent } from '@/components/modules/channel/Create';
+import { ChannelGroupManagerDialog } from '@/components/modules/channel/GroupManager';
 import { CreateDialogContent as GroupCreateContent } from '@/components/modules/group/Create';
 import { CreateDialogContent as ModelCreateContent } from '@/components/modules/model/Create';
 import { useTranslations } from 'next-intl';
@@ -441,6 +442,13 @@ export function Toolbar() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
+                    {toolbarItem === 'channel' ? (
+                        <ChannelGroupManagerDialog className={cn(
+                            buttonVariants({ variant: "ghost", size: "default" }),
+                            COMMAND_TEXT_BUTTON_CLASS
+                        )} />
+                    ) : null}
+
                     {/* 创建按钮 */}
                     <MorphingDialog>
                         <MorphingDialogTrigger

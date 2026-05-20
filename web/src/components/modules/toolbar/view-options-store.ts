@@ -58,6 +58,7 @@ interface ToolbarViewOptionsState {
     sortFields: Partial<Record<ToolbarCreatedSortablePage, ToolbarSortField>>;
     sortOrders: Partial<Record<ToolbarPage, ToolbarSortOrder>>;
     channelFilter: ChannelFilter;
+    selectedChannelGroupId: number | null;
     groupFilter: GroupFilter;
     modelFilter: ModelFilter;
     modelSortMode: ModelSortMode;
@@ -76,6 +77,7 @@ interface ToolbarViewOptionsState {
     setSortOrder: (item: ToolbarPage, value: ToolbarSortOrder) => void;
 
     setChannelFilter: (value: ChannelFilter) => void;
+    setSelectedChannelGroupId: (value: number | null) => void;
     setGroupFilter: (value: GroupFilter) => void;
     setModelFilter: (value: ModelFilter) => void;
     setModelSortMode: (value: ModelSortMode) => void;
@@ -88,6 +90,7 @@ export const useToolbarViewOptionsStore = create<ToolbarViewOptionsState>()(
             sortFields: {},
             sortOrders: {},
             channelFilter: 'all',
+            selectedChannelGroupId: null,
             groupFilter: 'all',
             modelFilter: 'all',
             modelSortMode: 'success-rate',
@@ -111,6 +114,7 @@ export const useToolbarViewOptionsStore = create<ToolbarViewOptionsState>()(
             },
 
             setChannelFilter: (value) => set({ channelFilter: value }),
+            setSelectedChannelGroupId: (value) => set({ selectedChannelGroupId: value }),
             setGroupFilter: (value) => set({ groupFilter: normalizeGroupFilterValue(value) }),
             setModelFilter: (value) => set({ modelFilter: value }),
             setModelSortMode: (value) => set({ modelSortMode: value }),
@@ -122,6 +126,7 @@ export const useToolbarViewOptionsStore = create<ToolbarViewOptionsState>()(
                 sortFields: state.sortFields,
                 sortOrders: state.sortOrders,
                 channelFilter: state.channelFilter,
+                selectedChannelGroupId: state.selectedChannelGroupId,
                 groupFilter: state.groupFilter,
                 modelFilter: state.modelFilter,
                 modelSortMode: state.modelSortMode,

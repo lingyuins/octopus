@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     type ChannelGroup,
+    useChannelGroupList,
+    useChannelList,
     useCreateChannelGroup,
     useDeleteChannelGroup,
     useUpdateChannelGroup,
@@ -10,23 +12,37 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+    MorphingDialog,
+    MorphingDialogContainer,
+    MorphingDialogContent,
+    MorphingDialogTrigger,
+} from '@/components/ui/morphing-dialog';
 import { toast } from '@/components/common/Toast';
 import { useTranslations } from 'next-intl';
 import { Check, FolderTree, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useToolbarViewOptionsStore } from '@/components/modules/toolbar/view-options-store';
 
-type ChannelGroupManagerProps = {
+type ChannelGroupManagerPanelProps = {
     groups: ChannelGroup[];
     channelCountByGroup: Map<number, number>;
+    selectedGroupId: number | null;
     isLoading: boolean;
     isError: boolean;
+    onSelectGroup: (groupId: number) => void;
+    className?: string;
 };
 
-export function ChannelGroupManager({
+export function ChannelGroupManagerPanel({
     groups,
     channelCountByGroup,
+    selectedGroupId,
     isLoading,
     isError,
-}: ChannelGroupManagerProps) {
+    onSelectGroup,
+    className,
+}: ChannelGroupManagerPanelProps) {
     const t = useTranslations('channel.groupManager');
     const createChannelGroup = useCreateChannelGroup();
     const updateChannelGroup = useUpdateChannelGroup();
@@ -92,7 +108,7 @@ export function ChannelGroupManager({
     };
 
     return (
-        <section className="rounded-lg border border-border/30 bg-card/70 p-4 md:p-5">
+        <section className={cn('rounded-lg border border-border/30 bg-card/70 p-4 md:p-5', className)}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
                     <div className="inline-flex items-center gap-2 rounded-full border border-primary/12 bg-card px-3 py-1 text-[0.68rem] font-semibold text-primary">
@@ -168,9 +184,16 @@ export function ChannelGroupManager({
                     groups.map((group) => {
                         const channelCount = channelCountByGroup.get(group.id) ?? 0;
                         const isEditing = editingGroupID === group.id;
+                        const isSelected = selectedGroupId === group.id;
 
                         return (
-                            <div key={group.id} className="rounded-lg border border-border/25 bg-card p-3">
+                            <div
+                                key={group.id}
+                                className={cn(
+                                    'rounded-lg border border-border/25 bg-card p-3',
+                                    isSelected && 'border-primary/35 bg-primary/5'
+                                )}
+                            >
                                 {isEditing ? (
                                     <div className="flex flex-col gap-2 sm:flex-row">
                                         <Input
@@ -217,7 +240,18 @@ export function ChannelGroupManager({
                                                 {t('count', { count: channelCount })}
                                             </Badge>
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Button
+                                                type="button"
+                                                variant={isSelected ? 'secondary' : 'ghost'}
+                                                size="sm"
+                                                onClick={() => onSelectGroup(group.id)}
+                                                disabled={isSelected}
+                                                className="h-8 rounded-lg"
+                                            >
+                                                <Check className="size-4" />
+                                                {isSelected ? t('current') : t('select')}
+                                            </Button>
                                             <Button
                                                 type="button"
                                                 variant="ghost"
@@ -253,5 +287,81 @@ export function ChannelGroupManager({
                 )}
             </div>
         </section>
+    );
+}
+
+export function ChannelGroupManagerDialog({ className }: { className?: string }) {
+    const t = useTranslations('channel.groupManager');
+    const { data: channelsData = [] } = useChannelList();
+    const { data: channelGroupsData = [], isLoading, isError } = useChannelGroupList();
+    const selectedGroupId = useToolbarViewOptionsStore((s) => s.selectedChannelGroupId);
+    const setSelectedGroupId = useToolbarViewOptionsStore((s) => s.setSelectedChannelGroupId);
+
+    const groups = useMemo<ChannelGroup[]>(() => {
+        if (channelGroupsData.length > 0) {
+            return [...channelGroupsData].sort((a, b) => {
+                if (a.is_default !== b.is_default) {
+                    return a.is_default ? -1 : 1;
+                }
+                if (a.created_at !== b.created_at) {
+                    return a.created_at - b.created_at;
+                }
+                return a.id - b.id;
+            });
+        }
+
+        const fallbackIDs = Array.from(new Set(channelsData.map((item) => item.raw.group_id))).filter((id) => id > 0);
+        return fallbackIDs.map((id, index) => ({
+            id,
+            name: index === 0 ? t('fallbackName') : t('fallbackNameWithID', { id }),
+            is_default: index === 0,
+            created_at: index,
+            updated_at: index,
+        }));
+    }, [channelGroupsData, channelsData, t]);
+
+    const channelCountByGroup = useMemo(() => {
+        const counts = new Map<number, number>();
+        for (const item of channelsData) {
+            counts.set(item.raw.group_id, (counts.get(item.raw.group_id) ?? 0) + 1);
+        }
+        return counts;
+    }, [channelsData]);
+
+    const activeGroup = useMemo(() => {
+        if (groups.length === 0) {
+            return null;
+        }
+        return groups.find((group) => group.id === selectedGroupId) ?? groups[0];
+    }, [groups, selectedGroupId]);
+
+    useEffect(() => {
+        if (activeGroup && selectedGroupId !== activeGroup.id) {
+            setSelectedGroupId(activeGroup.id);
+        }
+    }, [activeGroup, selectedGroupId, setSelectedGroupId]);
+
+    return (
+        <MorphingDialog>
+            <MorphingDialogTrigger ariaLabel={t('title')} className={className}>
+                <FolderTree className="size-4 transition-colors duration-300" />
+                <span className="max-w-32 truncate sm:max-w-44">{activeGroup?.name ?? t('title')}</span>
+            </MorphingDialogTrigger>
+            <MorphingDialogContainer>
+                <MorphingDialogContent className="w-[min(100vw-1rem,42rem)] max-w-full rounded-xl border border-border bg-card p-3 text-card-foreground shadow-lg md:w-[min(100vw-3rem,48rem)] md:p-4">
+                    <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto md:max-h-[calc(100dvh-3rem)]">
+                        <ChannelGroupManagerPanel
+                            groups={groups}
+                            channelCountByGroup={channelCountByGroup}
+                            selectedGroupId={activeGroup?.id ?? null}
+                            isLoading={isLoading}
+                            isError={isError}
+                            onSelectGroup={setSelectedGroupId}
+                            className="border-0 bg-transparent p-0"
+                        />
+                    </div>
+                </MorphingDialogContent>
+            </MorphingDialogContainer>
+        </MorphingDialog>
     );
 }
