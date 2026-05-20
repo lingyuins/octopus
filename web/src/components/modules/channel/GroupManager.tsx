@@ -37,7 +37,8 @@ type ChannelGroupManagerPanelProps = {
 };
 
 export function getChannelGroupDisplayName(group: ChannelGroup, defaultName: string) {
-    return group.is_default ? defaultName : group.name;
+    const normalizedName = group.name.trim().toLowerCase();
+    return group.is_default && normalizedName === 'default' ? defaultName : group.name;
 }
 
 export function ChannelGroupManagerPanel({
