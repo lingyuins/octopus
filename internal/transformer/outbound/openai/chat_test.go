@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -961,6 +962,83 @@ func TestChatOutboundTransformRequest_MapsMimoThinkingControls(t *testing.T) {
 	if got.ExtraBody["foo"] != "bar" {
 		t.Fatalf("expected extra_body custom fields to be preserved, got %#v", got.ExtraBody["foo"])
 	}
+	if got.ReasoningEffort != "max" {
+		t.Fatalf("expected mimo reasoning_effort max, got %q", got.ReasoningEffort)
+	}
+}
+
+func TestChatOutboundTransformRequest_SetsDefaultMimoMaxCompletionTokens(t *testing.T) {
+	outbound := &ChatOutbound{}
+	request := &model.InternalLLMRequest{
+		Model: "mimo-v2.5-pro",
+		Messages: []model.Message{{
+			Role: "user",
+			Content: model.MessageContent{Content: loPtr("hello")},
+		}},
+	}
+
+	httpReq, err := outbound.TransformRequest(context.Background(), request, "https://api.xiaomimimo.com/v1", "sk-test")
+	if err != nil {
+		t.Fatalf("TransformRequest() error = %v", err)
+	}
+
+	body, err := io.ReadAll(httpReq.Body)
+	if err != nil {
+		t.Fatalf("failed to read request body: %v", err)
+	}
+
+	var got struct {
+		MaxCompletionTokens *int64 `json:"max_completion_tokens,omitempty"`
+		MaxTokens           *int64 `json:"max_tokens,omitempty"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("failed to unmarshal outbound body: %v", err)
+	}
+
+	if got.MaxCompletionTokens == nil || *got.MaxCompletionTokens != 512 {
+		t.Fatalf("expected max_completion_tokens 512, got %#v", got.MaxCompletionTokens)
+	}
+	if got.MaxTokens != nil {
+		t.Fatalf("expected max_tokens to be omitted, got %#v", got.MaxTokens)
+	}
+}
+
+func TestChatOutboundTransformRequest_RaisesSmallMimoMaxTokens(t *testing.T) {
+	outbound := &ChatOutbound{}
+	maxTokens := int64(50)
+	request := &model.InternalLLMRequest{
+		Model:     "mimo-v2.5-pro",
+		MaxTokens: &maxTokens,
+		Messages: []model.Message{{
+			Role: "user",
+			Content: model.MessageContent{Content: loPtr("hello")},
+		}},
+	}
+
+	httpReq, err := outbound.TransformRequest(context.Background(), request, "https://api.xiaomimimo.com/v1", "sk-test")
+	if err != nil {
+		t.Fatalf("TransformRequest() error = %v", err)
+	}
+
+	body, err := io.ReadAll(httpReq.Body)
+	if err != nil {
+		t.Fatalf("failed to read request body: %v", err)
+	}
+
+	var got struct {
+		MaxCompletionTokens *int64 `json:"max_completion_tokens,omitempty"`
+		MaxTokens           *int64 `json:"max_tokens,omitempty"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("failed to unmarshal outbound body: %v", err)
+	}
+
+	if got.MaxCompletionTokens == nil || *got.MaxCompletionTokens != 512 {
+		t.Fatalf("expected max_completion_tokens 512, got %#v", got.MaxCompletionTokens)
+	}
+	if got.MaxTokens != nil {
+		t.Fatalf("expected max_tokens to be omitted after upgrade, got %#v", got.MaxTokens)
+	}
 }
 
 func TestChatOutboundTransformRequest_DisablesDeepSeekThinkingWhenReasoningEffortNone(t *testing.T) {
@@ -1132,4 +1210,38 @@ func assertJSONEncodedString(t *testing.T, raw json.RawMessage, want string) {
 
 func loPtr[T any](v T) *T {
 	return &v
+}
+
+func TestChatOutboundTransformResponse_NormalizesReasoningUsage(t *testing.T) {
+	outbound := &ChatOutbound{}
+	response := &http.Response{
+		Body: io.NopCloser(strings.NewReader(`{
+			"id":"chatcmpl-1",
+			"object":"chat.completion",
+			"created":1,
+			"model":"mimo-v2.5-pro",
+			"choices":[{"index":0,"message":{"role":"assistant","content":""},"finish_reason":"stop"}],
+			"usage":{
+				"prompt_tokens":257,
+				"completion_tokens":10,
+				"total_tokens":260,
+				"prompt_tokens_details":{"cached_tokens":192},
+				"completion_tokens_details":{"reasoning_tokens":49}
+			}
+		}`)),
+	}
+
+	got, err := outbound.TransformResponse(context.Background(), response)
+	if err != nil {
+		t.Fatalf("TransformResponse() error = %v", err)
+	}
+	if got.Usage == nil || got.Usage.CompletionTokensDetails == nil {
+		t.Fatal("expected usage with completion token details")
+	}
+	if got.Usage.CompletionTokens != 49 {
+		t.Fatalf("completion_tokens = %d, want 49", got.Usage.CompletionTokens)
+	}
+	if got.Usage.TotalTokens != 306 {
+		t.Fatalf("total_tokens = %d, want 306", got.Usage.TotalTokens)
+	}
 }

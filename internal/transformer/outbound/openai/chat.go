@@ -84,6 +84,7 @@ func sanitizeRequestForOpenAICompat(request *model.InternalLLMRequest, baseURL s
 	}
 
 	normalizeDeepSeekReasoningCompat(request, baseURL, isMimoChannel)
+	applyReasoningCompatTokenBudget(request, baseURL, isMimoChannel)
 
 	// Only apply generic reasoning-effort normalization to non-provider-specific
 	// reasoning-compatible targets. DeepSeek and Mimo already handle effort
@@ -105,6 +106,34 @@ func sanitizeRequestForOpenAICompat(request *model.InternalLLMRequest, baseURL s
 		request.ExtraBody = nil
 	}
 	request.Include = nil
+}
+
+func applyReasoningCompatTokenBudget(request *model.InternalLLMRequest, baseURL string, isMimoChannel bool) {
+	if request == nil || !isReasoningCompatRequest(baseURL, request, isMimoChannel) {
+		return
+	}
+
+	const defaultReasoningMaxCompletionTokens int64 = 512
+
+	if request.MaxCompletionTokens != nil {
+		if *request.MaxCompletionTokens < defaultReasoningMaxCompletionTokens {
+			v := defaultReasoningMaxCompletionTokens
+			request.MaxCompletionTokens = &v
+		}
+		return
+	}
+
+	if request.MaxTokens != nil {
+		if *request.MaxTokens < defaultReasoningMaxCompletionTokens {
+			v := defaultReasoningMaxCompletionTokens
+			request.MaxCompletionTokens = &v
+			request.MaxTokens = nil
+		}
+		return
+	}
+
+	v := defaultReasoningMaxCompletionTokens
+	request.MaxCompletionTokens = &v
 }
 
 func sanitizeMessageForOpenAICompat(msg *model.Message, preserveDeepSeekReasoning bool) {
@@ -262,6 +291,7 @@ func (o *ChatOutbound) TransformResponse(ctx context.Context, response *http.Res
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
+	normalizeOpenAICompatUsage(&resp)
 	return &resp, nil
 }
 
@@ -285,5 +315,34 @@ func (o *ChatOutbound) TransformStream(ctx context.Context, eventData []byte) (*
 	if err := json.Unmarshal(eventData, &resp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal stream chunk: %w", err)
 	}
+	normalizeOpenAICompatUsage(&resp)
 	return &resp, nil
+}
+
+func normalizeOpenAICompatUsage(resp *model.InternalLLMResponse) {
+	if resp == nil || resp.Usage == nil {
+		return
+	}
+
+	usage := resp.Usage
+	if usage.CompletionTokensDetails == nil {
+		return
+	}
+
+	reasoningTokens := usage.CompletionTokensDetails.ReasoningTokens
+	if reasoningTokens < 0 {
+		usage.CompletionTokensDetails.ReasoningTokens = 0
+		reasoningTokens = 0
+	}
+
+	if usage.CompletionTokens < reasoningTokens {
+		usage.CompletionTokens = reasoningTokens
+	}
+
+	if usage.TotalTokens > 0 && usage.PromptTokens > 0 {
+		minimumTotal := usage.PromptTokens + usage.CompletionTokens
+		if usage.TotalTokens < minimumTotal {
+			usage.TotalTokens = minimumTotal
+		}
+	}
 }

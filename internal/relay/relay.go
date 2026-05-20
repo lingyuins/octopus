@@ -864,6 +864,7 @@ func (ra *relayAttempt) handleResponse(ctx context.Context, response *http.Respo
 		logRelayErrorfByContext(err, "failed to transform response: %v", err)
 		return fmt.Errorf("failed to transform outbound response: %w", err)
 	}
+	applyReasoningExhaustedHeader(ra.c, internalResponse)
 
 	inResponse, err := ra.inAdapter.TransformResponse(ctx, internalResponse)
 	if err != nil {
@@ -875,6 +876,34 @@ func (ra *relayAttempt) handleResponse(ctx context.Context, response *http.Respo
 
 	ra.c.Data(http.StatusOK, "application/json", inResponse)
 	return nil
+}
+
+func applyReasoningExhaustedHeader(c *gin.Context, resp *model.InternalLLMResponse) {
+	if c == nil || !isReasoningExhaustedResponse(resp) {
+		return
+	}
+	c.Header("X-Reasoning-Exhausted", "true")
+}
+
+func isReasoningExhaustedResponse(resp *model.InternalLLMResponse) bool {
+	if resp == nil || resp.Usage == nil || len(resp.Choices) == 0 {
+		return false
+	}
+	if resp.Usage.CompletionTokensDetails == nil || resp.Usage.CompletionTokensDetails.ReasoningTokens <= 0 {
+		return false
+	}
+	for _, choice := range resp.Choices {
+		if choice.Message == nil {
+			continue
+		}
+		if choice.Message.Content.Content != nil && strings.TrimSpace(*choice.Message.Content.Content) != "" {
+			return false
+		}
+		if len(choice.Message.Content.MultipleContent) > 0 || len(choice.Message.ToolCalls) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // collectResponse 收集响应信息
