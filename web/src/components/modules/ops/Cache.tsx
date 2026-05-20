@@ -207,9 +207,9 @@ function ProviderPromptCacheView({
                 />
             </div>
 
-            <article className="rounded-xl border border-border/60 bg-card p-4">
-                <div className="grid gap-6">
-                    <div className="space-y-3">
+            <article className="min-w-0 rounded-xl border border-border/60 bg-card p-4">
+                <div className="grid min-w-0 gap-6">
+                    <div className="min-w-0 space-y-3">
                         <div>
                             <h4 className="text-sm font-semibold">{t('cache.providerPrompt.providers.title')}</h4>
                             <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -255,26 +255,26 @@ function ProviderPromptCacheView({
                         )}
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="min-w-0 space-y-3">
                         <div>
                             <h4 className="text-sm font-semibold">{t('cache.providerPrompt.trend.title')}</h4>
                             <p className="mt-1 text-sm leading-6 text-muted-foreground">
                                 {t('cache.providerPrompt.trend.description')}
                             </p>
                         </div>
-                        <div className="rounded-xl border border-border/60 bg-card p-4">
-                            <div className="overflow-x-auto">
+                        <div className="min-w-0 rounded-xl border border-border/60 bg-card p-4">
+                            <div className="max-w-full overflow-x-auto pb-1">
                                 <div className="flex h-40 min-w-max items-end gap-2 pr-2">
                                     {trend.map((point) => {
                                         const height = `${Math.max(8, (point.cache_read_tokens / maxReadTokens) * 100)}%`;
                                         return (
-                                            <div key={point.timestamp} className="flex min-w-14 flex-none flex-col items-center gap-2">
+                                            <div key={point.timestamp} className="flex w-20 flex-none flex-col items-center gap-2">
                                                 <div
                                                     className="w-full rounded-t-md bg-primary/20"
                                                     style={{ height }}
                                                     title={`${formatUnixTime(point.timestamp)} | ${formatCount(point.cache_read_tokens)} read`}
                                                 />
-                                                <div className="w-full text-center text-[10px] text-muted-foreground">
+                                                <div className="w-full whitespace-nowrap text-center text-[10px] text-muted-foreground">
                                                     {formatUnixTime(point.timestamp)}
                                                 </div>
                                             </div>
