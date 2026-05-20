@@ -11,14 +11,8 @@ import {
 } from '@/api/endpoints/channel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import {
-    MorphingDialog,
-    MorphingDialogClose,
-    MorphingDialogContainer,
-    MorphingDialogContent,
-    MorphingDialogTrigger,
-} from '@/components/ui/morphing-dialog';
 import { toast } from '@/components/common/Toast';
 import { useTranslations } from 'next-intl';
 import { Check, FolderTree, Pencil, Plus, Trash2, X } from 'lucide-react';
@@ -300,6 +294,7 @@ export function ChannelGroupManagerPanel({
 export function ChannelGroupManagerDialog({ className }: { className?: string }) {
     const t = useTranslations('channel.groupManager');
     const defaultName = t('defaultName');
+    const [open, setOpen] = useState(false);
     const { data: channelsData = [] } = useChannelList();
     const { data: channelGroupsData = [], isLoading, isError } = useChannelGroupList();
     const selectedGroupId = useToolbarViewOptionsStore((s) => s.selectedChannelGroupId);
@@ -350,16 +345,16 @@ export function ChannelGroupManagerDialog({ className }: { className?: string })
     }, [activeGroup, selectedGroupId, setSelectedGroupId]);
 
     return (
-        <MorphingDialog>
-            <MorphingDialogTrigger ariaLabel={t('title')} className={className}>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <button type="button" aria-label={t('title')} className={className}>
                 <FolderTree className="size-4 transition-colors duration-300" />
                 <span className="max-w-32 truncate sm:max-w-44">
                     {activeGroup ? getChannelGroupDisplayName(activeGroup, defaultName) : t('title')}
                 </span>
-            </MorphingDialogTrigger>
-            <MorphingDialogContainer>
-                <MorphingDialogContent className="w-[min(100vw-1rem,42rem)] max-w-full rounded-xl border border-border bg-card p-3 text-card-foreground shadow-lg md:w-[min(100vw-3rem,48rem)] md:p-4">
-                    <MorphingDialogClose className="right-3 top-3 text-muted-foreground hover:text-foreground md:right-4 md:top-4" />
+                </button>
+            </DialogTrigger>
+            <DialogContent className="w-[min(100vw-1rem,42rem)] max-w-full rounded-xl border border-border bg-card p-3 text-card-foreground shadow-lg md:w-[min(100vw-3rem,48rem)] md:p-4">
                     <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto md:max-h-[calc(100dvh-3rem)]">
                         <ChannelGroupManagerPanel
                             groups={groups}
@@ -368,11 +363,10 @@ export function ChannelGroupManagerDialog({ className }: { className?: string })
                             isLoading={isLoading}
                             isError={isError}
                             onSelectGroup={setSelectedGroupId}
-                            className="border-0 bg-transparent p-0"
+                            className="border-0 bg-transparent p-0 pr-12 md:pr-14"
                         />
                     </div>
-                </MorphingDialogContent>
-            </MorphingDialogContainer>
-        </MorphingDialog>
+            </DialogContent>
+        </Dialog>
     );
 }

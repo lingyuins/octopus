@@ -263,22 +263,24 @@ function ProviderPromptCacheView({
                             </p>
                         </div>
                         <div className="rounded-xl border border-border/60 bg-card p-4">
-                            <div className="flex h-40 items-end gap-2">
-                                {trend.map((point) => {
-                                    const height = `${Math.max(8, (point.cache_read_tokens / maxReadTokens) * 100)}%`;
-                                    return (
-                                        <div key={point.timestamp} className="flex flex-1 flex-col items-center gap-2">
-                                            <div
-                                                className="w-full rounded-t-md bg-primary/20"
-                                                style={{ height }}
-                                                title={`${formatUnixTime(point.timestamp)} | ${formatCount(point.cache_read_tokens)} read`}
-                                            />
-                                            <div className="text-[10px] text-muted-foreground">
-                                                {formatUnixTime(point.timestamp)}
+                            <div className="overflow-x-auto">
+                                <div className="flex h-40 min-w-max items-end gap-2 pr-2">
+                                    {trend.map((point) => {
+                                        const height = `${Math.max(8, (point.cache_read_tokens / maxReadTokens) * 100)}%`;
+                                        return (
+                                            <div key={point.timestamp} className="flex min-w-14 flex-none flex-col items-center gap-2">
+                                                <div
+                                                    className="w-full rounded-t-md bg-primary/20"
+                                                    style={{ height }}
+                                                    title={`${formatUnixTime(point.timestamp)} | ${formatCount(point.cache_read_tokens)} read`}
+                                                />
+                                                <div className="w-full text-center text-[10px] text-muted-foreground">
+                                                    {formatUnixTime(point.timestamp)}
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
                         </div>
                     </div>
