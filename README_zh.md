@@ -6,7 +6,7 @@
 
 **为个人打造的简单、美观、优雅的 LLM API 聚合与负载均衡服务**
 
-简体中文 | [English](README.md)
+简体中文 | [English](README.md) | [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -619,6 +619,78 @@ base_url = "http://127.0.0.1:8080/v1"
 
 
 ---
+
+## 🏗️ 架构
+
+Octopus 采用清晰的分层 Go 架构：
+
+```
+cmd/                    # 程序入口（Cobra CLI）
+internal/
+├── conf/               # 配置加载与构建元信息
+├── client/             # HTTP 客户端工具
+├── db/                 # 数据库连接与迁移（SQLite/MySQL/PostgreSQL）
+│   └── migrate/        # 版本化 Schema 迁移（001-007）
+├── model/              # 领域类型（Channel、Group、APIKey、User……）
+├── op/                 # 业务逻辑操作（最大模块）
+├── relay/              # 核心中转管线
+│   ├── balancer/       # 负载均衡策略（轮询、随机、故障转移、加权、智能）
+│   └── condition/      # 请求条件评估
+├── server/             # HTTP 层（Gin）
+│   ├── auth/           # JWT 认证与权限
+│   ├── handlers/       # 路由处理器（每个资源一个文件）
+│   ├── middleware/     # 鉴权、RBAC、CORS、限流、审计……
+│   ├── resp/           # 响应信封辅助
+│   └── router/         # 路由注册系统
+├── task/               # 后台定时任务
+├── transformer/        # 协议适配器
+│   ├── inbound/        # 客户端→内部（OpenAI、Anthropic）
+│   ├── outbound/       # 内部→上游（OpenAI、Anthropic、Gemini、Volcengine）
+│   ├── rewrite/        # 请求规范化
+│   └── model/          # 共享适配器类型与接口
+├── helper/             # 横切辅助（AI 路由、渠道/分组探测、价格、通知）
+├── price/              # LLM 价格目录（models.dev 同步）
+├── update/             # 自更新机制
+└── utils/              # 工具库（缓存、限流、语义缓存、分词器……）
+```
+
+**Relay 数据流：**
+
+```
+客户端请求
+    ↓
+inbound.TransformRequest（原始格式 → 内部通用格式）
+    ↓
+outbound.TransformRequest（内部格式 → 上游格式）
+    ↓
+http.Do（转发到上游供应商）
+    ↓
+outbound.TransformResponse（上游响应 → 内部通用格式）
+    ↓
+inbound.TransformResponse（内部格式 → 客户端格式）
+    ↓
+客户端响应
+```
+
+流式场景中，相同的管线会通过 `TransformStream` 逐条处理 SSE 事件。
+
+**前端（Next.js 16 App Router）：**
+
+```
+web/src/
+├── api/               # API 客户端与端点 Hooks（TanStack Query）
+├── app/               # Next.js App Router 页面
+├── components/
+│   ├── modules/       # 领域模块（渠道、分组、API Key……）
+│   ├── ui/            # UI 原语（基于 Radix）
+│   ├── common/        # 共享组件
+│   └── nature/        # 动画背景与特效
+├── hooks/             # 自定义 Hooks
+├── lib/               # 工具、国际化、日志
+├── provider/          # React Context 提供者
+├── route/             # 懒加载路由配置
+└── stores/            # Zustand 客户端状态
+```
 
 ## 🤝 致谢
 

@@ -7,6 +7,9 @@ import (
 	"github.com/lingyuins/octopus/internal/op/setting"
 )
 
+// settingCache is retained for backward compatibility (used by tests).
+var settingCache = setting.GetCache()
+
 // Deprecated: Use setting.List from internal/op/setting instead.
 func SettingList(ctx context.Context) ([]model.Setting, error) { return setting.List(ctx) }
 

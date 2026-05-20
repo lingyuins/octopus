@@ -6,7 +6,7 @@
 
 **A Simple, Beautiful, and Elegant LLM API Aggregation & Load Balancing Service for Individuals**
 
- English | [简体中文](README_zh.md)
+ English | [简体中文](README_zh.md) | [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -617,6 +617,78 @@ Edit `~/.codex/auth.json`
 ```
 
 ---
+
+## 🏗️ Architecture
+
+Octopus follows a clean layered architecture in Go:
+
+```
+cmd/                    # Entry points (Cobra CLI)
+internal/
+├── conf/               # Configuration loading & build metadata
+├── client/             # HTTP client utilities
+├── db/                 # Database connection & migrations (SQLite/MySQL/PostgreSQL)
+│   └── migrate/        # Versioned schema migrations (001-007)
+├── model/              # Domain types (Channel, Group, APIKey, User, …)
+├── op/                 # Business logic operations (largest module)
+├── relay/              # Core relay pipeline
+│   ├── balancer/       # Load balancing strategies (RoundRobin, Random, Failover, Weighted, Auto)
+│   └── condition/      # Request condition evaluation
+├── server/             # HTTP layer (Gin)
+│   ├── auth/           # JWT auth & permissions
+│   ├── handlers/       # Route handlers (one per resource)
+│   ├── middleware/     # Auth, RBAC, CORS, rate-limit, audit, …
+│   ├── resp/           # Response envelope helpers
+│   └── router/         # Route registration system
+├── task/               # Background periodic jobs
+├── transformer/        # Protocol adapters
+│   ├── inbound/        # Client→Internal (OpenAI, Anthropic)
+│   ├── outbound/       # Internal→Upstream (OpenAI, Anthropic, Gemini, Volcengine)
+│   ├── rewrite/        # Request normalization
+│   └── model/          # Shared transformer types & interfaces
+├── helper/             # Cross-cutting helpers (AI route, channel/group probes, price, notify)
+├── price/              # LLM price catalog (models.dev sync)
+├── update/             # Self-update mechanism
+└── utils/              # Utilities (cache, ratelimit, semantic_cache, tokenizer, …)
+```
+
+**Relay data flow:**
+
+```
+Client Request
+    ↓
+inbound.TransformRequest (raw → internal format)
+    ↓
+outbound.TransformRequest (internal → upstream format)
+    ↓
+http.Do (forward to upstream provider)
+    ↓
+outbound.TransformResponse (upstream response → internal format)
+    ↓
+inbound.TransformResponse (internal → client format)
+    ↓
+Client Response
+```
+
+For streaming, the same pipeline processes each SSE event through `TransformStream`.
+
+**Frontend (Next.js 16 App Router):**
+
+```
+web/src/
+├── api/               # API client & endpoint hooks (TanStack Query)
+├── app/               # Next.js App Router pages
+├── components/
+│   ├── modules/       # Domain modules (channel, group, apikey, …)
+│   ├── ui/            # UI primitives (Radix-based)
+│   ├── common/        # Shared components
+│   └── nature/        # Animated backgrounds & effects
+├── hooks/             # Custom hooks
+├── lib/               # Utilities, i18n, logger
+├── provider/          # React context providers
+├── route/             # Lazy-loaded route config
+└── stores/            # Zustand client state
+```
 
 ## 🤝 Acknowledgments
 

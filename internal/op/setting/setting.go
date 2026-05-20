@@ -12,6 +12,9 @@ import (
 
 var settingCache = cache.New[model.SettingKey, string](16)
 
+// GetCache returns the internal setting cache (for backward compatibility).
+func GetCache() cache.Cache[model.SettingKey, string] { return settingCache }
+
 func List(ctx context.Context) ([]model.Setting, error) {
 	settings := make([]model.Setting, 0, settingCache.Len())
 	for key, value := range settingCache.GetAll() {
