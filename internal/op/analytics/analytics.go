@@ -66,7 +66,7 @@ func AnalyticsOverviewGet(ctx context.Context, r model.AnalyticsRange) (*model.A
 		return nil, err
 	}
 	mergedDaily := mergeAnalyticsDailyWithToday(daily, stats.TodayGet())
-	metrics := aggregateAnalyticsDailyMetrics(mergedDaily, r, time.Now())
+	metrics := aggregateAnalyticsDailyMetrics(mergedDaily, r, stats.Now())
 
 	channels, err := channel.List(ctx)
 	if err != nil {
@@ -180,7 +180,7 @@ func AnalyticsGroupHealthGet(ctx context.Context) ([]model.AnalyticsGroupHealthI
 		channelByID[ch.ID] = ch
 	}
 
-	failures, err := loadAnalyticsFailureRows(ctx, time.Now().Add(-analyticsRouteHealthFailureWindow))
+	failures, err := loadAnalyticsFailureRows(ctx, stats.Now().Add(-analyticsRouteHealthFailureWindow))
 	if err != nil {
 		return nil, err
 	}
@@ -521,7 +521,7 @@ func buildGroupHealth(groups []model.Group, channelByID map[int]model.Channel, f
 }
 
 func loadAnalyticsSummary(ctx context.Context, r model.AnalyticsRange) (*analyticsSummaryRow, error) {
-	startUnix := analyticsRangeStartUnix(r, time.Now())
+	startUnix := analyticsRangeStartUnix(r, stats.Now())
 	row := &analyticsSummaryRow{}
 
 	keepEnabled, err := setting.GetBool(model.SettingKeyRelayLogKeepEnabled)
@@ -561,7 +561,7 @@ func loadAnalyticsSummary(ctx context.Context, r model.AnalyticsRange) (*analyti
 }
 
 func loadAnalyticsProviderRows(ctx context.Context, r model.AnalyticsRange) (map[int]*analyticsProviderAggregateRow, error) {
-	startUnix := analyticsRangeStartUnix(r, time.Now())
+	startUnix := analyticsRangeStartUnix(r, stats.Now())
 	rows := make(map[int]*analyticsProviderAggregateRow)
 
 	keepEnabled, err := setting.GetBool(model.SettingKeyRelayLogKeepEnabled)
@@ -627,7 +627,7 @@ func loadAnalyticsProviderRows(ctx context.Context, r model.AnalyticsRange) (map
 }
 
 func loadAnalyticsModelRows(ctx context.Context, r model.AnalyticsRange) (map[string]*analyticsModelAggregateRow, error) {
-	startUnix := analyticsRangeStartUnix(r, time.Now())
+	startUnix := analyticsRangeStartUnix(r, stats.Now())
 	rows := make(map[string]*analyticsModelAggregateRow)
 
 	keepEnabled, err := setting.GetBool(model.SettingKeyRelayLogKeepEnabled)
@@ -700,7 +700,7 @@ func loadAnalyticsModelRows(ctx context.Context, r model.AnalyticsRange) (map[st
 }
 
 func loadAnalyticsAPIKeyRows(ctx context.Context, r model.AnalyticsRange) (map[string]*analyticsAPIKeyAggregateRow, error) {
-	startUnix := analyticsRangeStartUnix(r, time.Now())
+	startUnix := analyticsRangeStartUnix(r, stats.Now())
 	rows := make(map[string]*analyticsAPIKeyAggregateRow)
 
 	keepEnabled, err := setting.GetBool(model.SettingKeyRelayLogKeepEnabled)
@@ -912,3 +912,4 @@ func makeAnalyticsFailureKey(channelID int, actualModelName, requestModelName st
 		strings.TrimSpace(requestModelName),
 	}, "\x00")
 }
+

@@ -48,7 +48,7 @@ func RefreshCache(ctx context.Context) error {
 	}
 
 	var loadedHourly []model.StatsHourly
-	result = dbConn.Find(&loadedHourly)
+	result = dbConn.Where("date = ?", todayDate).Find(&loadedHourly)
 	if result.Error != nil {
 		return fmt.Errorf("failed to get hourly stats: %v", result.Error)
 	}
@@ -102,3 +102,4 @@ func RefreshCache(ctx context.Context) error {
 
 	return nil
 }
+

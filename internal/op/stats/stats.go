@@ -161,7 +161,7 @@ func persistSnapshots(
 	}
 	if len(hourlyStats) > 0 {
 		if result := dbConn.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "hour"}},
+			Columns:   []clause.Column{{Name: "hour"}, {Name: "date"}},
 			UpdateAll: true,
 		}).Create(&hourlyStats); result.Error != nil {
 			return result.Error
@@ -751,3 +751,4 @@ func GetAPIKeyDirtyIDs() []int {
 	}
 	return ids
 }
+

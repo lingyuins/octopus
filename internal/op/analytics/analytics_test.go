@@ -474,4 +474,22 @@ func TestMakeAnalyticsFailureKey_FallsBackToRequestModel(t *testing.T) {
 	}
 }
 
+func TestAnalyticsStartTime_UsesProvidedLocationBoundary(t *testing.T) {
+	shanghai := time.FixedZone("UTC+8", 8*3600)
+	now := time.Date(2026, 1, 15, 14, 30, 0, 0, shanghai)
+
+	got := analyticsStartTime(model.AnalyticsRange1D, now)
+	if got == nil {
+		t.Fatal("expected non-nil start time")
+	}
+
+	expected := time.Date(2026, 1, 15, 0, 0, 0, 0, shanghai)
+	if !got.Equal(expected) {
+		t.Fatalf("expected %v, got %v", expected, got)
+	}
+	if got.Location() != shanghai {
+		t.Fatalf("expected location %v, got %v", shanghai, got.Location())
+	}
+}
 func timePtr(t time.Time) *time.Time { return &t }
+

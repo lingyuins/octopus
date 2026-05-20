@@ -17,7 +17,7 @@ type StatsTotal struct {
 
 type StatsHourly struct {
 	Hour int    `json:"hour" gorm:"primaryKey"`
-	Date string `json:"date" gorm:"not null"` // 记录最后更新日期，格式：20060102
+	Date string `json:"date" gorm:"primaryKey;not null"` // 记录最后更新日期，格式：20060102
 	StatsMetrics
 }
 
@@ -53,3 +53,4 @@ func (s *StatsMetrics) Add(delta StatsMetrics) {
 	s.RequestSuccess += delta.RequestSuccess
 	s.RequestFailed += delta.RequestFailed
 }
+
