@@ -323,8 +323,8 @@ func TestRebuildGroupIndexesFromCache_SetsRegexMatchTimeout(t *testing.T) {
 	if len(matchers) != 1 {
 		t.Fatalf("regex matcher count = %d, want 1", len(matchers))
 	}
-	if matchers[0].re.MatchTimeout != groupRegexMatchTimeout {
-		t.Fatalf("regex match timeout = %s, want %s", matchers[0].re.MatchTimeout, groupRegexMatchTimeout)
+	if matchers[0].Re.MatchTimeout != groupRegexMatchTimeout {
+		t.Fatalf("regex match timeout = %s, want %s", matchers[0].Re.MatchTimeout, groupRegexMatchTimeout)
 	}
 }
 

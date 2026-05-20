@@ -10,6 +10,7 @@ import (
 
 var channelCache = channel.GetCache()
 var channelKeyCache = channel.GetKeyCache()
+var channelKeyCacheNeedUpdate, channelKeyCacheNeedUpdateLock = channel.GetKeyCacheNeedUpdate()
 
 func init() {
 	channel.GroupDefaultID = func(ctx context.Context) (int, error) {
