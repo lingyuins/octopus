@@ -1109,7 +1109,7 @@
       },
       "manualSync": {
         "label": "手动同步渠道",
-        "button": "立即同步渠道模型",
+        "button": "立即同步所有渠道模型",
         "syncing": "同步中..."
       },
       "lastSync": "上次同步",
@@ -1660,6 +1660,7 @@
       "hint": "用于渠道页面的管理与展示，也会作为 AI 路由生成时的分组参考，但不会直接改写现有路由与转发结果。",
       "create": "新建分组",
       "createPlaceholder": "输入渠道分组名称",
+      "defaultName": "默认",
       "select": "查看",
       "current": "当前",
       "rename": "重命名",

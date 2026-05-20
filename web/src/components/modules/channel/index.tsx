@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/common/Toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { getChannelGroupDisplayName } from './GroupManager';
 
 type ChannelListItem = {
     raw: ChannelModel;
@@ -34,6 +35,7 @@ export function Channel() {
     const filter = useChannelFilter();
     const t = useTranslations('channel');
     const settingT = useTranslations('setting');
+    const defaultGroupName = t('groupManager.defaultName');
 
     const formatLastSyncTime = (timeStr: string | undefined) => {
         if (!timeStr) return settingT('llmSync.neverSynced');
@@ -141,7 +143,9 @@ export function Channel() {
                         <section className="rounded-xl border border-border/30 bg-card/70 p-3 md:p-4">
                             {activeGroup ? (
                                 <header className="mb-3 flex flex-wrap items-center gap-2">
-                                    <h3 className="text-sm font-semibold text-card-foreground">{activeGroup.name}</h3>
+                                    <h3 className="text-sm font-semibold text-card-foreground">
+                                        {getChannelGroupDisplayName(activeGroup, defaultGroupName)}
+                                    </h3>
                                     {activeGroup.is_default ? (
                                         <Badge variant="secondary" className="rounded-full">
                                             {t('groupManager.defaultBadge')}

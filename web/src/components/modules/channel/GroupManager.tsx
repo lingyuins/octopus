@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
     MorphingDialog,
+    MorphingDialogClose,
     MorphingDialogContainer,
     MorphingDialogContent,
     MorphingDialogTrigger,
@@ -34,6 +35,10 @@ type ChannelGroupManagerPanelProps = {
     className?: string;
 };
 
+export function getChannelGroupDisplayName(group: ChannelGroup, defaultName: string) {
+    return group.is_default ? defaultName : group.name;
+}
+
 export function ChannelGroupManagerPanel({
     groups,
     channelCountByGroup,
@@ -44,6 +49,7 @@ export function ChannelGroupManagerPanel({
     className,
 }: ChannelGroupManagerPanelProps) {
     const t = useTranslations('channel.groupManager');
+    const defaultName = t('defaultName');
     const createChannelGroup = useCreateChannelGroup();
     const updateChannelGroup = useUpdateChannelGroup();
     const deleteChannelGroup = useDeleteChannelGroup();
@@ -185,6 +191,7 @@ export function ChannelGroupManagerPanel({
                         const channelCount = channelCountByGroup.get(group.id) ?? 0;
                         const isEditing = editingGroupID === group.id;
                         const isSelected = selectedGroupId === group.id;
+                        const displayName = getChannelGroupDisplayName(group, defaultName);
 
                         return (
                             <div
@@ -230,7 +237,7 @@ export function ChannelGroupManagerPanel({
                                 ) : (
                                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                         <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                            <span className="truncate text-sm font-medium text-card-foreground">{group.name}</span>
+                                            <span className="truncate text-sm font-medium text-card-foreground">{displayName}</span>
                                             {group.is_default ? (
                                                 <Badge variant="secondary" className="rounded-full">
                                                     {t('defaultBadge')}
@@ -292,6 +299,7 @@ export function ChannelGroupManagerPanel({
 
 export function ChannelGroupManagerDialog({ className }: { className?: string }) {
     const t = useTranslations('channel.groupManager');
+    const defaultName = t('defaultName');
     const { data: channelsData = [] } = useChannelList();
     const { data: channelGroupsData = [], isLoading, isError } = useChannelGroupList();
     const selectedGroupId = useToolbarViewOptionsStore((s) => s.selectedChannelGroupId);
@@ -345,10 +353,13 @@ export function ChannelGroupManagerDialog({ className }: { className?: string })
         <MorphingDialog>
             <MorphingDialogTrigger ariaLabel={t('title')} className={className}>
                 <FolderTree className="size-4 transition-colors duration-300" />
-                <span className="max-w-32 truncate sm:max-w-44">{activeGroup?.name ?? t('title')}</span>
+                <span className="max-w-32 truncate sm:max-w-44">
+                    {activeGroup ? getChannelGroupDisplayName(activeGroup, defaultName) : t('title')}
+                </span>
             </MorphingDialogTrigger>
             <MorphingDialogContainer>
                 <MorphingDialogContent className="w-[min(100vw-1rem,42rem)] max-w-full rounded-xl border border-border bg-card p-3 text-card-foreground shadow-lg md:w-[min(100vw-3rem,48rem)] md:p-4">
+                    <MorphingDialogClose className="right-3 top-3 text-muted-foreground hover:text-foreground md:right-4 md:top-4" />
                     <div className="max-h-[calc(100dvh-2rem)] overflow-y-auto md:max-h-[calc(100dvh-3rem)]">
                         <ChannelGroupManagerPanel
                             groups={groups}

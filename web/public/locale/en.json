@@ -1109,7 +1109,7 @@
       },
       "manualSync": {
         "label": "Manual Channel Sync",
-        "button": "Sync Channel Models Now",
+        "button": "Sync All Channel Models Now",
         "syncing": "Syncing..."
       },
       "lastSync": "Last Sync",
@@ -1660,6 +1660,7 @@
       "hint": "Used for channel page management and display, and also as a grouping reference during AI route generation, but it does not directly rewrite existing routing or relay results.",
       "create": "New Group",
       "createPlaceholder": "Enter a channel group name",
+      "defaultName": "Default",
       "select": "View",
       "current": "Current",
       "rename": "Rename",

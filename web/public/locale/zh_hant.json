@@ -1109,7 +1109,7 @@
       },
       "manualSync": {
         "label": "手動同步供應源",
-        "button": "立即同步",
+        "button": "立即同步所有供應源模型",
         "syncing": "同步中..."
       },
       "lastSync": "上次同步",
@@ -1660,6 +1660,7 @@
       "hint": "用於渠道頁面的管理與展示，也會作為 AI 路由生成時的分組參考，但不會直接改寫現有路由與轉發結果。",
       "create": "新增分組",
       "createPlaceholder": "輸入渠道分組名稱",
+      "defaultName": "預設",
       "select": "查看",
       "current": "目前",
       "rename": "重新命名",

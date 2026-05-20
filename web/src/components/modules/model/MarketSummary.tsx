@@ -83,14 +83,14 @@ export function ModelMarketSummary({
                     </Button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
                     {metrics.map((metric) => (
-                        <div key={metric.key} className="group relative overflow-hidden rounded-lg border border-border/30 bg-card px-2.5 py-2 transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-primary/18 md:px-3 md:py-2.5">
-                            <div className="relative flex items-center gap-1.5 text-[10px] text-muted-foreground md:gap-2 md:text-sm">
+                        <div key={metric.key} className="group relative min-w-0 overflow-hidden rounded-lg border border-border/30 bg-card px-2.5 py-2 transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-primary/18 md:px-3 md:py-2.5">
+                            <div className="relative flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground md:gap-2 md:text-sm">
                                 <metric.icon className="h-3.5 w-3.5 shrink-0 text-primary md:h-4 md:w-4" />
-                                <span className="leading-tight">{metric.label}</span>
+                                <span className="min-w-0 leading-tight">{metric.label}</span>
                             </div>
-                            <div className="relative mt-1 text-[1.45rem] font-semibold leading-none tracking-tight md:mt-2 md:text-[1.75rem]">{metric.value}</div>
+                            <div className="relative mt-1 min-w-0 text-[1.45rem] font-semibold leading-none tracking-tight md:mt-2 md:text-[1.75rem]">{metric.value}</div>
                         </div>
                     ))}
                 </div>
