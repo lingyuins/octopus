@@ -1,6 +1,6 @@
 services:
   octopus:
-    image: lingyuins/octopus:v1.8.9
+    image: lingyuins/octopus:v1.9.0
     container_name: octopus
     restart: unless-stopped
     ports:
@@ -10,3 +10,4 @@ services:
     environment:
       TZ: "Asia/Shanghai"
       OCTOPUS_AUTH_JWT_SECRET: "change-this-to-a-long-random-secret"
+
