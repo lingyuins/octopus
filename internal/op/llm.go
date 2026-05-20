@@ -2,26 +2,17 @@ package op
 
 import (
 	"context"
-	"fmt"
-	"sort"
 	"strings"
 
-	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/utils/cache"
+	"github.com/lingyuins/octopus/internal/op/llm"
 )
 
-var llmModelCache = cache.New[string, model.LLMPrice](16)
+// llmModelCache is retained for backward compatibility (used by llm_test.go).
+var llmModelCache = llm.GetCache()
 
 func LLMList(ctx context.Context) ([]model.LLMInfo, error) {
-	models := make([]model.LLMInfo, 0, llmModelCache.Len())
-	for m, cost := range llmModelCache.GetAll() {
-		models = append(models, model.LLMInfo{
-			Name:     m,
-			LLMPrice: cost,
-		})
-	}
-
+	// statsModelCache is accessed directly from the op package (defined in stats.go)
 	statsByName := make(map[string]model.StatsMetrics, statsModelCache.Len())
 	for _, stats := range statsModelCache.GetAll() {
 		name := strings.TrimSpace(stats.Name)
@@ -32,158 +23,29 @@ func LLMList(ctx context.Context) ([]model.LLMInfo, error) {
 		aggregated.Add(stats.StatsMetrics)
 		statsByName[name] = aggregated
 	}
-
-	sort.Slice(models, func(i, j int) bool {
-		return compareLLMRank(models[i].Name, models[j].Name, statsByName)
-	})
-	return models, nil
+	return llm.ListWithStats(ctx, statsByName)
 }
 
-func compareLLMRank(leftName string, rightName string, statsByName map[string]model.StatsMetrics) bool {
-	leftStats := statsByName[leftName]
-	rightStats := statsByName[rightName]
+// Deprecated: Use llm.Update from internal/op/llm instead.
+func LLMUpdate(m model.LLMInfo, ctx context.Context) error { return llm.Update(m, ctx) }
 
-	leftTotal := leftStats.RequestSuccess + leftStats.RequestFailed
-	rightTotal := rightStats.RequestSuccess + rightStats.RequestFailed
+// Deprecated: Use llm.Delete from internal/op/llm instead.
+func LLMDelete(name string, ctx context.Context) error { return llm.Delete(name, ctx) }
 
-	switch {
-	case leftTotal == 0 && rightTotal > 0:
-		return false
-	case leftTotal > 0 && rightTotal == 0:
-		return true
-	case leftTotal > 0 && rightTotal > 0:
-		leftRatio := leftStats.RequestSuccess * rightTotal
-		rightRatio := rightStats.RequestSuccess * leftTotal
-		if leftRatio != rightRatio {
-			return leftRatio > rightRatio
-		}
-	}
+// Deprecated: Use llm.BatchDelete from internal/op/llm instead.
+func LLMBatchDelete(names []string, ctx context.Context) error { return llm.BatchDelete(names, ctx) }
 
-	if leftStats.RequestSuccess != rightStats.RequestSuccess {
-		return leftStats.RequestSuccess > rightStats.RequestSuccess
-	}
-	if leftTotal != rightTotal {
-		return leftTotal > rightTotal
-	}
-	return leftName < rightName
-}
+// Deprecated: Use llm.Create from internal/op/llm instead.
+func LLMCreate(m model.LLMInfo, ctx context.Context) error { return llm.Create(m, ctx) }
 
-func LLMUpdate(model model.LLMInfo, ctx context.Context) error {
-	_, ok := llmModelCache.Get(model.Name)
-	if !ok {
-		return fmt.Errorf("model not found")
-	}
-	if err := db.GetDB().WithContext(ctx).Save(model).Error; err != nil {
-		return err
-	}
-	llmModelCache.Set(model.Name, model.LLMPrice)
-	return nil
-}
+// Deprecated: Use llm.BatchCreate from internal/op/llm instead.
+func LLMBatchCreate(infos []model.LLMInfo, ctx context.Context) error { return llm.BatchCreate(infos, ctx) }
 
-func LLMDelete(modelName string, ctx context.Context) error {
-	_, ok := llmModelCache.Get(modelName)
-	if !ok {
-		return fmt.Errorf("model not found")
-	}
-	if err := db.GetDB().WithContext(ctx).Delete(&model.LLMInfo{Name: modelName}).Error; err != nil {
-		return err
-	}
-	llmModelCache.Del(modelName)
-	return nil
-}
-func LLMBatchDelete(modelNames []string, ctx context.Context) error {
-	if len(modelNames) == 0 {
-		return nil
-	}
-	if err := db.GetDB().WithContext(ctx).Where("name IN ?", modelNames).Delete(&model.LLMInfo{}).Error; err != nil {
-		return err
-	}
-	llmModelCache.Del(modelNames...)
-	return nil
-}
-func LLMCreate(model model.LLMInfo, ctx context.Context) error {
-	model.Name = strings.ToLower(model.Name)
-	_, ok := llmModelCache.Get(model.Name)
-	if ok {
-		return fmt.Errorf("model already exists")
-	}
-	if err := db.GetDB().WithContext(ctx).Create(&model).Error; err != nil {
-		return err
-	}
-	llmModelCache.Set(model.Name, model.LLMPrice)
-	return nil
-}
-func LLMBatchCreate(llmInfos []model.LLMInfo, ctx context.Context) error {
-	if len(llmInfos) == 0 {
-		return nil
-	}
-	seen := make(map[string]struct{}, len(llmInfos))
-	newLLMInfos := make([]model.LLMInfo, 0, len(llmInfos))
-	for _, llmInfo := range llmInfos {
-		llmInfo.Name = strings.ToLower(llmInfo.Name)
-		if _, ok := seen[llmInfo.Name]; ok {
-			continue
-		}
-		if _, ok := llmModelCache.Get(llmInfo.Name); ok {
-			continue
-		}
-		seen[llmInfo.Name] = struct{}{}
-		newLLMInfos = append(newLLMInfos, llmInfo)
-	}
-	if len(newLLMInfos) == 0 {
-		return nil
-	}
-	if err := db.GetDB().WithContext(ctx).Create(&newLLMInfos).Error; err != nil {
-		return err
-	}
-	for _, llmInfo := range newLLMInfos {
-		llmModelCache.Set(llmInfo.Name, llmInfo.LLMPrice)
-	}
-	return nil
-}
+// Deprecated: Use llm.BatchUpdate from internal/op/llm instead.
+func LLMBatchUpdate(infos []model.LLMInfo, ctx context.Context) error { return llm.BatchUpdate(infos, ctx) }
 
-func LLMBatchUpdate(llmInfos []model.LLMInfo, ctx context.Context) error {
-	if len(llmInfos) == 0 {
-		return nil
-	}
+// Deprecated: Use llm.Get from internal/op/llm instead.
+func LLMGet(name string) (model.LLMPrice, error) { return llm.Get(name) }
 
-	for _, llmInfo := range llmInfos {
-		llmInfo.Name = strings.ToLower(strings.TrimSpace(llmInfo.Name))
-		if llmInfo.Name == "" {
-			continue
-		}
-		if err := db.GetDB().WithContext(ctx).
-			Model(&model.LLMInfo{}).
-			Where("name = ?", llmInfo.Name).
-			Updates(map[string]any{
-				"input":       llmInfo.Input,
-				"output":      llmInfo.Output,
-				"cache_read":  llmInfo.CacheRead,
-				"cache_write": llmInfo.CacheWrite,
-			}).Error; err != nil {
-			return err
-		}
-		llmModelCache.Set(llmInfo.Name, llmInfo.LLMPrice)
-	}
-
-	return nil
-}
-
-func LLMGet(name string) (model.LLMPrice, error) {
-	price, ok := llmModelCache.Get(name)
-	if !ok {
-		return model.LLMPrice{}, fmt.Errorf("model not found")
-	}
-	return price, nil
-}
-
-func llmRefreshCache(ctx context.Context) error {
-	models := []model.LLMInfo{}
-	if err := db.GetDB().WithContext(ctx).Find(&models).Error; err != nil {
-		return err
-	}
-	for _, model := range models {
-		llmModelCache.Set(model.Name, model.LLMPrice)
-	}
-	return nil
-}
+// llmRefreshCache is called by cache.go (same package)
+func llmRefreshCache(ctx context.Context) error { return llm.RefreshCache(ctx) }
