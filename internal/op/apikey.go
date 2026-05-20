@@ -2,116 +2,57 @@ package op
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/lingyuins/octopus/internal/db"
+	"github.com/lingyuins/octopus/internal/op/apikey"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/utils/cache"
-	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
-var apiKeyCache = cache.New[int, model.APIKey](16)
-var apiKeyIDMap = cache.New[string, int](16)
+// apiKeyCache is retained for backward compatibility (used by tests).
+var apiKeyCache = apikey.GetCache()
+var apiKeyIDMap = apikey.GetIDMap()
 
+func init() {
+	apikey.DeleteStatsFunc = func(id int) {
+		statsAPIKeyMutationLock.Lock()
+		statsAPIKeyCache.Del(id)
+		statsAPIKeyCacheNeedUpdateLock.Lock()
+		delete(statsAPIKeyCacheNeedUpdate, id)
+		statsAPIKeyCacheNeedUpdateLock.Unlock()
+		statsAPIKeyMutationLock.Unlock()
+	}
+}
+
+// Deprecated: Use apikey.Create from internal/op/apikey instead.
 func APIKeyCreate(key *model.APIKey, ctx context.Context) error {
-	if err := db.GetDB().WithContext(ctx).Create(key).Error; err != nil {
-		return fmt.Errorf("failed to create API key: %w", err)
-	}
-	apiKeyCache.Set(key.ID, *key)
-	apiKeyIDMap.Set(key.APIKey, key.ID)
-	return nil
+	return apikey.Create(key, ctx)
 }
 
+// Deprecated: Use apikey.Update from internal/op/apikey instead.
 func APIKeyUpdate(key *model.APIKey, ctx context.Context) error {
-	existing, ok := apiKeyCache.Get(key.ID)
-	if !ok {
-		return fmt.Errorf("API key not found")
-	}
-	if err := db.GetDB().WithContext(ctx).Omit("api_key").Save(key).Error; err != nil {
-		return fmt.Errorf("failed to update API key: %w", err)
-	}
-	key.APIKey = existing.APIKey
-	apiKeyCache.Set(key.ID, *key)
-	return nil
+	return apikey.Update(key, ctx)
 }
 
-// APIKeyList returns all API keys from the in-memory cache. The cache is
-// refreshed at startup via InitCache and updated on mutations. The ctx
-// parameter is reserved for future use (e.g., DB fallback).
+// Deprecated: Use apikey.List from internal/op/apikey instead.
 func APIKeyList(ctx context.Context) ([]model.APIKey, error) {
-	keys := make([]model.APIKey, 0, apiKeyCache.Len())
-	for _, apiKey := range apiKeyCache.GetAll() {
-		keys = append(keys, apiKey)
-	}
-	return keys, nil
+	return apikey.List(ctx)
 }
 
+// Deprecated: Use apikey.Get from internal/op/apikey instead.
 func APIKeyGet(id int, ctx context.Context) (model.APIKey, error) {
-	apiKey, ok := apiKeyCache.Get(id)
-	if !ok {
-		return model.APIKey{}, fmt.Errorf("API key not found")
-	}
-	return apiKey, nil
+	return apikey.Get(id, ctx)
 }
 
-func APIKeyGetByAPIKey(apiKey string, ctx context.Context) (model.APIKey, error) {
-	id, ok := apiKeyIDMap.Get(apiKey)
-	if !ok {
-		return model.APIKey{}, fmt.Errorf("API key not found")
-	}
-	return APIKeyGet(id, ctx)
+// Deprecated: Use apikey.GetByKey from internal/op/apikey instead.
+func APIKeyGetByAPIKey(key string, ctx context.Context) (model.APIKey, error) {
+	return apikey.GetByKey(key, ctx)
 }
 
+// Deprecated: Use apikey.Delete from internal/op/apikey instead.
 func APIKeyDelete(id int, ctx context.Context) error {
-	apiKey, err := APIKeyGet(id, ctx)
-	if err != nil {
-		return err
-	}
-	tx := db.GetDB().WithContext(ctx).Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			log.Errorf("panic recovered in APIKeyDelete transaction: %v", r)
-		}
-	}()
-
-	result := tx.Delete(&model.APIKey{ID: id})
-	if result.Error != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete API key: %w", result.Error)
-	}
-	if result.RowsAffected == 0 {
-		tx.Rollback()
-		return fmt.Errorf("API key not found")
-	}
-	if err := tx.Where("api_key_id = ?", id).Delete(&model.StatsAPIKey{}).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete stats API key: %w", err)
-	}
-	if err := tx.Commit().Error; err != nil {
-		return fmt.Errorf("failed to commit API key deletion: %w", err)
-	}
-	statsAPIKeyMutationLock.Lock()
-	statsAPIKeyCache.Del(id)
-	statsAPIKeyCacheNeedUpdateLock.Lock()
-	delete(statsAPIKeyCacheNeedUpdate, id)
-	statsAPIKeyCacheNeedUpdateLock.Unlock()
-	statsAPIKeyMutationLock.Unlock()
-	apiKeyCache.Del(id)
-	apiKeyIDMap.Del(apiKey.APIKey)
-	return nil
+	return apikey.Delete(id, ctx)
 }
 
+// apiKeyRefreshCache is called by cache.go (same package)
 func apiKeyRefreshCache(ctx context.Context) error {
-	apiKeys := []model.APIKey{}
-	if err := db.GetDB().WithContext(ctx).Find(&apiKeys).Error; err != nil {
-		return err
-	}
-	apiKeyCache.Clear()
-	apiKeyIDMap.Clear()
-	for _, apiKey := range apiKeys {
-		apiKeyCache.Set(apiKey.ID, apiKey)
-		apiKeyIDMap.Set(apiKey.APIKey, apiKey.ID)
-	}
-	return nil
+	return apikey.RefreshCache(ctx)
 }
