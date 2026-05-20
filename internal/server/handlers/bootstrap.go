@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	usr "github.com/lingyuins/octopus/internal/op/user"
 	"github.com/lingyuins/octopus/internal/server/resp"
 	"github.com/lingyuins/octopus/internal/server/router"
 )
@@ -25,7 +25,7 @@ func init() {
 }
 
 func getBootstrapStatus(c *gin.Context) {
-	initialized, message, err := op.UserBootstrapStatus()
+	initialized, message, err := usr.BootstrapStatus()
 	if err != nil {
 		resp.Error(c, http.StatusInternalServerError, resp.ErrInternalServer)
 		return
@@ -42,12 +42,12 @@ func createBootstrapAdmin(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	if err := op.UserBootstrapCreate(user.Username, user.Password); err != nil {
-		if errors.Is(err, op.ErrBootstrapAlreadySetUp) {
+	if err := usr.BootstrapCreate(user.Username, user.Password); err != nil {
+		if errors.Is(err, usr.ErrBootstrapAlreadySetUp) {
 			resp.Error(c, http.StatusConflict, err.Error())
 			return
 		}
-		if errors.Is(err, op.ErrBootstrapCredentials) {
+		if errors.Is(err, usr.ErrBootstrapCredentials) {
 			messageKey, messageArgs := bootstrapCredentialMessage(err)
 			resp.ErrorWithKey(c, http.StatusBadRequest, err.Error(), messageKey, messageArgs)
 			return

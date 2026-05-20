@@ -7,7 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/apikey"
+	"github.com/lingyuins/octopus/internal/op/group"
+	st "github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
@@ -58,7 +60,7 @@ func createAPIKey(c *gin.Context) {
 		return
 	}
 	req.APIKey = auth.GenerateAPIKey()
-	if err := op.APIKeyCreate(&req, c.Request.Context()); err != nil {
+	if err := apikey.Create(&req, c.Request.Context()); err != nil {
 		resp.InternalError(c)
 		return
 	}
@@ -66,7 +68,7 @@ func createAPIKey(c *gin.Context) {
 }
 
 func listAPIKey(c *gin.Context) {
-	apiKeys, err := op.APIKeyList(c.Request.Context())
+	apiKeys, err := apikey.List(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -80,7 +82,7 @@ func updateAPIKey(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	if err := op.APIKeyUpdate(&req, c.Request.Context()); err != nil {
+	if err := apikey.Update(&req, c.Request.Context()); err != nil {
 		resp.InternalError(c)
 		return
 	}
@@ -94,7 +96,7 @@ func deleteAPIKey(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidParam)
 		return
 	}
-	if err := op.APIKeyDelete(idNum, c.Request.Context()); err != nil {
+	if err := apikey.Delete(idNum, c.Request.Context()); err != nil {
 		resp.InternalError(c)
 		return
 	}
@@ -103,13 +105,13 @@ func deleteAPIKey(c *gin.Context) {
 
 func getStatsAPIKeyById(c *gin.Context) {
 	id := c.GetInt("api_key_id")
-	stats := op.StatsAPIKeyGet(id)
-	info, err := op.APIKeyGet(id, c.Request.Context())
+	stats := st.APIKeyGet(id)
+	info, err := apikey.Get(id, c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
 	}
-	models, err := op.GroupListModel(c.Request.Context())
+	models, err := group.GroupListModel(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return

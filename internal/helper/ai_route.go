@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lingyuins/octopus/internal/conf"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/airoute"
 	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
@@ -149,7 +149,7 @@ func StartGenerateAIRoute(req model.GenerateAIRouteRequest) (*model.GenerateAIRo
 			}
 		}
 
-		result, err := op.GenerateAIRoute(ctx, req, report)
+		result, err := airoute.GenerateAIRoute(ctx, req, report)
 		close(stopHeartbeat)
 		<-heartbeatDone
 
@@ -418,7 +418,7 @@ func finalizeAIRouteProgress(
 
 	if runErr != nil {
 		progress.ProgressPercent = minInt(progress.ProgressPercent, 99)
-		var partialErr *op.AIRoutePartialFailureError
+		var partialErr *airoute.AIRoutePartialFailureError
 		if errors.As(runErr, &partialErr) {
 			progress.Status = model.AIRouteTaskStatusFailed
 			progress.CurrentStep = model.AIRouteTaskStepFailed
@@ -549,14 +549,14 @@ func findActiveAIRouteProgress(req model.GenerateAIRouteRequest) (*model.Generat
 	ctx, cancel := context.WithTimeout(context.Background(), aiRouteProgressPersistenceTTL)
 	defer cancel()
 
-	return op.AIRouteTaskFindActive(ctx, req.Scope, req.GroupID)
+	return airoute.AIRouteTaskFindActive(ctx, req.Scope, req.GroupID)
 }
 
 func loadAIRouteProgress(id string) (*model.GenerateAIRouteProgress, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), aiRouteProgressPersistenceTTL)
 	defer cancel()
 
-	return op.AIRouteTaskGet(ctx, id)
+	return airoute.AIRouteTaskGet(ctx, id)
 }
 
 func persistAIRouteProgress(progress *model.GenerateAIRouteProgress, create bool) error {
@@ -569,7 +569,7 @@ func persistAIRouteProgress(progress *model.GenerateAIRouteProgress, create bool
 
 	snapshot := cloneAIRouteProgress(progress)
 	if create {
-		return op.AIRouteTaskCreate(ctx, snapshot)
+		return airoute.AIRouteTaskCreate(ctx, snapshot)
 	}
-	return op.AIRouteTaskSaveProgress(ctx, snapshot)
+	return airoute.AIRouteTaskSaveProgress(ctx, snapshot)
 }

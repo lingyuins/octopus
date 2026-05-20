@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/alert"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
@@ -30,7 +30,7 @@ func init() {
 }
 
 func listAlertRules(c *gin.Context) {
-	rules, err := op.AlertRuleList(c.Request.Context())
+	rules, err := alert.RuleList(c.Request.Context())
 	if err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -44,7 +44,7 @@ func createAlertRule(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	if err := op.AlertRuleCreate(c.Request.Context(), &rule); err != nil {
+	if err := alert.RuleCreate(c.Request.Context(), &rule); err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -57,7 +57,7 @@ func updateAlertRule(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	if err := op.AlertRuleUpdate(c.Request.Context(), &rule); err != nil {
+	if err := alert.RuleUpdate(c.Request.Context(), &rule); err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -70,7 +70,7 @@ func deleteAlertRule(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, "invalid id")
 		return
 	}
-	if err := op.AlertRuleDelete(c.Request.Context(), id); err != nil {
+	if err := alert.RuleDelete(c.Request.Context(), id); err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -78,7 +78,7 @@ func deleteAlertRule(c *gin.Context) {
 }
 
 func listNotifChannels(c *gin.Context) {
-	channels, err := op.AlertNotifChannelList(c.Request.Context())
+	channels, err := alert.NotifChannelList(c.Request.Context())
 	if err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -92,7 +92,7 @@ func createNotifChannel(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	if err := op.AlertNotifChannelCreate(c.Request.Context(), &ch); err != nil {
+	if err := alert.NotifChannelCreate(c.Request.Context(), &ch); err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -105,7 +105,7 @@ func updateNotifChannel(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	if err := op.AlertNotifChannelUpdate(c.Request.Context(), &ch); err != nil {
+	if err := alert.NotifChannelUpdate(c.Request.Context(), &ch); err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -118,7 +118,7 @@ func deleteNotifChannel(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, "invalid id")
 		return
 	}
-	if err := op.AlertNotifChannelDelete(c.Request.Context(), id); err != nil {
+	if err := alert.NotifChannelDelete(c.Request.Context(), id); err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -127,7 +127,7 @@ func deleteNotifChannel(c *gin.Context) {
 
 func listAlertHistory(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
-	history, err := op.AlertHistoryList(c.Request.Context(), limit)
+	history, err := alert.HistoryList(c.Request.Context(), limit)
 	if err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return

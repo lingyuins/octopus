@@ -7,7 +7,10 @@ import (
 
 	"github.com/lingyuins/octopus/internal/helper"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/alert"
+	"github.com/lingyuins/octopus/internal/op/channel"
+	"github.com/lingyuins/octopus/internal/op/setting"
+	"github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
@@ -23,13 +26,13 @@ func EvaluateAlertRules() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	rules, err := op.AlertRuleList(ctx)
+	rules, err := alert.RuleList(ctx)
 	if err != nil {
 		log.Warnf("alert evaluate: failed to list rules: %v", err)
 		return
 	}
 
-	channels, err := op.AlertNotifChannelList(ctx)
+	channels, err := alert.NotifChannelList(ctx)
 	if err != nil {
 		log.Warnf("alert evaluate: failed to list channels: %v", err)
 		channels = nil
@@ -45,25 +48,25 @@ func EvaluateAlertRules() {
 			continue
 		}
 
-		currentState := op.AlertStateGet(rule.ID)
+		currentState := alert.StateGet(rule.ID)
 		firing := evaluateRule(&rule)
 		prevState := currentState.State
 
 		switch {
 		case firing && prevState != model.AlertStateFiring:
-			op.AlertStateSet(rule.ID, model.AlertStateFiring)
-			currentState = op.AlertStateGet(rule.ID)
+			alert.StateSet(rule.ID, model.AlertStateFiring)
+			currentState = alert.StateGet(rule.ID)
 			notifyAlert(&rule, channelMap, alertStateFiring, currentState)
 			recordHistory(&rule, model.AlertStateFiring, "alert triggered")
 
 		case !firing && prevState == model.AlertStateFiring:
-			op.AlertStateSet(rule.ID, model.AlertStateResolved)
-			currentState = op.AlertStateGet(rule.ID)
+			alert.StateSet(rule.ID, model.AlertStateResolved)
+			currentState = alert.StateGet(rule.ID)
 			notifyAlert(&rule, channelMap, alertStateResolved, currentState)
 			recordHistory(&rule, model.AlertStateResolved, "alert resolved")
 
 		default:
-			op.AlertStateSet(rule.ID, prevState) // update LastCheckedAt
+			alert.StateSet(rule.ID, prevState) // update LastCheckedAt
 		}
 		_ = now
 	}
@@ -87,7 +90,7 @@ func evaluateRule(rule *model.AlertRule) bool {
 }
 
 func evaluateErrorRate(rule *model.AlertRule) bool {
-	stats := op.StatsTotalGet()
+	stats := stats.TotalGet()
 	if stats.RequestSuccess+stats.RequestFailed == 0 {
 		return false
 	}
@@ -96,7 +99,7 @@ func evaluateErrorRate(rule *model.AlertRule) bool {
 }
 
 func evaluateCostThreshold(rule *model.AlertRule) bool {
-	stats := op.StatsTotalGet()
+	stats := stats.TotalGet()
 	totalCost := stats.StatsMetrics.InputCost + stats.StatsMetrics.OutputCost
 	return totalCost >= rule.Threshold
 }
@@ -105,7 +108,7 @@ func evaluateChannelDown(rule *model.AlertRule) bool {
 	if rule.ScopeChannelID == 0 {
 		return false
 	}
-	channels, err := op.ChannelList(context.Background())
+	channels, err := channel.List(context.Background())
 	if err != nil {
 		return false
 	}
@@ -121,7 +124,7 @@ func evaluateQuotaExceeded(rule *model.AlertRule) bool {
 	if rule.ScopeAPIKeyID == 0 {
 		return false
 	}
-	stats := op.StatsAPIKeyGet(rule.ScopeAPIKeyID)
+	stats := stats.APIKeyGet(rule.ScopeAPIKeyID)
 	totalCost := stats.StatsMetrics.InputCost + stats.StatsMetrics.OutputCost
 	return totalCost >= rule.Threshold
 }
@@ -157,13 +160,13 @@ func recordHistory(rule *model.AlertRule, state model.AlertState, message string
 		State:    state,
 		Message:  message,
 	}
-	if err := op.AlertHistoryAdd(ctx, entry); err != nil {
+	if err := alert.HistoryAdd(ctx, entry); err != nil {
 		log.Warnf("alert history: failed to record for rule %d: %v", rule.ID, err)
 	}
 }
 
 func resolveAlertNotifyLanguage() string {
-	language, err := op.SettingGetString(model.SettingKeyAlertNotifyLanguage)
+	language, err := setting.GetString(model.SettingKeyAlertNotifyLanguage)
 	if err != nil {
 		return alertNotifyLanguageDefault
 	}

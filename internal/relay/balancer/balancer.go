@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/setting"
 )
 
 var roundRobinCounter uint64
@@ -214,7 +214,7 @@ func sortByPriority(items []model.GroupItem) []model.GroupItem {
 // getLatencyWeight returns the latency influence weight (0.0–1.0) for Auto strategy scoring.
 // A value of 0 means latency is ignored; 1.0 means only latency matters.
 func getLatencyWeight() float64 {
-	v, err := op.SettingGetInt(model.SettingKeyAutoStrategyLatencyWeight)
+	v, err := setting.GetInt(model.SettingKeyAutoStrategyLatencyWeight)
 	if err != nil || v < 0 || v > 100 {
 		return 0.3 // default 30% latency weight
 	}

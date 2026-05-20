@@ -14,6 +14,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/backup"
+	"github.com/lingyuins/octopus/internal/op/ops"
+	stg "github.com/lingyuins/octopus/internal/op/setting"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
@@ -53,7 +56,7 @@ func init() {
 }
 
 func getSettingList(c *gin.Context) {
-	settings, err := op.SettingList(c.Request.Context())
+	settings, err := stg.List(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -71,12 +74,12 @@ func setSetting(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := op.SettingSetString(setting.Key, setting.Value); err != nil {
+	if err := stg.SetString(setting.Key, setting.Value); err != nil {
 		resp.InternalError(c)
 		return
 	}
 	if shouldRefreshSemanticCacheRuntime(setting.Key) {
-		if err := op.RefreshSemanticCacheRuntime(); err != nil {
+		if err := ops.RefreshSemanticCacheRuntime(); err != nil {
 			resp.InternalError(c)
 			return
 		}
@@ -129,7 +132,7 @@ func exportDB(c *gin.Context) {
 	includeLogs, _ := strconv.ParseBool(c.DefaultQuery("include_logs", "false"))
 	includeStats, _ := strconv.ParseBool(c.DefaultQuery("include_stats", "false"))
 
-	dump, err := op.DBExportAll(c.Request.Context(), includeLogs, includeStats)
+	dump, err := backup.ExportAll(c.Request.Context(), includeLogs, includeStats)
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -153,7 +156,7 @@ func importDB(c *gin.Context) {
 		return
 	}
 
-	result, err := op.DBImportIncremental(c.Request.Context(), &dump)
+	result, err := backup.ImportIncremental(c.Request.Context(), &dump)
 	if err != nil {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -163,7 +166,7 @@ func importDB(c *gin.Context) {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if err := op.RefreshSemanticCacheRuntime(); err != nil {
+	if err := ops.RefreshSemanticCacheRuntime(); err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}

@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/analytics"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
@@ -52,7 +52,7 @@ func getAnalyticsOverview(c *gin.Context) {
 		return
 	}
 
-	data, err := op.AnalyticsOverviewGet(c.Request.Context(), analyticsRange)
+	data, err := analytics.AnalyticsOverviewGet(c.Request.Context(), analyticsRange)
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -66,7 +66,7 @@ func getAnalyticsUtilization(c *gin.Context) {
 		return
 	}
 
-	data, err := op.AnalyticsUtilizationGet(c.Request.Context(), analyticsRange)
+	data, err := analytics.AnalyticsUtilizationGet(c.Request.Context(), analyticsRange)
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -75,7 +75,7 @@ func getAnalyticsUtilization(c *gin.Context) {
 }
 
 func getAnalyticsEvaluation(c *gin.Context) {
-	data, err := op.AnalyticsEvaluationGet(c.Request.Context())
+	data, err := analytics.AnalyticsEvaluationGet(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -84,7 +84,7 @@ func getAnalyticsEvaluation(c *gin.Context) {
 }
 
 func getAnalyticsGroupHealth(c *gin.Context) {
-	data, err := op.AnalyticsGroupHealthGet(c.Request.Context())
+	data, err := analytics.AnalyticsGroupHealthGet(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -98,7 +98,7 @@ func getAnalyticsProviderBreakdown(c *gin.Context) {
 		return
 	}
 
-	data, err := op.AnalyticsProviderBreakdownGet(c.Request.Context(), analyticsRange)
+	data, err := analytics.AnalyticsProviderBreakdownGet(c.Request.Context(), analyticsRange)
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -112,7 +112,7 @@ func getAnalyticsModelBreakdown(c *gin.Context) {
 		return
 	}
 
-	data, err := op.AnalyticsModelBreakdownGet(c.Request.Context(), analyticsRange)
+	data, err := analytics.AnalyticsModelBreakdownGet(c.Request.Context(), analyticsRange)
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -126,7 +126,7 @@ func getAnalyticsAPIKeyBreakdown(c *gin.Context) {
 		return
 	}
 
-	data, err := op.AnalyticsAPIKeyBreakdownGet(c.Request.Context(), analyticsRange)
+	data, err := analytics.AnalyticsAPIKeyBreakdownGet(c.Request.Context(), analyticsRange)
 	if err != nil {
 		resp.InternalError(c)
 		return

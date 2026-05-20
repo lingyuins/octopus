@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/setting"
 	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
@@ -53,7 +53,7 @@ func getOrCreateEntry(key string) *circuitEntry {
 
 // getThreshold 获取熔断阈值配置
 func getThreshold() int64 {
-	v, err := op.SettingGetInt(model.SettingKeyCircuitBreakerThreshold)
+	v, err := setting.GetInt(model.SettingKeyCircuitBreakerThreshold)
 	if err != nil || v <= 0 {
 		return 5
 	}
@@ -62,11 +62,11 @@ func getThreshold() int64 {
 
 // GetCooldown 获取当前冷却时间（带指数退避）
 func GetCooldown(tripCount int) time.Duration {
-	base, err := op.SettingGetInt(model.SettingKeyCircuitBreakerCooldown)
+	base, err := setting.GetInt(model.SettingKeyCircuitBreakerCooldown)
 	if err != nil || base <= 0 {
 		base = 60
 	}
-	maxCooldown, err := op.SettingGetInt(model.SettingKeyCircuitBreakerMaxCooldown)
+	maxCooldown, err := setting.GetInt(model.SettingKeyCircuitBreakerMaxCooldown)
 	if err != nil || maxCooldown <= 0 {
 		maxCooldown = 600
 	}

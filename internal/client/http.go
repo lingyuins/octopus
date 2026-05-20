@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/setting"
 	"golang.org/x/net/proxy"
 )
 
@@ -26,7 +26,7 @@ var (
 // - useProxy=true: use proxy settings from system/app settings (setting key: proxy_url)
 func GetHTTPClientSystemProxy(useProxy bool) (*http.Client, error) {
 	if useProxy {
-		currentProxyURL, err := op.SettingGetString(model.SettingKeyProxyURL)
+		currentProxyURL, err := setting.GetString(model.SettingKeyProxyURL)
 		if err != nil {
 			return nil, err
 		}

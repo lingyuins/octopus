@@ -37,7 +37,7 @@ var groupRegexMatchersByEndpoint = make(map[string][]compiledGroupMatcher)
 var groupRegexMatchersLock sync.RWMutex
 
 // GetRegexMatchersLock returns the regex matchers mutex (for backward compatibility).
-func GetRegexMatchersLock() sync.RWMutex { return groupRegexMatchersLock }
+func GetRegexMatchersLock() *sync.RWMutex { return &groupRegexMatchersLock }
 
 const groupRegexMatchTimeout = 250 * time.Millisecond
 
@@ -866,3 +866,4 @@ func RefreshCacheByIDs(ids []int, ctx context.Context) error {
 	RebuildIndexes()
 	return nil
 }
+

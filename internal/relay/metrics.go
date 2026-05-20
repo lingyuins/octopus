@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/apikey"
+	"github.com/lingyuins/octopus/internal/op/relaylog"
+	"github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/price"
 	transformerModel "github.com/lingyuins/octopus/internal/transformer/model"
 	"github.com/lingyuins/octopus/internal/utils/log"
@@ -100,12 +102,12 @@ func (m *RelayMetrics) Save(success bool, err error, attempts []model.ChannelAtt
 	}
 
 	channelID, channelName := finalChannel(attempts)
-	op.StatsTotalUpdate(globalStats)
-	op.StatsHourlyUpdate(globalStats)
-	if statsErr := op.StatsDailyUpdate(ctx, globalStats); statsErr != nil {
+	stats.TotalUpdate(globalStats)
+	stats.HourlyUpdate(globalStats)
+	if statsErr := stats.DailyUpdate(ctx, globalStats); statsErr != nil {
 		log.Warnf("failed to update daily stats: %v", statsErr)
 	}
-	op.StatsAPIKeyUpdate(m.APIKeyID, globalStats)
+	stats.APIKeyUpdate(m.APIKeyID, globalStats)
 
 	log.Infof("relay complete: model=%s, channel=%d(%s), success=%t, duration=%dms, input_token=%d, output_token=%d, input_cost=%f, output_cost=%f, total_cost=%f, attempts=%d, forwarded_attempts=%d",
 		m.RequestModel, channelID, channelName, success, duration.Milliseconds(),
@@ -171,7 +173,7 @@ func (m *RelayMetrics) saveLog(ctx context.Context, err error, duration time.Dur
 		TotalAttempts:    len(attempts),
 	}
 
-	if apiKey, getErr := op.APIKeyGet(m.APIKeyID, ctx); getErr == nil {
+	if apiKey, getErr := apikey.Get(m.APIKeyID, ctx); getErr == nil {
 		relayLog.RequestAPIKeyName = apiKey.Name
 	}
 
@@ -224,7 +226,7 @@ func (m *RelayMetrics) saveLog(ctx context.Context, err error, duration time.Dur
 		relayLog.Error = err.Error()
 	}
 
-	if logErr := op.RelayLogAdd(ctx, relayLog); logErr != nil {
+	if logErr := relaylog.RelayLogAdd(ctx, relayLog); logErr != nil {
 		log.Warnf("failed to save relay log: %v", logErr)
 	}
 }

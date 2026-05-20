@@ -8,7 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/conf"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	ak "github.com/lingyuins/octopus/internal/op/apikey"
+	"github.com/lingyuins/octopus/internal/op/stats"
+	"github.com/lingyuins/octopus/internal/op/user"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/resp"
 )
@@ -34,7 +36,7 @@ func Auth() gin.HandlerFunc {
 			return
 		}
 
-		currentUser, err := op.UserGetByID(userID, c.Request.Context())
+		currentUser, err := user.GetByID(userID, c.Request.Context())
 		if err != nil {
 			resp.Error(c, http.StatusUnauthorized, resp.ErrUnauthorized)
 			c.Abort()
@@ -75,7 +77,7 @@ func APIKeyAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		apiKeyObj, err := op.APIKeyGetByAPIKey(apiKey, c.Request.Context())
+		apiKeyObj, err := ak.GetByKey(apiKey, c.Request.Context())
 		if err != nil {
 			resp.Error(c, http.StatusUnauthorized, resp.ErrUnauthorized)
 			c.Abort()
@@ -91,7 +93,7 @@ func APIKeyAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		statsAPIKey := op.StatsAPIKeyGet(apiKeyObj.ID)
+		statsAPIKey := stats.APIKeyGet(apiKeyObj.ID)
 		if apiKeyObj.MaxCost > 0 && apiKeyObj.MaxCost < statsAPIKey.StatsMetrics.OutputCost+statsAPIKey.StatsMetrics.InputCost {
 			resp.Error(c, http.StatusUnauthorized, "API key has reached the max cost")
 			c.Abort()

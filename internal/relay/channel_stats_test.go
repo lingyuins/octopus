@@ -9,6 +9,7 @@ import (
 	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/stats"
 )
 
 func TestUpdateChannelSuccessStatsIncludesTokenAndCost(t *testing.T) {
@@ -32,7 +33,7 @@ func TestUpdateChannelSuccessStatsIncludesTokenAndCost(t *testing.T) {
 		OutputCost:  2.5,
 	})
 
-	stats := op.StatsChannelGet(42)
+	stats := stats.ChannelGet(42)
 	if stats.ChannelID != 42 {
 		t.Fatalf("channel id = %d, want 42", stats.ChannelID)
 	}

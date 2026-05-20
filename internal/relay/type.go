@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/conf"
 	dbmodel "github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/setting"
 	"github.com/lingyuins/octopus/internal/relay/balancer"
 	"github.com/lingyuins/octopus/internal/transformer/model"
 )
@@ -39,7 +39,7 @@ func init() {
 }
 
 func getMaxRetryPerCandidate() int {
-	v, err := op.SettingGetInt(dbmodel.SettingKeyRelayRetryCount)
+	v, err := setting.GetInt(dbmodel.SettingKeyRelayRetryCount)
 	if err != nil || v < 1 {
 		return defaultMaxRetryPerCandidate
 	}
@@ -51,7 +51,7 @@ func getMaxAttemptsPerCandidate() int {
 }
 
 func getMaxRouteRetries() int {
-	v, err := op.SettingGetInt(dbmodel.SettingKeyRelayRouteRetries)
+	v, err := setting.GetInt(dbmodel.SettingKeyRelayRouteRetries)
 	if err != nil || v < 1 {
 		return defaultMaxRouteRetries
 	}
@@ -59,7 +59,7 @@ func getMaxRouteRetries() int {
 }
 
 func getRatelimitCooldown() int {
-	v, err := op.SettingGetInt(dbmodel.SettingKeyRatelimitCooldown)
+	v, err := setting.GetInt(dbmodel.SettingKeyRatelimitCooldown)
 	if err != nil || v < 0 {
 		return defaultRatelimitCooldown
 	}
@@ -67,7 +67,7 @@ func getRatelimitCooldown() int {
 }
 
 func getMaxTotalAttempts() int {
-	v, err := op.SettingGetInt(dbmodel.SettingKeyRelayMaxTotalAttempts)
+	v, err := setting.GetInt(dbmodel.SettingKeyRelayMaxTotalAttempts)
 	if err != nil || v < 0 {
 		return defaultMaxTotalAttempts
 	}

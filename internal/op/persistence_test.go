@@ -9,6 +9,7 @@ import (
 
 	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
+	st "github.com/lingyuins/octopus/internal/op/stats"
 )
 
 func TestChannelKeySaveDB_RequeuesDirtyIDsOnWriteFailure(t *testing.T) {
@@ -56,21 +57,11 @@ func TestStatsSaveDB_RequeuesDirtyIDsOnWriteFailure(t *testing.T) {
 		_ = db.Close()
 	})
 
-	statsTotalCache = model.StatsTotal{ID: 1}
-	statsDailyCache = model.StatsDaily{Date: time.Now().Format("20060102")}
-	statsChannelCache.Set(11, model.StatsChannel{ChannelID: 11})
-	statsModelCache.Set(22, model.StatsModel{ID: 22, Name: "gpt-4o", ChannelID: 11})
-	statsAPIKeyCache.Set(33, model.StatsAPIKey{APIKeyID: 33})
-
-	statsChannelCacheNeedUpdateLock.Lock()
-	statsChannelCacheNeedUpdate[11] = struct{}{}
-	statsChannelCacheNeedUpdateLock.Unlock()
-	statsModelCacheNeedUpdateLock.Lock()
-	statsModelCacheNeedUpdate[22] = struct{}{}
-	statsModelCacheNeedUpdateLock.Unlock()
-	statsAPIKeyCacheNeedUpdateLock.Lock()
-	statsAPIKeyCacheNeedUpdate[33] = struct{}{}
-	statsAPIKeyCacheNeedUpdateLock.Unlock()
+	st.ResetCachesForTest(
+		model.StatsTotal{ID: 1},
+		model.StatsDaily{Date: time.Now().Format("20060102")},
+		11, 22, 33,
+	)
 
 	if err := db.Close(); err != nil {
 		t.Fatalf("close db before failure simulation: %v", err)
@@ -80,24 +71,18 @@ func TestStatsSaveDB_RequeuesDirtyIDsOnWriteFailure(t *testing.T) {
 		t.Fatal("StatsSaveDB() error = nil, want write failure")
 	}
 
-	statsChannelCacheNeedUpdateLock.Lock()
-	_, channelDirty := statsChannelCacheNeedUpdate[11]
-	statsChannelCacheNeedUpdateLock.Unlock()
-	if !channelDirty {
+	channelDirtyIDs := st.GetChannelDirtyIDs()
+	if !containsInt(channelDirtyIDs, 11) {
 		t.Fatal("channel dirty id 11 was not requeued after write failure")
 	}
 
-	statsModelCacheNeedUpdateLock.Lock()
-	_, modelDirty := statsModelCacheNeedUpdate[22]
-	statsModelCacheNeedUpdateLock.Unlock()
-	if !modelDirty {
+	modelDirtyIDs := st.GetModelDirtyIDs()
+	if !containsInt(modelDirtyIDs, 22) {
 		t.Fatal("model dirty id 22 was not requeued after write failure")
 	}
 
-	statsAPIKeyCacheNeedUpdateLock.Lock()
-	_, apiKeyDirty := statsAPIKeyCacheNeedUpdate[33]
-	statsAPIKeyCacheNeedUpdateLock.Unlock()
-	if !apiKeyDirty {
+	apiKeyDirtyIDs := st.GetAPIKeyDirtyIDs()
+	if !containsInt(apiKeyDirtyIDs, 33) {
 		t.Fatal("api key dirty id 33 was not requeued after write failure")
 	}
 }
@@ -118,7 +103,9 @@ func snapshotChannelKeyPersistenceState() func() {
 		}
 
 		channelKeyCacheNeedUpdateLock.Lock()
-		channelKeyCacheNeedUpdate = make(map[int]struct{}, len(oldDirty))
+		for id := range channelKeyCacheNeedUpdate {
+			delete(channelKeyCacheNeedUpdate, id)
+		}
 		for id := range oldDirty {
 			channelKeyCacheNeedUpdate[id] = struct{}{}
 		}
@@ -126,72 +113,24 @@ func snapshotChannelKeyPersistenceState() func() {
 	}
 }
 
+func containsInt(slice []int, target int) bool {
+	for _, v := range slice {
+		if v == target {
+			return true
+		}
+	}
+	return false
+}
+
 func snapshotStatsPersistenceState() func() {
-	oldTotal := statsTotalCache
-	oldDaily := statsDailyCache
-	oldHourly := statsHourlyCache
-	oldChannelStats := statsChannelCache.GetAll()
-	oldModelStats := statsModelCache.GetAll()
-	oldAPIKeyStats := statsAPIKeyCache.GetAll()
-
-	statsChannelCacheNeedUpdateLock.Lock()
-	oldChannelDirty := make(map[int]struct{}, len(statsChannelCacheNeedUpdate))
-	for id := range statsChannelCacheNeedUpdate {
-		oldChannelDirty[id] = struct{}{}
-	}
-	statsChannelCacheNeedUpdateLock.Unlock()
-
-	statsModelCacheNeedUpdateLock.Lock()
-	oldModelDirty := make(map[int]struct{}, len(statsModelCacheNeedUpdate))
-	for id := range statsModelCacheNeedUpdate {
-		oldModelDirty[id] = struct{}{}
-	}
-	statsModelCacheNeedUpdateLock.Unlock()
-
-	statsAPIKeyCacheNeedUpdateLock.Lock()
-	oldAPIKeyDirty := make(map[int]struct{}, len(statsAPIKeyCacheNeedUpdate))
-	for id := range statsAPIKeyCacheNeedUpdate {
-		oldAPIKeyDirty[id] = struct{}{}
-	}
-	statsAPIKeyCacheNeedUpdateLock.Unlock()
-
+	oldTotal := st.TotalGet()
+	oldDaily := st.TodayGet()
+	st.ClearAllCachesForTest()
 	return func() {
-		statsTotalCache = oldTotal
-		statsDailyCache = oldDaily
-		statsHourlyCache = oldHourly
-
-		statsChannelCache.Clear()
-		for id, stats := range oldChannelStats {
-			statsChannelCache.Set(id, stats)
-		}
-		statsModelCache.Clear()
-		for id, stats := range oldModelStats {
-			statsModelCache.Set(id, stats)
-		}
-		statsAPIKeyCache.Clear()
-		for id, stats := range oldAPIKeyStats {
-			statsAPIKeyCache.Set(id, stats)
-		}
-
-		statsChannelCacheNeedUpdateLock.Lock()
-		statsChannelCacheNeedUpdate = make(map[int]struct{}, len(oldChannelDirty))
-		for id := range oldChannelDirty {
-			statsChannelCacheNeedUpdate[id] = struct{}{}
-		}
-		statsChannelCacheNeedUpdateLock.Unlock()
-
-		statsModelCacheNeedUpdateLock.Lock()
-		statsModelCacheNeedUpdate = make(map[int]struct{}, len(oldModelDirty))
-		for id := range oldModelDirty {
-			statsModelCacheNeedUpdate[id] = struct{}{}
-		}
-		statsModelCacheNeedUpdateLock.Unlock()
-
-		statsAPIKeyCacheNeedUpdateLock.Lock()
-		statsAPIKeyCacheNeedUpdate = make(map[int]struct{}, len(oldAPIKeyDirty))
-		for id := range oldAPIKeyDirty {
-			statsAPIKeyCacheNeedUpdate[id] = struct{}{}
-		}
-		statsAPIKeyCacheNeedUpdateLock.Unlock()
+		st.ClearAllCachesForTest()
+		st.ResetCachesForTest(oldTotal, oldDaily, 0, 0, 0)
 	}
 }
+
+
+

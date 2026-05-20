@@ -10,7 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/helper"
 	"github.com/lingyuins/octopus/internal/model"
+	ch "github.com/lingyuins/octopus/internal/op/channel"
 	"github.com/lingyuins/octopus/internal/op"
+	st "github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
@@ -91,7 +93,7 @@ func init() {
 }
 
 func listChannel(c *gin.Context) {
-	channels, err := op.ChannelList(c.Request.Context())
+	channels, err := ch.List(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -101,7 +103,7 @@ func listChannel(c *gin.Context) {
 		if !canViewRawKeys {
 			channels[i].Keys = maskChannelKeys(channel.Keys)
 		}
-		stats := op.StatsChannelGet(channel.ID)
+		stats := st.ChannelGet(channel.ID)
 		channels[i].Stats = &stats
 	}
 	resp.Success(c, channels)
@@ -113,7 +115,7 @@ func createChannel(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	if err := op.ChannelCreate(&channel, c.Request.Context()); err != nil {
+	if err := ch.Create(&channel, c.Request.Context()); err != nil {
 		if status, msg, ok := classifyChannelMutationError(err); ok {
 			resp.Error(c, status, msg)
 			return
@@ -121,7 +123,7 @@ func createChannel(c *gin.Context) {
 		resp.InternalError(c)
 		return
 	}
-	stats := op.StatsChannelGet(channel.ID)
+	stats := st.ChannelGet(channel.ID)
 	channel.Stats = &stats
 	go func(channel *model.Channel) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -141,7 +143,7 @@ func updateChannel(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	channel, err := op.ChannelUpdate(&req, c.Request.Context())
+	channel, err := ch.Update(&req, c.Request.Context())
 	if err != nil {
 		if status, msg, ok := classifyChannelMutationError(err); ok {
 			resp.Error(c, status, msg)
@@ -150,7 +152,7 @@ func updateChannel(c *gin.Context) {
 		resp.InternalError(c)
 		return
 	}
-	stats := op.StatsChannelGet(channel.ID)
+	stats := st.ChannelGet(channel.ID)
 	channel.Stats = &stats
 	go func(channel *model.Channel) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -173,7 +175,7 @@ func enableChannel(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	if err := op.ChannelEnabled(request.ID, request.Enabled, c.Request.Context()); err != nil {
+	if err := ch.Enabled(request.ID, request.Enabled, c.Request.Context()); err != nil {
 		resp.InternalError(c)
 		return
 	}
@@ -187,10 +189,11 @@ func deleteChannel(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidParam)
 		return
 	}
-	if err := op.ChannelDel(idNum, c.Request.Context()); err != nil {
+	if err := ch.Delete(idNum, c.Request.Context()); err != nil {
 		resp.InternalError(c)
 		return
 	}
+	st.OnChannelDeleted(idNum)
 	resp.Success(c, nil)
 }
 func fetchModel(c *gin.Context) {

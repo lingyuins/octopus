@@ -15,7 +15,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/helper"
 	dbmodel "github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	ch "github.com/lingyuins/octopus/internal/op/channel"
+	grp "github.com/lingyuins/octopus/internal/op/group"
+	rl "github.com/lingyuins/octopus/internal/op/ratelimitstore"
+	stg "github.com/lingyuins/octopus/internal/op/setting"
+	st "github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/relay/balancer"
 	"github.com/lingyuins/octopus/internal/relay/condition"
 	"github.com/lingyuins/octopus/internal/server/resp"
@@ -119,14 +123,14 @@ func resolveAPIRateLimit(modelName string, c *gin.Context) (rpm int, tpm int) {
 }
 
 func initSemanticCacheFromSettings() {
-	enabled, _ := op.SettingGetBool(dbmodel.SettingKeySemanticCacheEnabled)
+	enabled, _ := stg.GetBool(dbmodel.SettingKeySemanticCacheEnabled)
 	if !enabled {
 		semantic_cache.Clear()
 		return
 	}
-	ttl, _ := op.SettingGetInt(dbmodel.SettingKeySemanticCacheTTL)
-	thresholdRaw, _ := op.SettingGetInt(dbmodel.SettingKeySemanticCacheThreshold)
-	maxEntries, _ := op.SettingGetInt(dbmodel.SettingKeySemanticCacheMaxEntries)
+	ttl, _ := stg.GetInt(dbmodel.SettingKeySemanticCacheTTL)
+	thresholdRaw, _ := stg.GetInt(dbmodel.SettingKeySemanticCacheThreshold)
+	maxEntries, _ := stg.GetInt(dbmodel.SettingKeySemanticCacheMaxEntries)
 	if ttl <= 0 {
 		ttl = 3600
 	}
@@ -176,7 +180,7 @@ func Handler(endpointType string, inboundType inbound.InboundType, c *gin.Contex
 	if rpm := c.GetInt("rate_limit_rpm"); rpm > 0 || c.GetInt("rate_limit_tpm") > 0 {
 		effectiveRPM, effectiveTPM := resolveAPIRateLimit(requestModel, c)
 		if effectiveRPM > 0 || effectiveTPM > 0 {
-			allowed, remaining, retryAfter := op.CheckRateLimit(apiKeyID, requestModel, effectiveRPM, effectiveTPM, 0)
+			allowed, remaining, retryAfter := rl.CheckRateLimit(apiKeyID, requestModel, effectiveRPM, effectiveTPM, 0)
 			if !allowed {
 				c.Header("X-RateLimit-Remaining", "0")
 				c.Header("Retry-After", strconv.Itoa(retryAfter))
@@ -234,7 +238,7 @@ func Handler(endpointType string, inboundType inbound.InboundType, c *gin.Contex
 	defer cancel()
 
 	// 获取通道分组
-	group, err := op.GroupGetEnabledMapByEndpoint(endpointType, requestModel, operationCtx)
+	group, err := grp.GroupGetEnabledMapByEndpoint(endpointType, requestModel, operationCtx)
 	if err != nil {
 		lastErr = err
 		resp.Error(c, http.StatusNotFound, "model not found")
@@ -330,7 +334,7 @@ func Handler(endpointType string, inboundType inbound.InboundType, c *gin.Contex
 
 			item := routeIter.Item()
 
-			channel, err := op.ChannelGet(item.ChannelID, req.operationCtx)
+			channel, err := ch.Get(item.ChannelID, req.operationCtx)
 			if err != nil {
 				log.Warnf("failed to get channel %d: %v", item.ChannelID, err)
 				routeIter.Skip(item.ChannelID, 0, fmt.Sprintf("channel_%d", item.ChannelID), fmt.Sprintf("channel not found: %v", err))
@@ -476,13 +480,13 @@ func (ra *relayAttempt) attempt() attemptResult {
 		// ====== 成功 ======
 		ra.collectResponse()
 		ra.usedKey.TotalCost += ra.metrics.Stats.InputCost + ra.metrics.Stats.OutputCost
-		op.ChannelKeyUpdate(ra.usedKey)
+		ch.KeyUpdate(ra.usedKey)
 
 		span.End(dbmodel.AttemptSuccess, statusCode, "")
 
 		// Channel 维度统计
 		updateChannelSuccessStats(ra.channel.ID, span.Duration().Milliseconds(), ra.metrics.Stats)
-		op.StatsModelRecord(ra.channel.ID, ra.internalRequest.Model, dbmodel.StatsMetrics{
+		st.ModelRecord(ra.channel.ID, ra.internalRequest.Model, dbmodel.StatsMetrics{
 			WaitTime:       span.Duration().Milliseconds(),
 			InputToken:     ra.metrics.Stats.InputToken,
 			OutputToken:    ra.metrics.Stats.OutputToken,
@@ -504,7 +508,7 @@ func (ra *relayAttempt) attempt() attemptResult {
 	}
 
 	// ====== 失败 ======
-	op.ChannelKeyUpdate(ra.usedKey)
+	ch.KeyUpdate(ra.usedKey)
 
 	// 构造日志消息
 	msg := decision.String()
@@ -514,11 +518,11 @@ func (ra *relayAttempt) attempt() attemptResult {
 	span.End(dbmodel.AttemptFailed, statusCode, msg)
 
 	// Channel 维度统计
-	op.StatsChannelUpdate(ra.channel.ID, dbmodel.StatsMetrics{
+	st.ChannelUpdate(ra.channel.ID, dbmodel.StatsMetrics{
 		WaitTime:      span.Duration().Milliseconds(),
 		RequestFailed: 1,
 	})
-	op.StatsModelRecord(ra.channel.ID, ra.internalRequest.Model, dbmodel.StatsMetrics{
+	st.ModelRecord(ra.channel.ID, ra.internalRequest.Model, dbmodel.StatsMetrics{
 		WaitTime:      span.Duration().Milliseconds(),
 		RequestFailed: 1,
 	})

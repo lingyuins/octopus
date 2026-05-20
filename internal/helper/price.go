@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/llm"
 	"github.com/lingyuins/octopus/internal/price"
 )
 
@@ -27,7 +27,7 @@ func LLMPriceAddToDB(modelNames []string, ctx context.Context) error {
 		newLLMNames = append(newLLMNames, modelName)
 	}
 	if len(newLLMInfos) > 0 {
-		return op.LLMBatchCreate(newLLMInfos, ctx)
+		return llm.BatchCreate(newLLMInfos, ctx)
 	}
 	return nil
 }
@@ -41,7 +41,7 @@ func LLMPriceDeleteFromDBWithNoPrice(modelNames []string, ctx context.Context) e
 		if modelName == "" {
 			continue
 		}
-		modelPrice, err := op.LLMGet(modelName)
+		modelPrice, err := llm.Get(modelName)
 		if err != nil {
 			return err
 		}
@@ -51,13 +51,13 @@ func LLMPriceDeleteFromDBWithNoPrice(modelNames []string, ctx context.Context) e
 		needDeleteModelNames = append(needDeleteModelNames, modelName)
 	}
 	if len(needDeleteModelNames) > 0 {
-		return op.LLMBatchDelete(needDeleteModelNames, ctx)
+		return llm.BatchDelete(needDeleteModelNames, ctx)
 	}
 	return nil
 }
 
 func LLMPriceRefreshExistingModels(ctx context.Context) error {
-	models, err := op.LLMList(ctx)
+	models, err := llm.List(ctx)
 	if err != nil {
 		return err
 	}
@@ -81,5 +81,5 @@ func LLMPriceRefreshExistingModels(ctx context.Context) error {
 		})
 	}
 
-	return op.LLMBatchUpdate(updates, ctx)
+	return llm.BatchUpdate(updates, ctx)
 }

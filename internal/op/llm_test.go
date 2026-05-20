@@ -11,8 +11,6 @@ func TestStatsModelUpdatePreservesModelIdentity(t *testing.T) {
 	restoreStats := snapshotStatsPersistenceState()
 	defer restoreStats()
 
-	statsModelCache.Clear()
-
 	if err := StatsModelUpdate(model.StatsModel{
 		ID:        101,
 		Name:      "gpt-4o",
@@ -24,9 +22,16 @@ func TestStatsModelUpdatePreservesModelIdentity(t *testing.T) {
 		t.Fatalf("StatsModelUpdate() error = %v", err)
 	}
 
-	got, ok := statsModelCache.Get(101)
-	if !ok {
-		t.Fatal("statsModelCache missing id 101 after update")
+	list := StatsModelList()
+	var got *model.StatsModel
+	for i := range list {
+		if list[i].ID == 101 {
+			got = &list[i]
+			break
+		}
+	}
+	if got == nil {
+		t.Fatal("StatsModelList missing id 101 after update")
 	}
 	if got.Name != "gpt-4o" {
 		t.Fatalf("stats name = %q, want %q", got.Name, "gpt-4o")
@@ -51,8 +56,7 @@ func TestLLMListRanksBySuccessRateThenSuccessCount(t *testing.T) {
 	llmModelCache.Set("gemini-2.5-pro", model.LLMPrice{})
 	llmModelCache.Set("o1-mini", model.LLMPrice{})
 
-	statsModelCache.Clear()
-	statsModelCache.Set(1, model.StatsModel{
+	if err := StatsModelUpdate(model.StatsModel{
 		ID:        1,
 		Name:      "gpt-4o",
 		ChannelID: 11,
@@ -60,8 +64,10 @@ func TestLLMListRanksBySuccessRateThenSuccessCount(t *testing.T) {
 			RequestSuccess: 8,
 			RequestFailed:  2,
 		},
-	})
-	statsModelCache.Set(2, model.StatsModel{
+	}); err != nil {
+		t.Fatalf("StatsModelUpdate() error = %v", err)
+	}
+	if err := StatsModelUpdate(model.StatsModel{
 		ID:        2,
 		Name:      "claude-3-7-sonnet",
 		ChannelID: 12,
@@ -69,8 +75,10 @@ func TestLLMListRanksBySuccessRateThenSuccessCount(t *testing.T) {
 			RequestSuccess: 4,
 			RequestFailed:  0,
 		},
-	})
-	statsModelCache.Set(3, model.StatsModel{
+	}); err != nil {
+		t.Fatalf("StatsModelUpdate() error = %v", err)
+	}
+	if err := StatsModelUpdate(model.StatsModel{
 		ID:        3,
 		Name:      "gemini-2.5-pro",
 		ChannelID: 13,
@@ -78,7 +86,9 @@ func TestLLMListRanksBySuccessRateThenSuccessCount(t *testing.T) {
 			RequestSuccess: 3,
 			RequestFailed:  0,
 		},
-	})
+	}); err != nil {
+		t.Fatalf("StatsModelUpdate() error = %v", err)
+	}
 
 	got, err := LLMList(context.Background())
 	if err != nil {

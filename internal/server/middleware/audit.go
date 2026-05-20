@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/audit"
 	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
@@ -92,7 +92,7 @@ func AuditManagementWrite() gin.HandlerFunc {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		if err := op.AuditLogCreate(ctx, &entry); err != nil {
+		if err := audit.Create(ctx, &entry); err != nil {
 			log.Warnf("record audit log failed: %v", err)
 		}
 	}

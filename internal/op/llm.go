@@ -2,27 +2,17 @@ package op
 
 import (
 	"context"
-	"strings"
 
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op/llm"
+	"github.com/lingyuins/octopus/internal/op/stats"
 )
 
 // llmModelCache is retained for backward compatibility (used by llm_test.go).
 var llmModelCache = llm.GetCache()
 
 func LLMList(ctx context.Context) ([]model.LLMInfo, error) {
-	// statsModelCache is accessed directly from the op package (defined in stats.go)
-	statsByName := make(map[string]model.StatsMetrics, statsModelCache.Len())
-	for _, stats := range statsModelCache.GetAll() {
-		name := strings.TrimSpace(stats.Name)
-		if name == "" {
-			continue
-		}
-		aggregated := statsByName[name]
-		aggregated.Add(stats.StatsMetrics)
-		statsByName[name] = aggregated
-	}
+	statsByName := stats.ModelMetricsByName()
 	return llm.ListWithStats(ctx, statsByName)
 }
 

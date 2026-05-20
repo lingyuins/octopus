@@ -9,7 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/helper"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	ch "github.com/lingyuins/octopus/internal/op/channel"
+	grp "github.com/lingyuins/octopus/internal/op/group"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
@@ -72,7 +73,7 @@ func init() {
 }
 
 func getGroupList(c *gin.Context) {
-	groups, err := op.GroupList(c.Request.Context())
+	groups, err := grp.GroupList(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -94,7 +95,7 @@ func createGroup(c *gin.Context) {
 			return
 		}
 	}
-	if err := op.GroupCreate(&group, c.Request.Context()); err != nil {
+	if err := grp.GroupCreate(&group, c.Request.Context()); err != nil {
 		if status, message, ok := classifyGroupMutationError(err); ok {
 			resp.Error(c, status, message)
 			return
@@ -123,7 +124,7 @@ func updateGroup(c *gin.Context) {
 			return
 		}
 	}
-	group, err := op.GroupUpdate(&req, c.Request.Context())
+	group, err := grp.GroupUpdate(&req, c.Request.Context())
 	if err != nil {
 		if status, message, ok := classifyGroupMutationError(err); ok {
 			resp.Error(c, status, message)
@@ -173,7 +174,7 @@ func startGroupTest(c *gin.Context) {
 		return
 	}
 
-	group, err := op.GroupGet(req.GroupID, c.Request.Context())
+	group, err := grp.GroupGet(req.GroupID, c.Request.Context())
 	if err != nil {
 		resp.Error(c, http.StatusNotFound, "group not found")
 		return
@@ -184,7 +185,7 @@ func startGroupTest(c *gin.Context) {
 		if _, ok := channels[item.ChannelID]; ok {
 			continue
 		}
-		channel, err := op.ChannelGet(item.ChannelID, c.Request.Context())
+		channel, err := ch.Get(item.ChannelID, c.Request.Context())
 		if err != nil {
 			continue
 		}
@@ -216,7 +217,7 @@ func startDraftGroupTest(c *gin.Context) {
 		if _, ok := channels[item.ChannelID]; ok {
 			continue
 		}
-		channel, err := op.ChannelGet(item.ChannelID, c.Request.Context())
+		channel, err := ch.Get(item.ChannelID, c.Request.Context())
 		if err != nil {
 			continue
 		}
@@ -248,7 +249,7 @@ func getGroupTestProgress(c *gin.Context) {
 }
 
 func autoGroupModels(c *gin.Context) {
-	result, err := op.AutoGroupModels(c.Request.Context())
+	result, err := grp.AutoGroupModels(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -263,7 +264,7 @@ func deleteGroup(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, "invalid group id")
 		return
 	}
-	if err := op.GroupDel(idNum, c.Request.Context()); err != nil {
+	if err := grp.GroupDel(idNum, c.Request.Context()); err != nil {
 		resp.InternalError(c)
 		return
 	}
@@ -271,7 +272,7 @@ func deleteGroup(c *gin.Context) {
 }
 
 func deleteAllGroups(c *gin.Context) {
-	deletedCount, err := op.GroupDelAll(c.Request.Context())
+	deletedCount, err := grp.GroupDelAll(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return

@@ -9,7 +9,7 @@ import (
 
 	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	ch "github.com/lingyuins/octopus/internal/op/channel"
 	"github.com/lingyuins/octopus/internal/utils/log"
 	"gorm.io/gorm"
 )
@@ -142,12 +142,12 @@ func clearCircuitBreaker() {
 }
 
 func channelExists(channelID int) bool {
-	_, err := op.ChannelGet(channelID, context.Background())
+	_, err := ch.Get(channelID, context.Background())
 	return err == nil
 }
 
 func channelKeyExists(channelID, keyID int) bool {
-	channel, err := op.ChannelGet(channelID, context.Background())
+	channel, err := ch.Get(channelID, context.Background())
 	if err != nil {
 		return false
 	}

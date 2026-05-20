@@ -6,7 +6,8 @@ import (
 	"time"
 
 	dbmodel "github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	ch "github.com/lingyuins/octopus/internal/op/channel"
+	st "github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/relay/balancer"
 	"github.com/lingyuins/octopus/internal/utils/log"
 )
@@ -43,7 +44,7 @@ func PrepareCandidate(
 	result := PrepareCandidateResult{}
 
 	// 1. 获取通道
-	channel, err := op.ChannelGet(item.ChannelID, ctx)
+	channel, err := ch.Get(item.ChannelID, ctx)
 	if err != nil {
 		log.Warnf("failed to get channel %d: %v", item.ChannelID, err)
 		result.SkipReason = fmt.Sprintf("channel not found: %v", err)
@@ -153,13 +154,13 @@ func RecordSuccessSideEffects(
 	usedKey.StatusCode = statusCode
 	usedKey.LastUseTimeStamp = time.Now().Unix()
 	usedKey.TotalCost += cost
-	op.ChannelKeyUpdate(usedKey)
+	ch.KeyUpdate(usedKey)
 
 	// 结束 Span
 	span.End(dbmodel.AttemptSuccess, statusCode, "")
 
 	// Channel 维度统计
-	op.StatsChannelUpdate(channel.ID, dbmodel.StatsMetrics{
+	st.ChannelUpdate(channel.ID, dbmodel.StatsMetrics{
 		WaitTime:       span.Duration().Milliseconds(),
 		RequestSuccess: 1,
 	})
@@ -199,7 +200,7 @@ func RecordFailureSideEffects(
 	// 更新 Key 状态（无论什么决策都更新）
 	usedKey.StatusCode = statusCode
 	usedKey.LastUseTimeStamp = time.Now().Unix()
-	op.ChannelKeyUpdate(usedKey)
+	ch.KeyUpdate(usedKey)
 
 	// 构造日志消息
 	msg := decision.String()
@@ -211,7 +212,7 @@ func RecordFailureSideEffects(
 	span.End(dbmodel.AttemptFailed, statusCode, msg)
 
 	// Channel 维度统计
-	op.StatsChannelUpdate(channel.ID, dbmodel.StatsMetrics{
+	st.ChannelUpdate(channel.ID, dbmodel.StatsMetrics{
 		WaitTime:      span.Duration().Milliseconds(),
 		RequestFailed: 1,
 	})

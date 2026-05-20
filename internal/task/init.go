@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/relaylog"
+	"github.com/lingyuins/octopus/internal/op/setting"
+	"github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/price"
 	"github.com/lingyuins/octopus/internal/relay/balancer"
 	"github.com/lingyuins/octopus/internal/utils/log"
@@ -22,7 +24,7 @@ const (
 )
 
 func Init() {
-	priceUpdateIntervalHours, err := op.SettingGetInt(model.SettingKeyModelInfoUpdateInterval)
+	priceUpdateIntervalHours, err := setting.GetInt(model.SettingKeyModelInfoUpdateInterval)
 	if err != nil {
 		log.Errorf("failed to get model info update interval: %v", err)
 	} else {
@@ -36,7 +38,7 @@ func Init() {
 
 	Register(TaskBaseUrlDelay, 1*time.Hour, true, ChannelBaseUrlDelayTask)
 
-	syncLLMIntervalHours, err := op.SettingGetInt(model.SettingKeySyncLLMInterval)
+	syncLLMIntervalHours, err := setting.GetInt(model.SettingKeySyncLLMInterval)
 	if err != nil {
 		log.Warnf("failed to get sync LLM interval: %v", err)
 	} else {
@@ -44,17 +46,17 @@ func Init() {
 		Register(string(model.SettingKeySyncLLMInterval), syncLLMInterval, true, SyncModelsTask)
 	}
 
-	statsSaveIntervalMinutes, err := op.SettingGetInt(model.SettingKeyStatsSaveInterval)
+	statsSaveIntervalMinutes, err := setting.GetInt(model.SettingKeyStatsSaveInterval)
 	if err != nil {
 		log.Warnf("failed to get stats save interval: %v", err)
 	} else {
 		statsSaveInterval := time.Duration(statsSaveIntervalMinutes) * time.Minute
-		Register(TaskStatsSave, statsSaveInterval, false, op.StatsSaveDBTask)
+		Register(TaskStatsSave, statsSaveInterval, false, stats.SaveDBTask)
 		Register(TaskRuntimeState, statsSaveInterval, false, balancer.RuntimeStateSaveDBTask)
 	}
 
 	Register(TaskRelayLogSave, 10*time.Minute, false, func() {
-		if err := op.RelayLogSaveDBTask(context.Background()); err != nil {
+		if err := relaylog.RelayLogSaveDBTask(context.Background()); err != nil {
 			log.Warnf("relay log save db task failed: %v", err)
 		}
 	})

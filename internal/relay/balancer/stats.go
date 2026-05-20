@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/setting"
 )
 
 // RequestRecord represents a single request outcome within the sliding window.
@@ -71,7 +71,7 @@ func getOrCreateStats(channelID int, modelName string) *ChannelStats {
 
 // getMinSamples returns the minimum samples threshold before using success rate.
 func getMinSamples() int {
-	v, err := op.SettingGetInt(model.SettingKeyAutoStrategyMinSamples)
+	v, err := setting.GetInt(model.SettingKeyAutoStrategyMinSamples)
 	if err != nil || v <= 0 {
 		return 10
 	}
@@ -80,7 +80,7 @@ func getMinSamples() int {
 
 // getTimeWindow returns the time window duration in seconds.
 func getTimeWindow() time.Duration {
-	v, err := op.SettingGetInt(model.SettingKeyAutoStrategyTimeWindow)
+	v, err := setting.GetInt(model.SettingKeyAutoStrategyTimeWindow)
 	if err != nil || v <= 0 {
 		return 300 * time.Second
 	}
@@ -89,7 +89,7 @@ func getTimeWindow() time.Duration {
 
 // getSampleThreshold returns the sliding window size.
 func getSampleThreshold() int {
-	v, err := op.SettingGetInt(model.SettingKeyAutoStrategySampleThreshold)
+	v, err := setting.GetInt(model.SettingKeyAutoStrategySampleThreshold)
 	if err != nil || v <= 0 {
 		return 100
 	}

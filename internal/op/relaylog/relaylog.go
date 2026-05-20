@@ -310,6 +310,21 @@ func RelayLogList(ctx context.Context, startTime, endTime *int, page, pageSize i
 	return result, nil
 }
 
+// SetCacheForTest replaces the in-memory relay log cache for testing.
+// Returns a cleanup function that restores the previous cache.
+func SetCacheForTest(logs []model.RelayLog) func() {
+	relayLogCacheLock.Lock()
+	old := relayLogCache
+	relayLogCache = make([]model.RelayLog, len(logs))
+	copy(relayLogCache, logs)
+	relayLogCacheLock.Unlock()
+	return func() {
+		relayLogCacheLock.Lock()
+		relayLogCache = old
+		relayLogCacheLock.Unlock()
+	}
+}
+
 func RelayLogCacheReadTokens(responseContent string) int {
 	usage, ok := cacheusage.ParseProviderPromptCacheUsageSignals(responseContent)
 	if !ok || usage.CachedTokens <= 0 {

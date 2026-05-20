@@ -3,9 +3,10 @@ package op
 import (
 	"context"
 
-	"github.com/lingyuins/octopus/internal/op/channel"
-	"github.com/lingyuins/octopus/internal/utils/log"
 	"github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/op/channel"
+	"github.com/lingyuins/octopus/internal/op/stats"
+	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
 var channelCache = channel.GetCache()
@@ -59,13 +60,7 @@ func ChannelDel(id int, ctx context.Context) error {
 		return err
 	}
 
-	// Clean up stats cache (in op package, from stats.go)
-	statsChannelMutationLock.Lock()
-	statsChannelCache.Del(id)
-	statsChannelCacheNeedUpdateLock.Lock()
-	delete(statsChannelCacheNeedUpdate, id)
-	statsChannelCacheNeedUpdateLock.Unlock()
-	statsChannelMutationLock.Unlock()
+	stats.OnChannelDeleted(id)
 
 	// Refresh affected group caches (in op package, from group.go)
 	for _, groupID := range getAffectedGroupIDs(id, ctx) {

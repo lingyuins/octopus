@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/setting"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -20,7 +20,7 @@ func Cors() gin.HandlerFunc {
 	// - "*": 允许所有来源
 	// - 逗号分隔的域名列表: 只允许指定的域名 (如 "https://example.com,https://example2.com")
 	config.AllowOriginFunc = func(origin string) bool {
-		allowed, err := op.SettingGetString(model.SettingKeyCORSAllowOrigins)
+		allowed, err := setting.GetString(model.SettingKeyCORSAllowOrigins)
 		if err != nil {
 			return false
 		}

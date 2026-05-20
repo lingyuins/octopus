@@ -6,7 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	ak "github.com/lingyuins/octopus/internal/op/apikey"
+	ch "github.com/lingyuins/octopus/internal/op/channel"
+	st "github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
@@ -55,11 +57,11 @@ func init() {
 }
 
 func getStatsToday(c *gin.Context) {
-	resp.Success(c, op.StatsTodayGet())
+	resp.Success(c, st.TodayGet())
 }
 
 func getStatsDaily(c *gin.Context) {
-	statsDaily, err := op.StatsGetDaily(c.Request.Context())
+	statsDaily, err := st.GetDaily(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -68,21 +70,21 @@ func getStatsDaily(c *gin.Context) {
 }
 
 func getStatsHourly(c *gin.Context) {
-	resp.Success(c, op.StatsHourlyGet())
+	resp.Success(c, st.HourlyGet())
 }
 
 func getStatsTotal(c *gin.Context) {
-	resp.Success(c, op.StatsTotalGet())
+	resp.Success(c, st.TotalGet())
 }
 
 func getStatsChannel(c *gin.Context) {
-	stats := op.StatsChannelList()
+	stats := st.ChannelList()
 	statsByChannelID := make(map[int]model.StatsChannel, len(stats))
 	for _, item := range stats {
 		statsByChannelID[item.ChannelID] = item
 	}
 
-	channels, err := op.ChannelList(c.Request.Context())
+	channels, err := ch.List(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -116,9 +118,9 @@ func getStatsChannel(c *gin.Context) {
 }
 
 func getStatsAPIKey(c *gin.Context) {
-	stats := op.StatsAPIKeyList()
+	stats := st.APIKeyList()
 
-	apiKeys, err := op.APIKeyList(c.Request.Context())
+	apiKeys, err := ak.List(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return

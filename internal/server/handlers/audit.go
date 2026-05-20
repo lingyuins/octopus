@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/audit"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
@@ -30,7 +30,7 @@ func listAuditLogs(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 
-	logs, err := op.AuditLogList(c.Request.Context(), page, pageSize)
+	logs, err := audit.List(c.Request.Context(), page, pageSize)
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -52,7 +52,7 @@ func getAuditLogDetail(c *gin.Context) {
 		return
 	}
 
-	auditLog, err := op.AuditLogGetByID(c.Request.Context(), id)
+	auditLog, err := audit.GetByID(c.Request.Context(), id)
 	if err != nil {
 		resp.InternalError(c)
 		return

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/ops"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
@@ -38,7 +38,7 @@ func init() {
 }
 
 func getOpsCache(c *gin.Context) {
-	data, err := op.OpsCacheStatusGet(c.Request.Context())
+	data, err := ops.OpsCacheStatusGet(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -47,7 +47,7 @@ func getOpsCache(c *gin.Context) {
 }
 
 func getOpsQuota(c *gin.Context) {
-	data, err := op.OpsQuotaSummaryGet(c.Request.Context())
+	data, err := ops.OpsQuotaSummaryGet(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -56,7 +56,7 @@ func getOpsQuota(c *gin.Context) {
 }
 
 func getOpsHealth(c *gin.Context) {
-	data, err := op.OpsHealthStatusGet(c.Request.Context())
+	data, err := ops.OpsHealthStatusGet(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -65,7 +65,7 @@ func getOpsHealth(c *gin.Context) {
 }
 
 func getOpsSystem(c *gin.Context) {
-	data, err := op.OpsSystemSummaryGet(c.Request.Context())
+	data, err := ops.OpsSystemSummaryGet(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -74,7 +74,7 @@ func getOpsSystem(c *gin.Context) {
 }
 
 func getOpsTelemetry(c *gin.Context) {
-	data, err := op.TelemetrySummaryGet(c.Request.Context())
+	data, err := ops.TelemetrySummaryGet(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return

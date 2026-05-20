@@ -11,7 +11,7 @@ import (
 
 	"github.com/lingyuins/octopus/internal/client"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/llm"
 	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
@@ -86,7 +86,7 @@ func GetLastUpdateTime() time.Time {
 
 func GetLLMPrice(modelName string) *model.LLMPrice {
 	modelName = strings.ToLower(modelName)
-	price, err := op.LLMGet(modelName)
+	price, err := llm.Get(modelName)
 	if err == nil {
 		return &price
 	}

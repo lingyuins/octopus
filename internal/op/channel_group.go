@@ -124,17 +124,33 @@ func ChannelGroupDefaultID(ctx context.Context) (int, error) {
 		}
 	}
 
+	group, err := ensureDefaultChannelGroup(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return group.ID, nil
+}
+
+func ensureDefaultChannelGroup(ctx context.Context) (model.ChannelGroup, error) {
 	var group model.ChannelGroup
-	if err := db.GetDB().WithContext(ctx).
-		Where("is_default = ?", true).
-		First(&group).Error; err != nil {
-		return 0, fmt.Errorf("default channel group not found")
+	if err := db.GetDB().WithContext(ctx).Where("is_default = ?", true).First(&group).Error; err == nil {
+		channelGroupMutationLock.Lock()
+		channelGroupCache.Set(group.ID, group)
+		channelGroupMutationLock.Unlock()
+		return group, nil
+	}
+
+	group = model.ChannelGroup{Name: model.DefaultChannelGroupName, IsDefault: true}
+	if err := db.GetDB().WithContext(ctx).Create(&group).Error; err != nil {
+		if err := db.GetDB().WithContext(ctx).Where("is_default = ?", true).First(&group).Error; err != nil {
+			return model.ChannelGroup{}, fmt.Errorf("default channel group not found")
+		}
 	}
 
 	channelGroupMutationLock.Lock()
 	channelGroupCache.Set(group.ID, group)
 	channelGroupMutationLock.Unlock()
-	return group.ID, nil
+	return group, nil
 }
 
 func channelGroupRefreshCache(ctx context.Context) error {
@@ -175,3 +191,4 @@ func sortChannelGroups(groups []model.ChannelGroup) {
 		return groups[i].ID < groups[j].ID
 	})
 }
+

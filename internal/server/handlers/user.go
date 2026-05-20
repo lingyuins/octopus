@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	usr "github.com/lingyuins/octopus/internal/op/user"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
@@ -69,7 +69,7 @@ func createUser(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	if err := op.UserCreate(req, c.Request.Context()); err != nil {
+	if err := usr.Create(req, c.Request.Context()); err != nil {
 		resp.Error(c, http.StatusBadRequest, "failed to create user")
 		return
 	}
@@ -77,7 +77,7 @@ func createUser(c *gin.Context) {
 }
 
 func listUsers(c *gin.Context) {
-	users, err := op.UserList(c.Request.Context())
+	users, err := usr.List(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -94,7 +94,7 @@ func updateUserRole(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	if err := op.UserUpdateRole(req.ID, req.Role, c.Request.Context()); err != nil {
+	if err := usr.UpdateRole(req.ID, req.Role, c.Request.Context()); err != nil {
 		resp.Error(c, http.StatusBadRequest, "failed to update role")
 		return
 	}
@@ -109,7 +109,7 @@ func deleteUser(c *gin.Context) {
 		return
 	}
 	currentUserID := uint(c.GetInt("user_id"))
-	if err := op.UserDelete(uint(id), currentUserID, c.Request.Context()); err != nil {
+	if err := usr.Delete(uint(id), currentUserID, c.Request.Context()); err != nil {
 		resp.Error(c, http.StatusBadRequest, "failed to delete user")
 		return
 	}
@@ -123,9 +123,9 @@ func login(c *gin.Context) {
 		return
 	}
 	loginKey := c.GetString("login_rate_limit_key")
-	userObj, err := op.UserVerify(user.Username, user.Password)
+	userObj, err := usr.Verify(user.Username, user.Password)
 	if err != nil {
-		if errors.Is(err, op.ErrUserNotInitialized) {
+		if errors.Is(err, usr.ErrBootstrapAlreadySetUp) {
 			resp.Error(c, http.StatusConflict, err.Error())
 			return
 		}
@@ -149,7 +149,7 @@ func changePassword(c *gin.Context) {
 		return
 	}
 	currentUserID := uint(c.GetInt("user_id"))
-	if err := op.UserChangePassword(currentUserID, user.OldPassword, user.NewPassword); err != nil {
+	if err := usr.ChangePassword(currentUserID, user.OldPassword, user.NewPassword); err != nil {
 		if strings.Contains(err.Error(), "incorrect old password") {
 			resp.Error(c, http.StatusUnauthorized, resp.ErrUnauthorized)
 			return
@@ -167,7 +167,7 @@ func changeUsername(c *gin.Context) {
 		return
 	}
 	currentUserID := uint(c.GetInt("user_id"))
-	if err := op.UserChangeUsername(currentUserID, user.NewUsername); err != nil {
+	if err := usr.ChangeUsername(currentUserID, user.NewUsername); err != nil {
 		if strings.Contains(err.Error(), "same as the old username") || strings.Contains(err.Error(), "username already exists") || strings.Contains(err.Error(), "username is required") {
 			resp.Error(c, http.StatusBadRequest, err.Error())
 			return
@@ -179,8 +179,8 @@ func changeUsername(c *gin.Context) {
 }
 
 func status(c *gin.Context) {
-	if !op.UserReady() {
-		resp.Error(c, http.StatusConflict, op.ErrUserNotInitialized.Error())
+	if !usr.Ready() {
+		resp.Error(c, http.StatusConflict, usr.ErrBootstrapAlreadySetUp.Error())
 		return
 	}
 	resp.Success(c, "ok")

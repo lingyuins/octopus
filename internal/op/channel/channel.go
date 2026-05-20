@@ -122,7 +122,9 @@ func KeySaveDB(ctx context.Context) error {
 	for id := range keyCacheNeedUpdate {
 		keyIDs = append(keyIDs, id)
 	}
-	keyCacheNeedUpdate = make(map[int]struct{})
+	for id := range keyCacheNeedUpdate {
+		delete(keyCacheNeedUpdate, id)
+	}
 	keyCacheNeedUpdateLock.Unlock()
 
 	if len(keyIDs) == 0 {
@@ -395,7 +397,9 @@ func RefreshCache(ctx context.Context) error {
 	chCache.Clear()
 	keyCache.Clear()
 	keyCacheNeedUpdateLock.Lock()
-	keyCacheNeedUpdate = make(map[int]struct{})
+	for id := range keyCacheNeedUpdate {
+		delete(keyCacheNeedUpdate, id)
+	}
 	keyCacheNeedUpdateLock.Unlock()
 
 	for _, ch := range channels {
@@ -497,3 +501,5 @@ var GroupDefaultID = func(ctx context.Context) (int, error) {
 var GroupGet = func(id int, ctx context.Context) (*model.ChannelGroup, error) {
 	return nil, fmt.Errorf("channel: GroupGet not registered")
 }
+
+

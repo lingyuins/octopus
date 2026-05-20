@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/relaylog"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
@@ -69,7 +69,7 @@ func listLog(c *gin.Context) {
 		endTime = &et
 	}
 
-	logs, err := op.RelayLogList(c.Request.Context(), startTime, endTime, page, pageSize)
+	logs, err := relaylog.RelayLogList(c.Request.Context(), startTime, endTime, page, pageSize)
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -90,7 +90,7 @@ func logDetail(c *gin.Context) {
 		return
 	}
 
-	log, err := op.RelayLogGetByID(c.Request.Context(), id)
+	log, err := relaylog.RelayLogGetByID(c.Request.Context(), id)
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -104,7 +104,7 @@ func logDetail(c *gin.Context) {
 }
 
 func clearLog(c *gin.Context) {
-	if err := op.RelayLogClear(c.Request.Context()); err != nil {
+	if err := relaylog.RelayLogClear(c.Request.Context()); err != nil {
 		resp.InternalError(c)
 		return
 	}
@@ -117,8 +117,8 @@ func streamLog(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 
-	logChan := op.RelayLogSubscribe()
-	defer op.RelayLogUnsubscribe(logChan)
+	logChan := relaylog.RelayLogSubscribe()
+	defer relaylog.RelayLogUnsubscribe(logChan)
 
 	heartbeatTicker := time.NewTicker(15 * time.Second)
 	defer heartbeatTicker.Stop()

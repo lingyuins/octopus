@@ -14,7 +14,7 @@ var groupCache = group.GetCache()
 var groupMap = group.GetNameMap()
 
 // groupRegexMatchersByEndpoint is retained for backward compatibility.
-var groupRegexMatchersByEndpoint = group.GetRegexMatchers()
+var groupRegexMatchersByEndpoint map[string][]compiledGroupMatcher
 
 // Backward-compatible references for tests
 var groupRegexMatchersLock = group.GetRegexMatchersLock()
@@ -72,7 +72,10 @@ func groupRefreshCacheByID(id int, ctx context.Context) error { return group.Ref
 func groupRefreshCacheByIDs(ids []int, ctx context.Context) error { return group.RefreshCacheByIDs(ids, ctx) }
 
 // Backward-compatible function for tests
-func rebuildGroupIndexesFromCache() { group.RebuildIndexes() }
+func rebuildGroupIndexesFromCache() {
+	group.RebuildIndexes()
+	groupRegexMatchersByEndpoint = group.GetRegexMatchers()
+}
 
 // Backward-compatible function for tests
 func normalizeGroupItems(items []model.GroupItem) []model.GroupItem {
@@ -81,3 +84,9 @@ func normalizeGroupItems(items []model.GroupItem) []model.GroupItem {
 
 // groupRefreshCache is called from cache.go (same package)
 func groupRefreshCache(ctx context.Context) error { return group.RefreshAllCache(ctx) }
+
+func init() {
+	groupRegexMatchersByEndpoint = group.GetRegexMatchers()
+}
+
+

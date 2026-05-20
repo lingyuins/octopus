@@ -8,7 +8,8 @@ import (
 
 	"github.com/lingyuins/octopus/internal/client"
 	"github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	ch "github.com/lingyuins/octopus/internal/op/channel"
+	grp "github.com/lingyuins/octopus/internal/op/group"
 	"github.com/lingyuins/octopus/internal/utils/log"
 	"github.com/lingyuins/octopus/internal/utils/xstrings"
 	"github.com/dlclark/regexp2"
@@ -52,7 +53,7 @@ func ChannelBaseUrlDelayUpdate(channel *model.Channel, ctx context.Context) {
 		})
 	}
 	if len(newBaseUrls) > 0 {
-		op.ChannelBaseUrlUpdate(channel.ID, newBaseUrls)
+		ch.BaseUrlUpdate(channel.ID, newBaseUrls)
 	}
 }
 
@@ -63,7 +64,7 @@ func ChannelAutoGroup(channel *model.Channel, ctx context.Context) {
 	if channel.AutoGroup == model.AutoGroupTypeNone {
 		return
 	}
-	groups, err := op.GroupList(ctx)
+	groups, err := grp.GroupList(ctx)
 	if err != nil {
 		log.Warnf("get group list failed: %v", err)
 		return
@@ -131,7 +132,7 @@ func ChannelAutoGroup(channel *model.Channel, ctx context.Context) {
 					ModelName: modelName,
 				})
 			}
-			if err := op.GroupItemBatchAdd(group.ID, items, ctx); err != nil {
+			if err := grp.GroupItemBatchAdd(group.ID, items, ctx); err != nil {
 				log.Warnf("group item batch add failed (channel=%d group=%d): %v", channel.ID, group.ID, err)
 			}
 		}

@@ -7,6 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/helper"
 	"github.com/lingyuins/octopus/internal/model"
+	ak "github.com/lingyuins/octopus/internal/op/apikey"
+	"github.com/lingyuins/octopus/internal/op/channel"
+	"github.com/lingyuins/octopus/internal/op/group"
+	"github.com/lingyuins/octopus/internal/op/llm"
 	"github.com/lingyuins/octopus/internal/op"
 	"github.com/lingyuins/octopus/internal/price"
 	"github.com/lingyuins/octopus/internal/server/auth"
@@ -66,13 +70,13 @@ func init() {
 }
 
 func getModelList(c *gin.Context) {
-	models, err := op.GroupListModel(c.Request.Context())
+	models, err := group.GroupListModel(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
 	}
 	apiKeyId := c.GetInt("api_key_id")
-	apiKey, err := op.APIKeyGet(apiKeyId, c.Request.Context())
+	apiKey, err := ak.Get(apiKeyId, c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -124,7 +128,7 @@ func getModelList(c *gin.Context) {
 }
 
 func listLLM(c *gin.Context) {
-	models, err := op.LLMList(c.Request.Context())
+	models, err := llm.List(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -133,7 +137,7 @@ func listLLM(c *gin.Context) {
 }
 
 func listLLMByChannel(c *gin.Context) {
-	channels, err := op.ChannelLLMList(c.Request.Context())
+	channels, err := channel.LLMList(c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
@@ -156,7 +160,7 @@ func createLLM(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := op.LLMCreate(model, c.Request.Context()); err != nil {
+	if err := llm.Create(model, c.Request.Context()); err != nil {
 		resp.InternalError(c)
 		return
 	}
@@ -169,7 +173,7 @@ func updateLLM(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := op.LLMUpdate(model, c.Request.Context()); err != nil {
+	if err := llm.Update(model, c.Request.Context()); err != nil {
 		resp.InternalError(c)
 		return
 	}
@@ -184,7 +188,7 @@ func deleteLLM(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := op.LLMDelete(req.Name, c.Request.Context()); err != nil {
+	if err := llm.Delete(req.Name, c.Request.Context()); err != nil {
 		resp.InternalError(c)
 		return
 	}

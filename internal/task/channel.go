@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/lingyuins/octopus/internal/helper"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/channel"
 	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
@@ -17,12 +17,12 @@ func ChannelBaseUrlDelayTask() {
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
-	channels, err := op.ChannelList(ctx)
+	channels, err := channel.List(ctx)
 	if err != nil {
 		log.Errorf("failed to list channels: %v", err)
 		return
 	}
-	for _, channel := range channels {
-		helper.ChannelBaseUrlDelayUpdate(&channel, ctx)
+	for _, ch := range channels {
+		helper.ChannelBaseUrlDelayUpdate(&ch, ctx)
 	}
 }

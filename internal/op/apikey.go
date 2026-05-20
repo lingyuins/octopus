@@ -3,8 +3,9 @@ package op
 import (
 	"context"
 
-	"github.com/lingyuins/octopus/internal/op/apikey"
 	"github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/op/apikey"
+	"github.com/lingyuins/octopus/internal/op/stats"
 )
 
 // apiKeyCache is retained for backward compatibility (used by tests).
@@ -13,12 +14,7 @@ var apiKeyIDMap = apikey.GetIDMap()
 
 func init() {
 	apikey.DeleteStatsFunc = func(id int) {
-		statsAPIKeyMutationLock.Lock()
-		statsAPIKeyCache.Del(id)
-		statsAPIKeyCacheNeedUpdateLock.Lock()
-		delete(statsAPIKeyCacheNeedUpdate, id)
-		statsAPIKeyCacheNeedUpdateLock.Unlock()
-		statsAPIKeyMutationLock.Unlock()
+		stats.OnAPIKeyDeleted(id)
 	}
 }
 

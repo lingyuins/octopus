@@ -10,7 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	dbmodel "github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/op/setting"
 	"github.com/lingyuins/octopus/internal/transformer/inbound"
 	transmodel "github.com/lingyuins/octopus/internal/transformer/model"
 	"github.com/lingyuins/octopus/internal/utils/log"
@@ -241,34 +241,34 @@ func semanticCacheStoreMetadata(req *transmodel.InternalLLMRequest) (string, str
 }
 
 func loadSemanticCacheRuntimeConfig() (semantic_cache.RuntimeConfig, bool) {
-	enabled, err := op.SettingGetBool(dbmodel.SettingKeySemanticCacheEnabled)
+	enabled, err := setting.GetBool(dbmodel.SettingKeySemanticCacheEnabled)
 	if err != nil || !enabled {
 		return semantic_cache.RuntimeConfig{}, false
 	}
 
-	ttl, _ := op.SettingGetInt(dbmodel.SettingKeySemanticCacheTTL)
+	ttl, _ := setting.GetInt(dbmodel.SettingKeySemanticCacheTTL)
 	if ttl <= 0 {
 		ttl = 3600
 	}
 
-	thresholdRaw, _ := op.SettingGetInt(dbmodel.SettingKeySemanticCacheThreshold)
+	thresholdRaw, _ := setting.GetInt(dbmodel.SettingKeySemanticCacheThreshold)
 	if thresholdRaw < 0 || thresholdRaw > 100 {
 		thresholdRaw = 98
 	}
 
-	maxEntries, _ := op.SettingGetInt(dbmodel.SettingKeySemanticCacheMaxEntries)
+	maxEntries, _ := setting.GetInt(dbmodel.SettingKeySemanticCacheMaxEntries)
 	if maxEntries <= 0 {
 		maxEntries = 1000
 	}
 
-	baseURL, _ := op.SettingGetString(dbmodel.SettingKeySemanticCacheEmbeddingBaseURL)
-	modelName, _ := op.SettingGetString(dbmodel.SettingKeySemanticCacheEmbeddingModel)
+	baseURL, _ := setting.GetString(dbmodel.SettingKeySemanticCacheEmbeddingBaseURL)
+	modelName, _ := setting.GetString(dbmodel.SettingKeySemanticCacheEmbeddingModel)
 	if strings.TrimSpace(baseURL) == "" || strings.TrimSpace(modelName) == "" {
 		return semantic_cache.RuntimeConfig{}, false
 	}
 
-	apiKey, _ := op.SettingGetString(dbmodel.SettingKeySemanticCacheEmbeddingAPIKey)
-	timeoutSeconds, _ := op.SettingGetInt(dbmodel.SettingKeySemanticCacheEmbeddingTimeoutSeconds)
+	apiKey, _ := setting.GetString(dbmodel.SettingKeySemanticCacheEmbeddingAPIKey)
+	timeoutSeconds, _ := setting.GetInt(dbmodel.SettingKeySemanticCacheEmbeddingTimeoutSeconds)
 	if timeoutSeconds <= 0 {
 		timeoutSeconds = 10
 	}

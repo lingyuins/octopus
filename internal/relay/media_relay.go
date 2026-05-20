@@ -16,7 +16,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/helper"
 	dbmodel "github.com/lingyuins/octopus/internal/model"
-	"github.com/lingyuins/octopus/internal/op"
+	ak "github.com/lingyuins/octopus/internal/op/apikey"
+	ch "github.com/lingyuins/octopus/internal/op/channel"
+	grp "github.com/lingyuins/octopus/internal/op/group"
+	"github.com/lingyuins/octopus/internal/op/relaylog"
+	st "github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/relay/balancer"
 	"github.com/lingyuins/octopus/internal/server/resp"
 	"github.com/lingyuins/octopus/internal/utils/log"
@@ -76,7 +80,7 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 
 	// 2. Resolve channel group
 	groupEndpointType := mediaEndpointTypeToGroupEndpointType(endpointType)
-	group, err := op.GroupGetEnabledMapByEndpoint(groupEndpointType, requestModel, c.Request.Context())
+	group, err := grp.GroupGetEnabledMapByEndpoint(groupEndpointType, requestModel, c.Request.Context())
 	if err != nil {
 		resp.Error(c, http.StatusNotFound, "model not found")
 		return
@@ -136,7 +140,7 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 
 			item := routeIter.Item()
 
-			channel, err := op.ChannelGet(item.ChannelID, c.Request.Context())
+			channel, err := ch.Get(item.ChannelID, c.Request.Context())
 			if err != nil {
 				log.Warnf("failed to get channel %d: %v", item.ChannelID, err)
 				routeIter.Skip(item.ChannelID, 0, fmt.Sprintf("channel_%d", item.ChannelID), fmt.Sprintf("channel not found: %v", err))
@@ -202,9 +206,9 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 				usedKey.LastUseTimeStamp = time.Now().Unix()
 
 				if decision.Scope == ScopeNone && !decision.IsError {
-					op.ChannelKeyUpdate(usedKey)
+					ch.KeyUpdate(usedKey)
 					span.End(dbmodel.AttemptSuccess, statusCode, "")
-					op.StatsChannelUpdate(channel.ID, dbmodel.StatsMetrics{
+					st.ChannelUpdate(channel.ID, dbmodel.StatsMetrics{
 						WaitTime:       span.Duration().Milliseconds(),
 						RequestSuccess: 1,
 					})
@@ -217,9 +221,9 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 					return
 				}
 
-				op.ChannelKeyUpdate(usedKey)
+				ch.KeyUpdate(usedKey)
 				span.End(dbmodel.AttemptFailed, statusCode, decision.String())
-				op.StatsChannelUpdate(channel.ID, dbmodel.StatsMetrics{
+				st.ChannelUpdate(channel.ID, dbmodel.StatsMetrics{
 					WaitTime:      span.Duration().Milliseconds(),
 					RequestFailed: 1,
 				})
@@ -293,7 +297,7 @@ func recordMediaRelayLog(apiKeyID int, requestModel string, endpointType string,
 		TotalAttempts:    len(attempts),
 	}
 
-	if apiKey, getErr := op.APIKeyGet(apiKeyID, ctx); getErr == nil {
+	if apiKey, getErr := ak.Get(apiKeyID, ctx); getErr == nil {
 		relayLog.RequestAPIKeyName = apiKey.Name
 	}
 
@@ -305,7 +309,7 @@ func recordMediaRelayLog(apiKeyID int, requestModel string, endpointType string,
 		relayLog.Error = relayErr.Error()
 	}
 
-	if logErr := op.RelayLogAdd(ctx, relayLog); logErr != nil {
+	if logErr := relaylog.RelayLogAdd(ctx, relayLog); logErr != nil {
 		log.Warnf("failed to save media relay log: %v", logErr)
 	}
 
@@ -323,12 +327,12 @@ func recordMediaRelayLog(apiKeyID int, requestModel string, endpointType string,
 			requestModel, duration.Milliseconds(), len(attempts), relayErr)
 	}
 
-	op.StatsTotalUpdate(stats)
-	op.StatsHourlyUpdate(stats)
-	if statsErr := op.StatsDailyUpdate(ctx, stats); statsErr != nil {
+	st.TotalUpdate(stats)
+	st.HourlyUpdate(stats)
+	if statsErr := st.DailyUpdate(ctx, stats); statsErr != nil {
 		log.Warnf("failed to update daily stats for media relay: %v", statsErr)
 	}
-	op.StatsAPIKeyUpdate(apiKeyID, stats)
+	st.APIKeyUpdate(apiKeyID, stats)
 }
 
 func recordPreparedCandidateSkip(iter *balancer.Iterator, item dbmodel.GroupItem, prepare PrepareCandidateResult) {
