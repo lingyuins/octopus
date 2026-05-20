@@ -116,7 +116,7 @@ export function ChannelGroupManagerPanel({
 
     return (
         <section className={cn('rounded-lg border border-border/30 bg-card/70 p-4 md:p-5', className)}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-1">
                     <div className="inline-flex items-center gap-2 rounded-full border border-primary/12 bg-card px-3 py-1 text-[0.68rem] font-semibold text-primary">
                         <FolderTree className="size-3.5" />
@@ -130,7 +130,7 @@ export function ChannelGroupManagerPanel({
                         variant="outline"
                         size="sm"
                         onClick={() => setIsCreating(true)}
-                        className="h-9 rounded-lg"
+                        className="h-9 self-start rounded-lg"
                     >
                         <Plus className="size-4" />
                         {t('create')}
