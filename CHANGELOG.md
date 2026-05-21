@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v1.9.0] - 2026-05
+## [v1.9.1] - 2026-05
 
 ### 🚀 Features
 - Add architecture-focused Markdown refreshes for the current management console, relay pipeline, and embedded UI workflow.
@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Split `internal/op/*` business logic into domain packages for AI routing, analytics, API keys, audit, backup, cache usage, channel, group, LLM metadata, nav order, ops, rate-limit state, relay logs, settings, stats, and users.
 - Ignore local development log files generated during backend and frontend verification.
 
-**Full Changelog:** https://github.com/lingyuins/octopus/compare/v1.8.9...v1.9.0
+**Full Changelog:** https://github.com/lingyuins/octopus/compare/v1.9.0...v1.9.1
 
 ---
 
