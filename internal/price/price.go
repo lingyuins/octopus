@@ -15,7 +15,10 @@ import (
 	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
-const llmPriceUrl = "https://models.dev/api.json"
+const (
+	llmPriceUrl           = "https://models.dev/api.json"
+	maxPriceResponseBytes = 10 << 20 // 10 MiB — models.dev API response is typically < 2 MiB
+)
 
 var Provider = []string{
 	"openai",     // GPT 系列
@@ -61,9 +64,12 @@ func UpdateLLMPrice(ctx context.Context) error {
 			Cost model.LLMPrice `json:"cost"`
 		} `json:"models"`
 	}
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxPriceResponseBytes+1))
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
+	}
+	if len(body) > maxPriceResponseBytes {
+		return fmt.Errorf("price response exceeds %d bytes limit; upstream may be misbehaving", maxPriceResponseBytes)
 	}
 	if err := json.Unmarshal(body, &rawPrice); err != nil {
 		return fmt.Errorf("failed to parse LLM info: %w", err)

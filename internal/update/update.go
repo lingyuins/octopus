@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	updateUrl    = "https://github.com/lingyuins/octopus/releases/latest/download"
-	updateApiUrl = "https://api.github.com/repos/lingyuins/octopus/releases/latest"
+	updateUrl                  = "https://github.com/lingyuins/octopus/releases/latest/download"
+	updateApiUrl               = "https://api.github.com/repos/lingyuins/octopus/releases/latest"
+	maxUpdateAPIResponseBytes  = 2 << 20 // 2 MiB — GitHub API release info JSON is typically < 100 KiB
 )
 
 type LatestInfo struct {
@@ -68,10 +69,14 @@ func doRequest(url string, useProxy bool) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	data, err := io.ReadAll(resp.Body)
+	limitedReader := io.LimitReader(resp.Body, maxUpdateAPIResponseBytes+1)
+	data, err := io.ReadAll(limitedReader)
 	if err != nil {
 		log.Debugf("read body failed: %v", err)
 		return nil, err
+	}
+	if len(data) > maxUpdateAPIResponseBytes {
+		return nil, fmt.Errorf("update API response exceeds %d bytes limit", maxUpdateAPIResponseBytes)
 	}
 	return data, nil
 }
