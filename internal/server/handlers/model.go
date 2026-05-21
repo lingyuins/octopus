@@ -119,10 +119,9 @@ func getModelList(c *gin.Context) {
 				OwnedBy: "octopus",
 			})
 		}
-		c.JSON(200, gin.H{
-			"success": true,
-			"data":    openAIModels,
-			"object":  "list",
+		c.JSON(200, model.OpenAIModelList{
+			Object: "list",
+			Data:   openAIModels,
 		})
 	}
 }
