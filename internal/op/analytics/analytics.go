@@ -854,6 +854,9 @@ func analyticsStartDate(r model.AnalyticsRange, now time.Time) string {
 
 func analyticsStartTime(r model.AnalyticsRange, now time.Time) *time.Time {
 	location := now.Location()
+	// dayStart uses now.Location() which reflects the container TZ, not stats offset.
+	// Future: if stats_timezone is promoted to IANA, consider whether analytics
+	// should also switch or remain on server local time.
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, location)
 
 	switch r {

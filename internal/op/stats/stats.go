@@ -38,6 +38,10 @@ func now() time.Time {
 	return now.UTC().Add(time.Duration(offset) * time.Hour)
 }
 
+// TODO(stats_timezone): Future improvement — replace integer offset with IANA
+// timezone string. An offset-based approach cannot handle DST transitions.
+// Plan: add "stats_timezone" (IANA) setting, fall back to current offset.
+
 // Now returns the current time adjusted by the configured timezone offset.
 func Now() time.Time { return now() }
 

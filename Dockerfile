@@ -80,6 +80,10 @@ FROM alpine:3.20
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata
 
+# Set default timezone for the container.
+# Override with -e TZ=... at docker run or environment in compose.
+ENV TZ=Asia/Shanghai
+
 # Create non-root user
 RUN addgroup -g 1000 octopus && \
     adduser -u 1000 -G octopus -s /bin/sh -D octopus

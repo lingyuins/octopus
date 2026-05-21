@@ -9,6 +9,7 @@ import { QueryState, StatusBadge } from '@/components/modules/analytics/shared';
 import { VirtualizedGrid } from '@/components/common/VirtualizedGrid';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { formatUnixSeconds } from '@/lib/time';
 import {
     MorphingDialog,
     MorphingDialogClose,
@@ -20,10 +21,8 @@ import {
 } from '@/components/ui/morphing-dialog';
 
 function formatAuditTime(timestamp: number) {
-    if (!timestamp) {
-        return '-';
-    }
-    return new Date(timestamp * 1000).toLocaleString();
+    // 审计时间戳为 Unix 秒级，使用应用时区格式化
+    return formatUnixSeconds(timestamp);
 }
 
 function getStatusTone(statusCode: number) {

@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { formatDateTime } from '@/lib/time';
 import { resolveRuntimeI18nMessage } from '@/lib/i18n-runtime';
 import { endpointTypeLabelKey } from './utils';
 
@@ -36,20 +37,8 @@ type AIRouteProgressDialogProps = {
 const HEARTBEAT_STALE_MS = 15000;
 
 function formatTime(value?: string) {
-    if (!value) {
-        return '--';
-    }
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-        return '--';
-    }
-
-    return new Intl.DateTimeFormat(undefined, {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-    }).format(date);
+    if (!value) return '--';
+    return formatDateTime(value, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function statusBadgeClass(status?: AIRouteTaskStatus) {

@@ -8,6 +8,7 @@ services:
     volumes:
       - ./data:/app/data
     environment:
+      # 容器时区；海外部署可改为显式 IANA 时区名，例如 America/Los_Angeles
       TZ: "Asia/Shanghai"
       OCTOPUS_AUTH_JWT_SECRET: "change-this-to-a-long-random-secret"
 

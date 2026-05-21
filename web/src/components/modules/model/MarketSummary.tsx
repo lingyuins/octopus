@@ -3,6 +3,7 @@
 import { Boxes, Clock3, RefreshCw, RadioTower, Rows3 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { formatDateTime } from '@/lib/time';
 
 type MarketSummaryValue = {
     model_count: number;
@@ -13,14 +14,12 @@ type MarketSummaryValue = {
 };
 
 function formatLastUpdate(value: string, fallback: string) {
-    if (!value) return fallback;
-
+    const formatted = formatDateTime(value);
+    if (formatted === '-') return fallback;
+    // 年份 ≤ 1 视为无效时间戳（如 Unix epoch 边界附近）
     const date = new Date(value);
-    if (Number.isNaN(date.getTime()) || date.getFullYear() <= 1) {
-        return fallback;
-    }
-
-    return date.toLocaleString();
+    if (!Number.isNaN(date.getTime()) && date.getFullYear() <= 1) return fallback;
+    return formatted;
 }
 
 export function ModelMarketSummary({

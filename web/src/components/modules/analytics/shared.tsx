@@ -1,12 +1,12 @@
 'use client';
 
-import dayjs from 'dayjs';
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { AlertCircle, Loader2, Waves, Orbit } from 'lucide-react';
 import { AnimatedNumber } from '@/components/common/AnimatedNumber';
 import { cn } from '@/lib/utils';
 import { resolveRuntimeI18nMessage } from '@/lib/i18n-runtime';
+import { formatUnixSeconds } from '@/lib/time';
 
 export function formatPercent(value: number | undefined) {
     const raw = value ?? 0;
@@ -20,10 +20,13 @@ export function formatPercent(value: number | undefined) {
 }
 
 export function formatUnixTime(value: number | undefined) {
-    if (!value) {
-        return '';
-    }
-    return dayjs.unix(value).format('MM/DD HH:mm');
+    if (!value) return '';
+    return formatUnixSeconds(value, {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 export function getErrorMessage(error: unknown) {

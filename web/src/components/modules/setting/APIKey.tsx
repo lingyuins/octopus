@@ -30,6 +30,13 @@ import { toast } from '@/components/common/Toast';
 import { CopyIconButton } from '@/components/common/CopyButton';
 import type { ApiError } from '@/api/types';
 
+/**
+ * 将用户选择的日期和时间组合为 Unix 秒级时间戳。
+ *
+ * 语义：用户选择的日期（日历组件）和时间输入框的值，统一按 UTC 时刻存储。
+ * 服务端做过期判断时直接用 Unix 时间戳做绝对时间比较，不依赖时区。
+ * 回显时 parseExpireDate 解析为 Date 后由日历组件按浏览器本地时区展示。
+ */
 function toExpireAt(date: Date, time: string): number {
     const t = /^\d{2}:\d{2}$/.test(time) ? time : '00:00';
     const [hh, mm] = t.split(':').map(Number);
@@ -102,7 +109,8 @@ function APIKeyForm({ apiKey, isPending, submitLabel, onSubmit, onClose }: APIKe
         if (apiKey?.expire_at) {
             const d = new Date(apiKey.expire_at * 1000);
             if (!isNaN(d.getTime())) {
-                return `${d.getUTCHours().toString().padStart(2, '0')}:${d.getUTCMinutes().toString().padStart(2, '0')}`;
+                // 使用本地时区回显小时分钟，与用户输入时一致
+                return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
             }
         }
         return '00:00';

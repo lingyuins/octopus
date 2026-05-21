@@ -44,6 +44,9 @@ export function Activity() {
         if (!statsDailyFormatted) return [];
         const formattedMap = new Map(statsDailyFormatted.map(stat => [stat.date, stat]));
 
+        // `today` 使用 dayjs() 默认获取浏览器本地日期。
+        // 日历网格仅用于展示活动热力图，不参与统计聚合；
+        // 与后端统计时区的对齐在 P2 统计模型升级专项中处理。
         const today = dayjs();
         const startDate = today.subtract(today.day() + 53 * 7, 'day');
 

@@ -12,6 +12,7 @@ import { type RelayLog, type ChannelAttempt, useLogDetail } from '@/api/endpoint
 import { getModelIcon } from '@/lib/model-icons';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { formatUnixSeconds } from '@/lib/time';
 import { endpointTypeLabelKey } from '@/components/modules/group/utils';
 import { resolveLogDisplayFields } from './display';
 import { CopyIconButton } from '@/components/common/CopyButton';
@@ -28,8 +29,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/animate-ui/components/animate/tooltip';
 
 function formatTime(timestamp: number): string {
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleString('zh-CN', {
+    return formatUnixSeconds(timestamp, {
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',

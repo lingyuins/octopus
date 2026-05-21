@@ -65,10 +65,17 @@ The top-level `Dockerfile` already builds this frontend and copies the export in
 ## Key Directories
 
 - `src/components/app.tsx`: Main application shell
+- `src/components/modules/home/*`: Runtime/version overview and high-level summaries reused from analytics data
+- `src/components/modules/channel/*`: Channel configuration, key management, sync, latency, and model declarations
+- `src/components/modules/group/*`: Route groups, balancing strategy configuration, group testing, and single-group AI route append flow
 - `src/components/modules/model/*`: Model Market UI, including summary strip, virtualized cards, and price-edit actions
 - `src/components/modules/analytics/*`: Utilization, route-health, and evaluation surfaces, plus shared overview cards reused by Home
+- `src/components/modules/log/*`: Relay request list/detail views, usage/cost display, and error diagnostics
+- `src/components/modules/alert/*`: Alert rules, notification channels, state records, and history views
 - `src/components/modules/ops/*`: Cache, quota, health, system, and audit surfaces
+- `src/components/modules/apikey/*`: API key creation, allowlists, expiry, max-cost, RPM/TPM, and per-model quota controls
 - `src/components/modules/setting/*`: Settings cards including info, appearance/nav preferences, semantic cache, AI route, API key defaults, backup, and dangerous actions
+- `src/components/modules/user/*`: Management-console user and role administration
 - `src/components/modules/navbar/*`: Top-level navigation state and persisted nav-order helpers
 - `src/api/`: API client and endpoint hooks
 - `src/route/config.tsx`: UI route registration
@@ -85,3 +92,4 @@ The top-level `Dockerfile` already builds this frontend and copies the export in
 - `Ops` is organized into `cache`, `quota`, `health`, `system`, and `audit` tabs. Audit only covers selected management write routes, not public relay traffic.
 - Semantic cache settings are split into configured state and runtime-enabled state. Enabling the switch alone is not enough; the embedding base URL and embedding model also need to be configured before runtime metrics turn green.
 - Top-level page order is edited inside the `Appearance` card, persisted through the `nav_order` setting, and normalized against `DEFAULT_NAV_ORDER`, so missing routes are appended automatically and unknown routes are dropped.
+- When backend API surfaces or top-level modules change, update both `web/README.md` and the root README files so the embedded-console docs remain consistent.

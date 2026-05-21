@@ -88,6 +88,8 @@ Note: The official image runs as the non-root user `octopus` with UID/GID `1000`
 
 The official Docker image rebuilds the frontend during image build and embeds the latest exported UI into the Go binary, so the container includes the matching management UI for that release.
 
+> **🕐 Timezone:** The image defaults to `Asia/Shanghai`. When running with `docker run` (not compose), pass `-e TZ=Asia/Shanghai` or your target IANA timezone (e.g. `-e TZ=America/Los_Angeles`). The server's log timestamps, statistics day boundaries, and frontend time display all depend on the container's timezone setting.
+
 If you are upgrading from an older web build and still see stale frontend errors in the browser, clear the site data / service worker cache once after upgrading so the latest embedded assets are loaded.
 
 
@@ -124,7 +126,7 @@ If `static/out/` already contains built frontend assets, the Go binary serves th
 **Build frontend assets for the embedded management UI**
 
 ```bash
-cd web && pnpm install && NEXT_PUBLIC_APP_VERSION="$(git describe --tags --always 2>/dev/null || printf 'dev')" pnpm run build && cd ..
+cd web && pnpm install && NEXT_PUBLIC_APP_VERSION="$(git describe --tags --always 2>/dev/null || printf 'dev')" pnpm build && cd ..
 # Move frontend assets to the embed directory expected by the Go binary
 mkdir -p static/out
 mv web/out/* static/out/
@@ -137,7 +139,7 @@ go run main.go start
 **Development Mode**
 
 ```bash
-cd web && pnpm install && NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8080" NEXT_PUBLIC_APP_VERSION="$(git describe --tags --always 2>/dev/null || printf 'dev')" pnpm run dev
+cd web && pnpm install && NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8080" NEXT_PUBLIC_APP_VERSION="$(git describe --tags --always 2>/dev/null || printf 'dev')" pnpm dev
 ## Open a new terminal, optionally set initial admin credentials for automatic bootstrap
 export OCTOPUS_INITIAL_ADMIN_USERNAME="admin"
 export OCTOPUS_INITIAL_ADMIN_PASSWORD="change-this-password-long"
@@ -628,9 +630,15 @@ internal/
 ├── conf/               # Configuration loading & build metadata
 ├── client/             # HTTP client utilities
 ├── db/                 # Database connection & migrations (SQLite/MySQL/PostgreSQL)
-│   └── migrate/        # Versioned schema migrations (001-007)
+│   └── migrate/        # Versioned schema migrations (001-008)
 ├── model/              # Domain types (Channel, Group, APIKey, User, …)
-├── op/                 # Business logic operations (largest module)
+├── op/                 # Business logic operations split by domain
+│   ├── airoute/        # AI route generation and compatibility helpers
+│   ├── analytics/      # Dashboard, utilization, route-health, and evaluation queries
+│   ├── channel/        # Channel CRUD, sync, grouping, keys, and base URL helpers
+│   ├── group/          # Route-group CRUD, group items, tests, and cache-backed lookups
+│   ├── relaylog/       # Relay log persistence and query helpers
+│   └── stats/          # Request statistics aggregation and time-window summaries
 ├── relay/              # Core relay pipeline
 │   ├── balancer/       # Load balancing strategies (RoundRobin, Random, Failover, Weighted, Auto)
 │   └── condition/      # Request condition evaluation
@@ -689,6 +697,18 @@ web/src/
 ├── route/             # Lazy-loaded route config
 └── stores/            # Zustand client state
 ```
+
+## 🕐 Timezone Architecture
+
+Octopus involves three independent timezone layers:
+
+| Layer | Controlled By | Affects |
+|-------|--------------|---------|
+| **Container timezone** | `ENV TZ` / `-e TZ=` | Server log timestamps, `time.Now()` return value |
+| **Stats timezone** | Admin UI → `stats_timezone_offset` | Which date hourly/daily statistics roll into |
+| **Frontend display timezone** | Admin UI → user preference | How all timestamps appear on pages |
+
+The three layers are independent: the container timezone affects the server runtime, the stats timezone affects data aggregation, and the frontend timezone only changes how users see time text.
 
 ## 🤝 Acknowledgments
 

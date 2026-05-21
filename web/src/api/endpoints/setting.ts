@@ -168,6 +168,10 @@ async function downloadBlob(blob: Blob, filename: string) {
 
 /**
  * 导出数据库（下载 JSON 文件）
+ *
+ * 本接口直接返回原始 JSON 文件流（Content-Disposition: attachment），
+ * 不使用管理端标准 {code, message, data} envelope，因此用原生 fetch + blob
+ * 消费，不走 apiClient.get<T> 的 handleResponse 自动解包。
  */
 export function useExportDB() {
     return useMutation({
@@ -176,6 +180,7 @@ export function useExportDB() {
             params.set('include_logs', String(!!options.include_logs));
             params.set('include_stats', String(!!options.include_stats));
 
+            // 下载型接口不使用标准 envelope——直接 fetch + blob，不经过 apiClient
             const res = await fetch(`${API_BASE_URL}/api/v1/setting/export?${params.toString()}`, {
                 method: 'GET',
                 headers: {
@@ -188,6 +193,7 @@ export function useExportDB() {
                 throw new Error(text || res.statusText);
             }
 
+            // 响应体是原始 JSON dump 文件，按 blob 消费触发浏览器下载
             const blob = await res.blob();
             const filename = parseFilename(res.headers.get('content-disposition')) || exportFallbackFilename();
             await downloadBlob(blob, filename);

@@ -128,6 +128,11 @@ func shouldRefreshSemanticCacheRuntime(key model.SettingKey) bool {
 	}
 }
 
+// exportDB 导出全库数据为 JSON 文件下载。
+//
+// 这是一个下载型接口（Content-Disposition: attachment），直接返回原始 JSON dump
+// 供浏览器保存为文件，不使用管理端标准 {code, message, data} envelope——
+// 这是有意例外，不是遗漏。
 func exportDB(c *gin.Context) {
 	includeLogs, _ := strconv.ParseBool(c.DefaultQuery("include_logs", "false"))
 	includeStats, _ := strconv.ParseBool(c.DefaultQuery("include_stats", "false"))

@@ -88,6 +88,8 @@ docker compose up -d
 
 官方 Docker 镜像会在构建阶段重新编译前端，并把最新导出的管理界面嵌入 Go 二进制，因此容器内前端和对应发布版本保持一致。
 
+> **🕐 时区：** 镜像默认使用 `Asia/Shanghai` 时区。若直接使用 `docker run`（而非 docker compose），需显式传入 `-e TZ=Asia/Shanghai` 或目标 IANA 时区（例如 `-e TZ=America/Los_Angeles`）。服务端日志时间戳、统计日期边界和前端时间展示均依赖容器的时区设置。
+
 如果是从旧版前端升级，升级后浏览器若仍出现旧页面脚本报错，请清理一次站点数据 / Service Worker 缓存，确保加载到最新嵌入式前端资源。
 
 
@@ -124,7 +126,7 @@ go run main.go start
 **构建嵌入式管理界面资源**
 
 ```bash
-cd web && pnpm install && NEXT_PUBLIC_APP_VERSION="$(git describe --tags --always 2>/dev/null || printf 'dev')" pnpm run build && cd ..
+cd web && pnpm install && NEXT_PUBLIC_APP_VERSION="$(git describe --tags --always 2>/dev/null || printf 'dev')" pnpm build && cd ..
 # 将前端构建产物移动到 Go 二进制预期的嵌入目录
 mkdir -p static/out
 mv web/out/* static/out/
@@ -137,7 +139,7 @@ go run main.go start
 **开发模式**
 
 ```bash
-cd web && pnpm install && NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8080" NEXT_PUBLIC_APP_VERSION="$(git describe --tags --always 2>/dev/null || printf 'dev')" pnpm run dev
+cd web && pnpm install && NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8080" NEXT_PUBLIC_APP_VERSION="$(git describe --tags --always 2>/dev/null || printf 'dev')" pnpm dev
 ## 新建终端，可选：通过环境变量自动创建初始管理员账户
 export OCTOPUS_INITIAL_ADMIN_USERNAME="admin"
 export OCTOPUS_INITIAL_ADMIN_PASSWORD="change-this-password-long"
@@ -630,9 +632,15 @@ internal/
 ├── conf/               # 配置加载与构建元信息
 ├── client/             # HTTP 客户端工具
 ├── db/                 # 数据库连接与迁移（SQLite/MySQL/PostgreSQL）
-│   └── migrate/        # 版本化 Schema 迁移（001-007）
+│   └── migrate/        # 版本化 Schema 迁移（001-008）
 ├── model/              # 领域类型（Channel、Group、APIKey、User……）
-├── op/                 # 业务逻辑操作（最大模块）
+├── op/                 # 按领域拆分的业务逻辑操作
+│   ├── airoute/        # AI 路由生成与兼容辅助逻辑
+│   ├── analytics/      # 仪表盘、用量、路由健康与评估查询
+│   ├── channel/        # 渠道 CRUD、同步、分组、密钥与 Base URL 辅助逻辑
+│   ├── group/          # 路由分组 CRUD、分组项、测试与缓存查询
+│   ├── relaylog/       # Relay 日志持久化与查询辅助逻辑
+│   └── stats/          # 请求统计聚合与时间窗口汇总
 ├── relay/              # 核心中转管线
 │   ├── balancer/       # 负载均衡策略（轮询、随机、故障转移、加权、智能）
 │   └── condition/      # 请求条件评估
@@ -691,6 +699,18 @@ web/src/
 ├── route/             # 懒加载路由配置
 └── stores/            # Zustand 客户端状态
 ```
+
+## 🕐 时区架构
+
+Octopus 涉及时区的三层独立概念：
+
+| 层 | 控制方式 | 影响范围 |
+|----|---------|---------|
+| **容器时区** | `ENV TZ` / `-e TZ=` | 服务端日志时间戳、`time.Now()` 返回值 |
+| **统计时区** | 管理端设置 → `stats_timezone_offset` | 每小时/每天统计数据的日期归入 |
+| **前端展示时区** | 管理端设置 → 用户偏好 | 所有页面上的时间显示格式 |
+
+三层独立配置：容器时区影响服务端运行时，统计时区影响数据聚合，前端展示时区只影响用户看到的时间文本。
 
 ## 🤝 致谢
 

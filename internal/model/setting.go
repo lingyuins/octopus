@@ -47,7 +47,7 @@ const (
 	SettingKeyAIRouteTimeoutSeconds                SettingKey = "ai_route_timeout_seconds"                 // AI路由分析单次请求超时（秒）
 	SettingKeyAIRouteParallelism                   SettingKey = "ai_route_parallelism"                     // AI路由分析批次最大并发数
 	SettingKeyAIRouteServices                      SettingKey = "ai_route_services"                        // AI路由分析服务池(JSON)
-	SettingKeyStatsTimezoneOffset                  SettingKey = "stats_timezone_offset"                   // 统计时区偏移（小时），例如 UTC+8 设置为 8
+	SettingKeyStatsTimezoneOffset                  SettingKey = "stats_timezone_offset"                   // 统计时区偏移（小时），当前为整型偏移；未来计划新增 stats_timezone (IANA) 配置项，此处为定义与校验入口
 )
 
 type Setting struct {

@@ -80,6 +80,9 @@ export function APIKeyDashboard() {
     const maxCost = info.max_cost || 0;
 
     // Expiry calculations
+    // 过期比较使用 dayjs()（浏览器本地时区）。
+    // 两者在相同时区下比较，isBefore 结果正确；
+    // diff('day') 的日历日差值在时区边界附近可能差 1 天——可接受。
     const expireAt = info.expire_at ? dayjs.unix(info.expire_at) : null;
     const isExpired = expireAt ? expireAt.isBefore(dayjs()) : false;
     const daysUntilExpire = expireAt ? expireAt.diff(dayjs(), 'day') : null;

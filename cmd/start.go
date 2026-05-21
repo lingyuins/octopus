@@ -80,6 +80,12 @@ func runStart() error {
 		shutdown.Shutdown()
 		return fmt.Errorf("server start error: %w", err)
 	}
+
+	loc := time.Now().Location()
+	log.Infof("server timezone: %s (UTC offset: %s)", loc.String(), time.Now().Format("-07:00"))
+	log.Infof("server local time: %s", time.Now().Format(time.RFC3339))
+	log.Infof("server utc time:   %s", time.Now().UTC().Format(time.RFC3339))
+
 	shutdown.Register(server.Close)
 	shutdown.Register(func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

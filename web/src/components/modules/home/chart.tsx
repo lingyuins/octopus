@@ -6,7 +6,7 @@ import { useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslations } from 'next-intl';
 import { formatCount, formatMoney } from '@/lib/utils';
-import dayjs from 'dayjs';
+import { formatDateOnly } from '@/lib/time';
 import { AnimatedNumber } from '@/components/common/AnimatedNumber';
 import { Tabs, TabsList, TabsTrigger } from '@/components/animate-ui/components/animate/tabs';
 import { useHomeViewStore, type ChartMetricType, type ChartPeriod } from '@/components/modules/home/store';
@@ -56,7 +56,7 @@ export function StatsChart() {
             return sortedDaily.slice(-days).map((stat) => ({
                 date: /^\d{8}$/.test(stat.date)
                     ? `${stat.date.slice(4, 6)}/${stat.date.slice(6, 8)}`
-                    : dayjs(stat.date).format('MM/DD'),
+                    : formatDateOnly(stat.date, { month: '2-digit', day: '2-digit' }),
                 [dataKey]: chartMetricType === 'cost'
                     ? stat.total_cost.raw
                     : chartMetricType === 'success-rate'
