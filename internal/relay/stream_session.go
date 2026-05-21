@@ -3,7 +3,10 @@ package relay
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -361,6 +364,11 @@ func formatRelaySSEEvent(sequence int64, payload []byte) []byte {
 	return frame
 }
 
+func writeSSEErrorEvent(w io.Writer, message string) {
+	data, _ := json.Marshal(map[string]string{"error": message})
+	fmt.Fprintf(w, "event: error\ndata: %s\n\n", data)
+}
+
 func serveRelayStreamSession(c *gin.Context, req *relayRequest) {
 	if req == nil || req.streamSession == nil {
 		resp.Error(c, http.StatusBadRequest, "missing relay stream session")
@@ -403,6 +411,10 @@ func serveRelayStreamSession(c *gin.Context, req *relayRequest) {
 		if errors.Is(sessionErr, errRelayReplayWindowExpired) {
 			if !headersWritten {
 				resp.Error(c, http.StatusConflict, sessionErr.Error())
+			} else {
+				writeHeaders()
+				writeSSEErrorEvent(c.Writer, sessionErr.Error())
+				c.Writer.Flush()
 			}
 			return
 		}
@@ -413,13 +425,18 @@ func serveRelayStreamSession(c *gin.Context, req *relayRequest) {
 		}
 
 		if done {
-			if !headersWritten && sessionErr != nil {
-				statusCode := http.StatusBadGateway
-				if errors.Is(sessionErr, context.DeadlineExceeded) {
-					statusCode = http.StatusGatewayTimeout
+			if sessionErr != nil {
+				if !headersWritten {
+					statusCode := http.StatusBadGateway
+					if errors.Is(sessionErr, context.DeadlineExceeded) {
+						statusCode = http.StatusGatewayTimeout
+					}
+					resp.Error(c, statusCode, sessionErr.Error())
+				} else {
+					writeHeaders()
+					writeSSEErrorEvent(c.Writer, sessionErr.Error())
+					c.Writer.Flush()
 				}
-				resp.Error(c, statusCode, sessionErr.Error())
-				return
 			}
 			return
 		}

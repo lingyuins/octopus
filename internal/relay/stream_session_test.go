@@ -243,3 +243,114 @@ func TestHandleStreamResponseStopsImmediatelyWhenClientDisconnectsWithoutSession
 		t.Fatal("handleStreamResponse() did not stop after client disconnect")
 	}
 }
+
+func TestServeRelayStreamSessionReplayExpiredBeforeHeadersReturns409(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	relayStreamSessions = relayStreamSessionStore{
+		byKey:                make(map[string]*relayStreamSession),
+		activeByConversation: make(map[string]string),
+	}
+
+	session, created, err := acquireRelayStreamSession("conv-1", 1, 1)
+	if err != nil || !created || session == nil {
+		t.Fatalf("acquireRelayStreamSession() = (%v, %t, %v)", session, created, err)
+	}
+
+	// Simulate replay window expired
+	session.AddPayload([]byte("data: first\n\n"))
+	session.droppedBeforeSeq = 10
+	session.Finish(nil)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/chat/completions?last_event_id=1", nil)
+
+	req := &relayRequest{
+		streamSession: session,
+		internalRequest: &transmodel.InternalLLMRequest{
+			ResumeFromEventID: 1, // before droppedBeforeSeq
+		},
+	}
+
+	serveRelayStreamSession(c, req)
+
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusConflict, recorder.Body.String())
+	}
+}
+
+func TestServeRelayStreamSessionDoneWithErrorBeforeHeadersReturnsBadGateway(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	relayStreamSessions = relayStreamSessionStore{
+		byKey:                make(map[string]*relayStreamSession),
+		activeByConversation: make(map[string]string),
+	}
+
+	session, created, err := acquireRelayStreamSession("conv-1", 1, 1)
+	if err != nil || !created || session == nil {
+		t.Fatalf("acquireRelayStreamSession() = (%v, %t, %v)", session, created, err)
+	}
+
+	session.Finish(errors.New("upstream internal error"))
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/chat/completions", nil)
+
+	req := &relayRequest{
+		streamSession: session,
+		internalRequest: &transmodel.InternalLLMRequest{
+			ResumeFromEventID: 0,
+		},
+	}
+
+	serveRelayStreamSession(c, req)
+
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusBadGateway, recorder.Body.String())
+	}
+}
+
+func TestServeRelayStreamSessionDoneWithErrorAfterHeadersWritesSSEError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	relayStreamSessions = relayStreamSessionStore{
+		byKey:                make(map[string]*relayStreamSession),
+		activeByConversation: make(map[string]string),
+	}
+
+	session, created, err := acquireRelayStreamSession("conv-1", 1, 1)
+	if err != nil || !created || session == nil {
+		t.Fatalf("acquireRelayStreamSession() = (%v, %t, %v)", session, created, err)
+	}
+
+	session.AddPayload([]byte("data: hello\n\n"))
+	session.Finish(errors.New("upstream internal error"))
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/chat/completions?last_event_id=0", nil)
+
+	req := &relayRequest{
+		streamSession: session,
+		internalRequest: &transmodel.InternalLLMRequest{
+			ResumeFromEventID: 0,
+		},
+	}
+
+	serveRelayStreamSession(c, req)
+
+	// First event is the SSE data, then the error event — both should be in the body
+	body := recorder.Body.String()
+	if !strings.Contains(body, "data: hello") {
+		t.Fatalf("body should contain data event, got: %s", body)
+	}
+	if !strings.Contains(body, "event: error") {
+		t.Fatalf("body should contain SSE error event, got: %s", body)
+	}
+	if !strings.Contains(body, "upstream internal error") {
+		t.Fatalf("body should contain error message, got: %s", body)
+	}
+}
