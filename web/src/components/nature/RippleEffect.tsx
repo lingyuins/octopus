@@ -1,3 +1,3 @@
-export function RippleEffect(_props: Record<string, unknown>) {
+export function RippleEffect() {
   return null;
 }

@@ -1,3 +1,3 @@
-export function ParticleBackground(_props: Record<string, unknown>) {
+export function ParticleBackground() {
   return null;
 }

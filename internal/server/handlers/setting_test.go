@@ -217,3 +217,44 @@ func assertOversizedImportResponse(t *testing.T, recorder *httptest.ResponseReco
 		t.Fatalf("response message = %q, want substring %q", response.Message, "backup file exceeds")
 	}
 }
+
+func TestExportDBReturnsJSONContentType(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.NewReplacer("/", "-", "\\", "-", " ", "-").Replace(t.Name()))
+	if err := db.InitDB("sqlite", dsn, false); err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+	if err := op.InitCache(); err != nil {
+		t.Fatalf("init cache: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/setting/export?include_logs=false&include_stats=false", nil)
+	c.Request = c.Request.WithContext(context.Background())
+
+	exportDB(c)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	contentType := recorder.Header().Get("Content-Type")
+	if !strings.Contains(contentType, "application/json") {
+		t.Fatalf("Content-Type = %q, want application/json", contentType)
+	}
+
+	disposition := recorder.Header().Get("Content-Disposition")
+	if !strings.Contains(disposition, "attachment") {
+		t.Fatalf("Content-Disposition = %q, want attachment", disposition)
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("export body is not valid JSON: %v", err)
+	}
+}

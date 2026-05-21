@@ -1,3 +1,3 @@
-export function OrganicBlob(_props: Record<string, unknown>) {
+export function OrganicBlob() {
   return null;
 }
