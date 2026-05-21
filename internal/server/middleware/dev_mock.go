@@ -14,7 +14,10 @@ import (
 	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
-const devMockText = "dev mock success"
+const (
+	devMockText          = "dev mock success"
+	maxDevMockBodyBytes  = 64 << 10 // 64 KiB
+)
 
 type devMockRequestInfo struct {
 	Model       string
@@ -54,6 +57,7 @@ func readDevMockRequestInfo(c *gin.Context) devMockRequestInfo {
 		return info
 	}
 
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxDevMockBodyBytes)
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.Request.Body = io.NopCloser(strings.NewReader(""))
