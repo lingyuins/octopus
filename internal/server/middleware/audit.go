@@ -29,11 +29,15 @@ var auditedManagementWriteRoutes = map[string]struct{}{
 	"POST /api/v1/apikey/create":            {},
 	"POST /api/v1/apikey/update":            {},
 	"DELETE /api/v1/apikey/delete/:id":      {},
-	"POST /api/v1/channel/create":           {},
-	"POST /api/v1/channel/enable":           {},
-	"POST /api/v1/channel/sync":             {},
-	"POST /api/v1/channel/update":           {},
-	"DELETE /api/v1/channel/delete/:id":     {},
+	"POST /api/v1/channel/create":            {},
+	"POST /api/v1/channel/enable":            {},
+	"POST /api/v1/channel/fetch-model":       {},
+	"POST /api/v1/channel/sync":              {},
+	"POST /api/v1/channel/update":            {},
+	"DELETE /api/v1/channel/delete/:id":      {},
+	"POST /api/v1/channel/group/create":      {},
+	"POST /api/v1/channel/group/update":      {},
+	"DELETE /api/v1/channel/group/delete/:id": {},
 	"POST /api/v1/group/auto-group":         {},
 	"POST /api/v1/group/create":             {},
 	"POST /api/v1/group/update":             {},
@@ -116,6 +120,12 @@ func shouldAuditManagementWrite(method, fullPath string) bool {
 	}
 	_, ok := auditedManagementWriteRoutes[method+" "+fullPath]
 	return ok
+}
+
+// ShouldAuditManagementWrite is the exported variant of shouldAuditManagementWrite,
+// used by tests to verify route audit coverage.
+func ShouldAuditManagementWrite(method, fullPath string) bool {
+	return shouldAuditManagementWrite(method, fullPath)
 }
 
 func readAuditBodyFields(c *gin.Context) map[string]any {
