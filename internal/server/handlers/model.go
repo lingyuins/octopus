@@ -70,7 +70,13 @@ func init() {
 }
 
 func getModelList(c *gin.Context) {
-	models, err := group.GroupListModel(c.Request.Context())
+	endpoint := strings.TrimSpace(c.Query("endpoint"))
+	if endpoint != "" && !model.IsSupportedEndpointType(endpoint) {
+		resp.Error(c, http.StatusBadRequest, "invalid endpoint")
+		return
+	}
+
+	models, err := group.GroupListModelByEndpoint(endpoint, c.Request.Context())
 	if err != nil {
 		resp.InternalError(c)
 		return
