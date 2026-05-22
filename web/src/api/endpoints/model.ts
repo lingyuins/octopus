@@ -269,3 +269,37 @@ export function useLastUpdateTime() {
         refetchInterval: 30000,
     });
 }
+
+/**
+ * 模型能力信息（来自 GET /api/v1/model/capabilities）
+ */
+export interface ModelCapability {
+    name: string;
+    endpoints: string[];
+    conversation: boolean;
+    available: boolean;
+}
+
+/**
+ * 获取模型能力列表 Hook
+ *
+ * @example
+ * const { data: capabilities, isLoading, error } = useModelCapabilities();
+ *
+ * if (isLoading) return <Loading />;
+ * if (error) return <Error message={error.message} />;
+ *
+ * capabilities?.forEach(cap => {
+ *     console.log(cap.name, cap.endpoints, cap.conversation);
+ * });
+ */
+export function useModelCapabilities() {
+    return useQuery({
+        queryKey: ['models', 'capabilities'],
+        queryFn: async () => {
+            return apiClient.get<ModelCapability[]>('/api/v1/model/capabilities');
+        },
+        refetchInterval: 60_000,
+        refetchOnMount: 'always',
+    });
+}
