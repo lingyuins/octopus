@@ -36,3 +36,29 @@ func IsConversationEndpointType(endpointType string) bool {
 		return false
 	}
 }
+
+// IsSupportedEndpointType reports whether the given endpoint type string
+// (after normalization) is a known, user-facing endpoint type that callers
+// can filter by via ?endpoint=.
+func IsSupportedEndpointType(endpointType string) bool {
+	switch NormalizeEndpointType(endpointType) {
+	case EndpointTypeAll,
+		EndpointTypeChat,
+		EndpointTypeDeepSeek,
+		EndpointTypeMimo,
+		EndpointTypeResponses,
+		EndpointTypeMessages,
+		EndpointTypeEmbeddings,
+		EndpointTypeRerank,
+		EndpointTypeModerations,
+		EndpointTypeImageGeneration,
+		EndpointTypeAudioSpeech,
+		EndpointTypeAudioTranscription,
+		EndpointTypeVideoGeneration,
+		EndpointTypeMusicGeneration,
+		EndpointTypeSearch:
+		return true
+	default:
+		return false
+	}
+}
