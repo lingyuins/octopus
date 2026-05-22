@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useModelMarket, useUpdateModelPrice } from '@/api/endpoints/model';
 import { useTranslations } from 'next-intl';
 import { ModelItem } from './Item';
@@ -8,6 +8,8 @@ import { ModelMarketSummary } from './MarketSummary';
 import { useSearchStore, useToolbarViewOptionsStore } from '@/components/modules/toolbar';
 import { VirtualizedGrid } from '@/components/common/VirtualizedGrid';
 import { sortModelMarketItems } from './sort';
+import { CapabilitiesPanel } from './CapabilitiesPanel';
+import { cn } from '@/lib/utils';
 
 export function Model() {
     const t = useTranslations('model');
@@ -49,9 +51,41 @@ export function Model() {
         last_update_time: '',
     };
 
+    const [viewMode, setViewMode] = useState<'market' | 'capabilities'>('market');
+
     return (
         <section className="relative flex h-full min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain rounded-t-xl pb-24 md:pb-4" aria-label={pageKey}>
-            <ModelMarketSummary
+            {/* View mode toggle */}
+            <div className="flex items-center gap-1 self-start rounded-lg border border-border/35 bg-card p-1">
+                <button
+                    type="button"
+                    onClick={() => setViewMode('market')}
+                    className={cn(
+                        'rounded-md px-4 py-2 text-sm font-medium transition-colors',
+                        viewMode === 'market'
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground',
+                    )}
+                >
+                    Market
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setViewMode('capabilities')}
+                    className={cn(
+                        'rounded-md px-4 py-2 text-sm font-medium transition-colors',
+                        viewMode === 'capabilities'
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground',
+                    )}
+                >
+                    Capabilities
+                </button>
+            </div>
+
+            {viewMode === 'market' ? (
+                <>
+                    <ModelMarketSummary
                 summary={summary}
                 onRefresh={() => updateModelPrice.mutate()}
                 isRefreshing={updateModelPrice.isPending}
@@ -85,6 +119,10 @@ export function Model() {
                         </div>
                     </div>
                 </section>
+            )}
+                </>
+            ) : (
+                <CapabilitiesPanel />
             )}
         </section>
     );
