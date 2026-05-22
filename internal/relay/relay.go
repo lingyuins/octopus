@@ -241,6 +241,7 @@ func Handler(endpointType string, inboundType inbound.InboundType, c *gin.Contex
 	group, err := grp.GroupGetEnabledMapByEndpoint(endpointType, requestModel, operationCtx)
 	if err != nil {
 		lastErr = err
+		log.Infof("model not found: model=%s endpoint_type=%s reason=%v", requestModel, endpointType, err)
 		resp.Error(c, http.StatusNotFound, "model not found")
 		return
 	}

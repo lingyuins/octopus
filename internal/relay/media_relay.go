@@ -82,6 +82,7 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 	groupEndpointType := mediaEndpointTypeToGroupEndpointType(endpointType)
 	group, err := grp.GroupGetEnabledMapByEndpoint(groupEndpointType, requestModel, c.Request.Context())
 	if err != nil {
+		log.Infof("model not found in media relay: model=%s endpoint_type=%s reason=%v", requestModel, groupEndpointType, err)
 		resp.Error(c, http.StatusNotFound, "model not found")
 		return
 	}
