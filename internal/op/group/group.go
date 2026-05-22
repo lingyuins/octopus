@@ -452,6 +452,67 @@ func groupHasValidItem(group model.Group) bool {
 	return false
 }
 
+// groupMatchesRequestedEndpoint reports whether a group should be visible
+// when filtering models by the given requested endpoint type.
+//
+// Rules (aligned with GroupGetEnabledMapByEndpoint semantics):
+//   - requestedEndpoint == "*" or "" → always visible
+//   - group.EndpointType == "*" → always visible
+//   - group.EndpointType == requestedEndpoint → visible
+//   - Both are in the conversation family (chat/deepseek/mimo/responses/messages) → visible
+//   - Otherwise → not visible
+func groupMatchesRequestedEndpoint(group model.Group, requestedEndpoint string) bool {
+	requestedEndpoint = model.NormalizeEndpointType(requestedEndpoint)
+	if requestedEndpoint == model.EndpointTypeAll {
+		return true
+	}
+
+	groupEndpoint := model.NormalizeEndpointType(group.EndpointType)
+	if groupEndpoint == model.EndpointTypeAll || groupEndpoint == requestedEndpoint {
+		return true
+	}
+
+	if model.IsConversationEndpointType(requestedEndpoint) && model.IsConversationEndpointType(groupEndpoint) {
+		return true
+	}
+
+	return false
+}
+
+// GroupListModelByEndpoint returns distinct model names for groups that:
+//   1. Have at least one valid item (channel exists + enabled)
+//   2. Match the requested endpoint type (or all if endpointType is empty/"*")
+//
+// This is the endpoint-aware variant of GroupListModel.
+func GroupListModelByEndpoint(endpointType string, ctx context.Context) ([]string, error) {
+	endpointType = model.NormalizeEndpointType(endpointType)
+
+	models := []string{}
+	seen := make(map[string]struct{}, groupCache.Len())
+	for _, group := range groupCache.GetAll() {
+		name := strings.TrimSpace(group.Name)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+
+		if !groupHasValidItem(group) {
+			continue
+		}
+
+		if !groupMatchesRequestedEndpoint(group, endpointType) {
+			continue
+		}
+
+		seen[name] = struct{}{}
+		models = append(models, name)
+	}
+	sort.Strings(models)
+	return models, nil
+}
+
 func GroupGet(id int, ctx context.Context) (*model.Group, error) {
 	group, ok := groupCache.Get(id)
 	if !ok {
