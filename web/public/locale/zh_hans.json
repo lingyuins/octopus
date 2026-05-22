@@ -1560,6 +1560,17 @@
       "cacheRead": "缓存读取",
       "cacheWrite": "缓存写入",
       "save": "保存"
+    },
+    "capabilities": {
+      "title": "模型能力",
+      "description": "每个模型声明的端点支持、对话标记和可用状态。",
+      "model": "模型",
+      "endpoints": "端点",
+      "conversation": "对话",
+      "available": "可用",
+      "loading": "加载能力数据…",
+      "error": "加载能力数据失败",
+      "empty": "暂无能力数据"
     }
   },
   "log": {

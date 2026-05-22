@@ -1560,6 +1560,17 @@
       "cacheRead": "快取讀取",
       "cacheWrite": "快取寫入",
       "save": "儲存"
+    },
+    "capabilities": {
+      "title": "模型能力",
+      "description": "每個模型宣告的端點支援、對話標記和可用狀態。",
+      "model": "模型",
+      "endpoints": "端點",
+      "conversation": "對話",
+      "available": "可用",
+      "loading": "載入能力資料…",
+      "error": "載入能力資料失敗",
+      "empty": "暫無能力資料"
     }
   },
   "log": {

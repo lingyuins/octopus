@@ -1560,6 +1560,17 @@
       "cacheRead": "Cache Read",
       "cacheWrite": "Cache Write",
       "save": "Save"
+    },
+    "capabilities": {
+      "title": "Model Capabilities",
+      "description": "Declared endpoint support, conversation flag, and availability per model.",
+      "model": "Model",
+      "endpoints": "Endpoints",
+      "conversation": "Conv",
+      "available": "Available",
+      "loading": "Loading capabilities…",
+      "error": "Failed to load capabilities",
+      "empty": "No capabilities data available"
     }
   },
   "log": {
