@@ -1510,6 +1510,7 @@
     "summary": {
       "title": "模型廣場",
       "description": "集中檢視模型價格、覆蓋渠道、可用 key 與執行表現，並保留原有價格維護能力。",
+      "trigger": "統計",
       "modelCount": "模型數",
       "coverage": "覆蓋渠道數",
       "uniqueChannels": "唯一渠道數",
@@ -1570,7 +1571,21 @@
       "available": "可用",
       "loading": "載入能力資料…",
       "error": "載入能力資料失敗",
-      "empty": "暫無能力資料"
+      "empty": "暫無能力資料",
+      "yes": "是",
+      "active": "可用",
+      "down": "不可用",
+      "total": "總數",
+      "nonConversation": "非對話",
+      "status": "狀態",
+      "searchPlaceholder": "按模型名稱篩選…",
+      "emptySearch": "沒有模型符合目前篩選。",
+      "note": "* 分組在非對話端點會於轉發階段依能力自動收窄；模型出現在這裡並不代表所有端點都一定可呼叫。",
+      "autoEndpoint": "自動"
+    },
+    "tabs": {
+      "market": "市場",
+      "capabilities": "能力"
     }
   },
   "log": {

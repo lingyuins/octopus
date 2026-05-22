@@ -1,10 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useModelMarket, useUpdateModelPrice } from '@/api/endpoints/model';
+import { useModelMarket } from '@/api/endpoints/model';
 import { useTranslations } from 'next-intl';
 import { ModelItem } from './Item';
-import { ModelMarketSummary } from './MarketSummary';
 import { useSearchStore, useToolbarViewOptionsStore } from '@/components/modules/toolbar';
 import { VirtualizedGrid } from '@/components/common/VirtualizedGrid';
 import { sortModelMarketItems } from './sort';
@@ -14,7 +13,6 @@ import { cn } from '@/lib/utils';
 export function Model() {
     const t = useTranslations('model');
     const { data: market } = useModelMarket();
-    const updateModelPrice = useUpdateModelPrice();
     const pageKey = 'model' as const;
     const searchTerm = useSearchStore((s) => s.getSearchTerm(pageKey));
     const layout = useToolbarViewOptionsStore((s) => s.getLayout(pageKey));
@@ -43,14 +41,6 @@ export function Model() {
         return byName;
     }, [sortedModels, searchTerm, filter]);
 
-    const summary = market?.summary ?? {
-        model_count: 0,
-        coverage_count: 0,
-        unique_channel_count: 0,
-        average_latency_ms: 0,
-        last_update_time: '',
-    };
-
     const [viewMode, setViewMode] = useState<'market' | 'capabilities'>('market');
 
     return (
@@ -67,7 +57,7 @@ export function Model() {
                             : 'text-muted-foreground hover:text-foreground',
                     )}
                 >
-                    Market
+                    {t('tabs.market')}
                 </button>
                 <button
                     type="button"
@@ -79,19 +69,13 @@ export function Model() {
                             : 'text-muted-foreground hover:text-foreground',
                     )}
                 >
-                    Capabilities
+                    {t('tabs.capabilities')}
                 </button>
             </div>
 
             {viewMode === 'market' ? (
                 <>
-                    <ModelMarketSummary
-                summary={summary}
-                onRefresh={() => updateModelPrice.mutate()}
-                isRefreshing={updateModelPrice.isPending}
-            />
-
-            {visibleModels.length > 0 ? (
+                    {visibleModels.length > 0 ? (
                 <section className="relative flex min-h-0 flex-1 flex-col rounded-xl border border-border/35 bg-card p-3 text-card-foreground md:p-4">
                     <div className="relative min-h-0 flex-1">
                         <VirtualizedGrid
@@ -127,3 +111,4 @@ export function Model() {
         </section>
     );
 }
+

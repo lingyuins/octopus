@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/morphing-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { buttonVariants } from '@/components/ui/button';
+import { useModelMarket, useUpdateModelPrice } from '@/api/endpoints/model';
+import { ModelMarketSummary } from '@/components/modules/model/MarketSummary';
 import { cn } from '@/lib/utils';
 import { useNavStore, type NavItem } from '@/components/modules/navbar';
 import { CreateDialogContent as ChannelCreateContent } from '@/components/modules/channel/Create';
@@ -112,6 +114,15 @@ export function Toolbar() {
     const setModelSortMode = useToolbarViewOptionsStore((s) => s.setModelSortMode);
     const [expandedSearchItem, setExpandedSearchItem] = useState<ToolbarPage | null>(null);
     const searchExpanded = expandedSearchItem === toolbarItem;
+    const { data: modelMarket } = useModelMarket();
+    const updateModelPrice = useUpdateModelPrice();
+    const modelSummary = modelMarket?.summary ?? {
+        model_count: 0,
+        coverage_count: 0,
+        unique_channel_count: 0,
+        average_latency_ms: 0,
+        last_update_time: '',
+    };
 
     if (!toolbarItem) return null;
     const showLayoutOptions = toolbarItem !== 'group';
@@ -176,6 +187,7 @@ export function Toolbar() {
     const searchAriaLabel = `Search ${activePageLabel}`;
     const clearSearchAriaLabel = `Clear ${activePageLabel} search`;
     const createAriaLabel = `Create ${activePageLabel}`;
+
 
     const handleFilterChange = (value: string) => {
         switch (toolbarItem) {
@@ -256,6 +268,14 @@ export function Toolbar() {
                 </div>
 
                 <div className="flex h-11 items-center gap-1 rounded-xl border border-border bg-muted/30 p-1">
+                    {toolbarItem === 'model' && (
+                        <ModelMarketSummary
+                            summary={modelSummary}
+                            onRefresh={() => updateModelPrice.mutate()}
+                            isRefreshing={updateModelPrice.isPending}
+                            triggerClassName="h-9 rounded-md border border-transparent bg-transparent px-3 text-muted-foreground shadow-none transition-[color,background-color,border-color] duration-150 hover:border-border hover:bg-muted hover:text-foreground hover:shadow-none"
+                        />
+                    )}
                     <Popover>
                         <PopoverTrigger asChild>
                             <button
@@ -476,3 +496,5 @@ export function Toolbar() {
 
 export { useSearchStore } from './search-store';
 export { normalizeGroupFilterValue, useToolbarViewOptionsStore } from './view-options-store';
+
+

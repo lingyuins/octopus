@@ -1510,6 +1510,7 @@
     "summary": {
       "title": "Model Market",
       "description": "View model pricing, channel coverage, available keys, and runtime performance in one place while keeping the existing pricing workflow.",
+      "trigger": "Stats",
       "modelCount": "Models",
       "coverage": "Channel Coverage",
       "uniqueChannels": "Unique Channels",
@@ -1570,7 +1571,21 @@
       "available": "Available",
       "loading": "Loading capabilities…",
       "error": "Failed to load capabilities",
-      "empty": "No capabilities data available"
+      "empty": "No capabilities data available",
+      "yes": "Yes",
+      "active": "Active",
+      "down": "Down",
+      "total": "Total",
+      "nonConversation": "Non-conversation",
+      "status": "Status",
+      "searchPlaceholder": "Filter by model name…",
+      "emptySearch": "No models match your filter.",
+      "note": "* group items are narrowed at relay time for non-conversation endpoints. A model appearing here may still return 404 for an endpoint if its items do not actually support it.",
+      "autoEndpoint": "Auto"
+    },
+    "tabs": {
+      "market": "Market",
+      "capabilities": "Capabilities"
     }
   },
   "log": {

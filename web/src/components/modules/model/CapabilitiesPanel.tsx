@@ -2,27 +2,27 @@
 
 import { useMemo, useState } from 'react';
 import { useModelCapabilities, type ModelCapability } from '@/api/endpoints/model';
-import { useTranslations } from 'next-intl';
 import { LoadingState } from '@/components/common/LoadingState';
 import { ErrorState } from '@/components/common/ErrorState';
 import { Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useTranslations } from 'next-intl';
 
-function CapabilityBadge({ endpoint }: { endpoint: string }) {
+function CapabilityBadge({ endpoint, t }: { endpoint: string; t: ReturnType<typeof useTranslations> }) {
     if (endpoint === '*') {
-        return <Badge variant="secondary" className="font-mono text-[10px]">*</Badge>;
+        return <Badge variant="secondary" className="text-[10px]">{t('capabilities.autoEndpoint')}</Badge>;
     }
     return <Badge variant="outline" className="font-mono text-[10px]">{endpoint}</Badge>;
 }
 
-function CapabilityRow({ cap }: { cap: ModelCapability }) {
+function CapabilityRow({ cap, t }: { cap: ModelCapability; t: ReturnType<typeof useTranslations> }) {
     return (
         <tr className="border-b border-border/30 transition-colors hover:bg-muted/40">
             <td className="px-4 py-2.5 text-sm font-medium">{cap.name}</td>
             <td className="px-4 py-2.5">
                 <div className="flex flex-wrap gap-1">
                     {cap.endpoints.map((ep) => (
-                        <CapabilityBadge key={ep} endpoint={ep} />
+                        <CapabilityBadge key={ep} endpoint={ep} t={t} />
                     ))}
                 </div>
             </td>
@@ -30,7 +30,7 @@ function CapabilityRow({ cap }: { cap: ModelCapability }) {
                 {cap.conversation ? (
                     <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        Yes
+                        {t('capabilities.yes')}
                     </span>
                 ) : (
                     <span className="text-xs text-muted-foreground">—</span>
@@ -40,12 +40,12 @@ function CapabilityRow({ cap }: { cap: ModelCapability }) {
                 {cap.available ? (
                     <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        Active
+                        {t('capabilities.active')}
                     </span>
                 ) : (
                     <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
-                        Down
+                        {t('capabilities.down')}
                     </span>
                 )}
             </td>
@@ -81,25 +81,25 @@ export function CapabilitiesPanel() {
         );
     }
 
-    const convCount = filtered.filter((c) => c.conversation).length;
-    const nonConvCount = filtered.length - convCount;
+    const autoCount = filtered.filter((c) => c.endpoints.includes('*')).length;
+    const convCount = filtered.filter((c) => c.conversation && !c.endpoints.includes('*')).length;
+    const nonConvCount = filtered.length - autoCount - convCount;
 
     return (
         <section className="relative flex h-full min-h-0 flex-col gap-4">
-            {/* Summary strip */}
             <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border/35 bg-card px-4 py-3 text-sm text-muted-foreground">
-                <span>Total: <strong className="text-foreground">{filtered.length}</strong></span>
-                <span>Conversation: <strong className="text-foreground">{convCount}</strong></span>
-                <span>Non-conversation: <strong className="text-foreground">{nonConvCount}</strong></span>
+                <span>{t('capabilities.total')}: <strong className="text-foreground">{filtered.length}</strong></span>
+                <span>{t('capabilities.autoEndpoint')}: <strong className="text-foreground">{autoCount}</strong></span>
+                <span>{t('capabilities.conversation')}: <strong className="text-foreground">{convCount}</strong></span>
+                <span>{t('capabilities.nonConversation')}: <strong className="text-foreground">{nonConvCount}</strong></span>
             </div>
 
-            {/* Search + table */}
             <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-border/35 bg-card">
                 <div className="flex items-center gap-2 border-b border-border/30 px-4 py-2.5">
                     <Search className="h-4 w-4 text-muted-foreground" />
                     <input
                         type="text"
-                        placeholder="Filter by model name…"
+                        placeholder={t('capabilities.searchPlaceholder')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
@@ -110,21 +110,21 @@ export function CapabilitiesPanel() {
                     <table className="w-full text-left text-sm">
                         <thead className="sticky top-0 z-10 border-b border-border/30 bg-muted/50 text-xs uppercase text-muted-foreground">
                             <tr>
-                                <th className="px-4 py-2.5 font-medium">Model</th>
-                                <th className="px-4 py-2.5 font-medium">Endpoints</th>
-                                <th className="px-4 py-2.5 text-center font-medium">Conversation</th>
-                                <th className="px-4 py-2.5 text-center font-medium">Status</th>
+                                <th className="px-4 py-2.5 font-medium">{t('capabilities.model')}</th>
+                                <th className="px-4 py-2.5 font-medium">{t('capabilities.endpoints')}</th>
+                                <th className="px-4 py-2.5 text-center font-medium">{t('capabilities.conversation')}</th>
+                                <th className="px-4 py-2.5 text-center font-medium">{t('capabilities.status')}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {filtered.length > 0 ? (
                                 filtered.map((cap) => (
-                                    <CapabilityRow key={cap.name} cap={cap} />
+                                    <CapabilityRow key={cap.name} cap={cap} t={t} />
                                 ))
                             ) : (
                                 <tr>
                                     <td colSpan={4} className="px-4 py-12 text-center text-muted-foreground">
-                                        {search ? 'No models match your filter.' : 'No capabilities found.'}
+                                        {search ? t('capabilities.emptySearch') : t('capabilities.empty')}
                                     </td>
                                 </tr>
                             )}
@@ -134,8 +134,7 @@ export function CapabilitiesPanel() {
             </div>
 
             <p className="px-1 text-xs text-muted-foreground">
-                * group items are narrowed at relay time for non-conversation endpoints.
-                A model appearing here may still return 404 for an endpoint if its items don&apos;t actually support it.
+                {t('capabilities.note')}
             </p>
         </section>
     );
