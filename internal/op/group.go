@@ -25,6 +25,10 @@ func GroupList(ctx context.Context) ([]model.Group, error) { return group.GroupL
 
 func GroupListModel(ctx context.Context) ([]string, error) { return group.GroupListModel(ctx) }
 
+func GroupListModelByEndpoint(endpointType string, ctx context.Context) ([]string, error) {
+	return group.GroupListModelByEndpoint(endpointType, ctx)
+}
+
 func GroupGet(id int, ctx context.Context) (*model.Group, error) { return group.GroupGet(id, ctx) }
 
 func GroupGetEnabledMapByEndpoint(endpointType string, name string, ctx context.Context) (model.Group, error) {
