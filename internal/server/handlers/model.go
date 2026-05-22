@@ -60,6 +60,10 @@ func init() {
 		AddRoute(
 			router.NewRoute("/last-update-time", http.MethodGet).
 				Handle(getLastUpdateTime),
+		).
+		AddRoute(
+			router.NewRoute("/capabilities", http.MethodGet).
+				Handle(getModelCapabilities),
 		)
 	router.NewGroupRouter("/v1").
 		Use(middleware.APIKeyAuth()).
@@ -216,4 +220,13 @@ func updateLLMPrice(c *gin.Context) {
 func getLastUpdateTime(c *gin.Context) {
 	time := price.GetLastUpdateTime()
 	resp.Success(c, time)
+}
+
+func getModelCapabilities(c *gin.Context) {
+	caps, err := group.GroupListModelCapabilities(c.Request.Context())
+	if err != nil {
+		resp.InternalError(c)
+		return
+	}
+	resp.Success(c, caps)
 }

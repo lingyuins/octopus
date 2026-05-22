@@ -334,3 +334,210 @@ func TestGetModelListAnthropicResponseShape(t *testing.T) {
 		t.Fatal("Anthropic response missing 'has_more' field")
 	}
 }
+
+// --- Model capabilities endpoint tests ---
+
+func TestGetModelCapabilities_ResponseShape(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	_, cleanup := setupModelListTest(t)
+	defer cleanup()
+
+	chID, _ := seedChannelAndGroup(t)
+
+	db.GetDB().WithContext(context.Background()).Create(&model.Group{
+		Name:         "gpt-4o",
+		EndpointType: model.EndpointTypeChat,
+		Mode:         1,
+		Items: []model.GroupItem{
+			{ChannelID: int(chID), ModelName: "gpt-4o", Priority: 1, Weight: 1},
+		},
+	})
+
+	if err := op.InitCache(); err != nil {
+		t.Fatalf("refresh cache: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/model/capabilities", nil)
+	c.Request = c.Request.WithContext(context.Background())
+
+	getModelCapabilities(c)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+
+	if code, _ := body["code"].(float64); code != float64(http.StatusOK) {
+		t.Fatalf("code = %v, want %d", body["code"], http.StatusOK)
+	}
+
+	data, ok := body["data"].([]any)
+	if !ok {
+		t.Fatal("response missing 'data' array")
+	}
+	if len(data) == 0 {
+		t.Fatal("data array is empty, expected at least one capability")
+	}
+
+	item, _ := data[0].(map[string]any)
+	for _, field := range []string{"name", "endpoints", "conversation", "available"} {
+		if _, ok := item[field]; !ok {
+			t.Errorf("capability item missing field %q", field)
+		}
+	}
+}
+
+func TestGetModelCapabilities_MultiEndpointAggregation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	_, cleanup := setupModelListTest(t)
+	defer cleanup()
+
+	chID, _ := seedChannelAndGroup(t)
+
+	// Note: Group.Name has a DB unique constraint, so we cannot create
+	// two groups with identical names. Multi-endpoint aggregation (same
+	// model name across different endpoint types) is tested at the unit
+	// level in group_test.go using in-memory caches.
+	db.GetDB().WithContext(context.Background()).Create(&model.Group{
+		Name:         "gpt-4.1",
+		EndpointType: model.EndpointTypeResponses,
+		Mode:         1,
+		Items: []model.GroupItem{
+			{ChannelID: int(chID), ModelName: "gpt-4.1", Priority: 1, Weight: 1},
+		},
+	})
+
+	if err := op.InitCache(); err != nil {
+		t.Fatalf("refresh cache: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/model/capabilities", nil)
+	c.Request = c.Request.WithContext(context.Background())
+
+	getModelCapabilities(c)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	var body map[string]any
+	json.Unmarshal(recorder.Body.Bytes(), &body)
+	data, _ := body["data"].([]any)
+
+	count := 0
+	var endpoints []any
+	var conv bool
+	for _, item := range data {
+		m, _ := item.(map[string]any)
+		if name, _ := m["name"].(string); name == "gpt-4.1" {
+			count++
+			endpoints, _ = m["endpoints"].([]any)
+			conv, _ = m["conversation"].(bool)
+		}
+	}
+	if count != 1 {
+		t.Errorf("gpt-4.1 should appear exactly once, got %d", count)
+	}
+	if len(endpoints) != 1 {
+		t.Errorf("gpt-4.1 should have 1 endpoint, got %v", endpoints)
+	}
+	if !conv {
+		t.Error("gpt-4.1 (responses) should be conversation")
+	}
+}
+
+func TestGetModelCapabilities_InvalidGroupsExcluded(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	_, cleanup := setupModelListTest(t)
+	defer cleanup()
+
+	db.GetDB().WithContext(context.Background()).Create(&model.Group{
+		Name:         "empty-shell",
+		EndpointType: model.EndpointTypeChat,
+		Mode:         1,
+	})
+
+	if err := op.InitCache(); err != nil {
+		t.Fatalf("refresh cache: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/model/capabilities", nil)
+	c.Request = c.Request.WithContext(context.Background())
+
+	getModelCapabilities(c)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	var body map[string]any
+	json.Unmarshal(recorder.Body.Bytes(), &body)
+	data, _ := body["data"].([]any)
+
+	for _, item := range data {
+		m, _ := item.(map[string]any)
+		if name, _ := m["name"].(string); name == "empty-shell" {
+			t.Error("empty-shell group should NOT appear in capabilities")
+		}
+	}
+}
+
+func TestGetModelCapabilities_ConversationFlag(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	_, cleanup := setupModelListTest(t)
+	defer cleanup()
+
+	chID, _ := seedChannelAndGroup(t)
+
+	db.GetDB().WithContext(context.Background()).Create(&model.Group{
+		Name:         "music-2.6",
+		EndpointType: model.EndpointTypeMusicGeneration,
+		Mode:         1,
+		Items: []model.GroupItem{
+			{ChannelID: int(chID), ModelName: "music-2.6", Priority: 1, Weight: 1},
+		},
+	})
+
+	if err := op.InitCache(); err != nil {
+		t.Fatalf("refresh cache: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/model/capabilities", nil)
+	c.Request = c.Request.WithContext(context.Background())
+
+	getModelCapabilities(c)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	var body map[string]any
+	json.Unmarshal(recorder.Body.Bytes(), &body)
+	data, _ := body["data"].([]any)
+
+	for _, item := range data {
+		m, _ := item.(map[string]any)
+		if name, _ := m["name"].(string); name == "music-2.6" {
+			if conv, _ := m["conversation"].(bool); conv {
+				t.Error("music-2.6 conversation should be false")
+			}
+			if avail, _ := m["available"].(bool); !avail {
+				t.Error("music-2.6 available should be true")
+			}
+			return
+		}
+	}
+	t.Error("music-2.6 not found in capabilities response")
+}
