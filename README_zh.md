@@ -75,7 +75,7 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      OCTOPUS_AUTH_JWT_SECRET: "change-this-to-a-long-random-secret"
+      OCTOPUS_AUTH_JWT_SECRET: "replace-with-a-long-random-secret"
 ```
 
 然后执行：
