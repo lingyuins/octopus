@@ -4,6 +4,7 @@ ARG TARGETPLATFORM
 ENV TZ=Asia/Shanghai
 
 RUN apk add --no-cache alpine-conf ca-certificates su-exec && \
+    addgroup -g 1000 -S octopus && adduser -u 1000 -S -D -G octopus octopus && \
     /usr/sbin/setup-timezone -z Asia/Shanghai && \
     apk del alpine-conf && \
     rm -rf /var/cache/apk/* && \
@@ -13,5 +14,7 @@ COPY build/docker/${TARGETPLATFORM}/octopus /app/octopus
 COPY scripts/dockerfiles/entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
+
+USER octopus
 
 CMD ["/entrypoint.sh"]

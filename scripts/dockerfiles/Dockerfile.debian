@@ -4,6 +4,7 @@ ARG TARGETPLATFORM
 ENV TZ=Asia/Shanghai
 
 RUN apt-get update && apt-get install -y ca-certificates tzdata gosu && \
+    groupadd -g 1000 octopus && useradd -u 1000 -g 1000 -m -d /home/octopus -s /usr/sbin/nologin octopus && \
     ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     dpkg-reconfigure -f noninteractive tzdata && \
     rm -rf /var/cache/apt/*  && \
@@ -13,5 +14,7 @@ COPY build/docker/${TARGETPLATFORM}/octopus /app/octopus
 COPY scripts/dockerfiles/entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
+
+USER octopus
 
 CMD ["/entrypoint.sh"]

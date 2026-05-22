@@ -1,5 +1,7 @@
 # Build outputs
 build/
+!build/docker/
+!build/docker/**
 out/
 dist/
 
