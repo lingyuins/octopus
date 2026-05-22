@@ -162,7 +162,7 @@ function EditDialogContent({
                                             onRemove={() => undefined}
                                             autoScrollOnAdd={false}
                                             showConfirmDelete={false}
-                                            showWeight={group.mode === GroupMode.Weighted || group.mode === GroupMode.Auto}
+                                            showWeight={(MODE_LABELS[group.mode] ? group.mode : GroupMode.Auto) === GroupMode.Weighted || (MODE_LABELS[group.mode] ? group.mode : GroupMode.Auto) === GroupMode.Auto}
                                             availabilityById={availabilityByMemberId}
                                         />
                                     </div>
@@ -212,6 +212,7 @@ function EditDialogContent({
                         initial={{
                             name: group.name,
                             endpoint_type: normalizeEndpointType(group.endpoint_type),
+            endpoint_provider: group.endpoint_provider ?? '',
                             match_regex: group.match_regex ?? '',
                             condition: group.condition ?? '',
                             mode: group.mode,
@@ -334,6 +335,7 @@ export function GroupCard({ group }: { group: Group }) {
         handledTestCompletionRef.current = null;
         testDraftGroup.mutate({
             endpoint_type: normalizeEndpointType(group.endpoint_type),
+            endpoint_provider: group.endpoint_provider ?? '',
             items: members.map((member) => ({
                 client_id: member.id,
                 channel_id: member.channel_id,
@@ -347,7 +349,7 @@ export function GroupCard({ group }: { group: Group }) {
                 toast.error(t('toast.testRequestFailed'), { description: error.message });
             },
         });
-    }, [group.endpoint_type, members, t, testDraftGroup]);
+    }, [group.endpoint_provider, group.endpoint_type, members, t, testDraftGroup]);
 
     const handleTestGroup = useCallback(() => {
         if (!group.id) return;
@@ -459,12 +461,14 @@ export function GroupCard({ group }: { group: Group }) {
         const nextName = values.name.trim();
         const nextEndpointType = normalizeEndpointType(values.endpoint_type);
         const nextRegex = (values.match_regex ?? '').trim();
+        const nextEndpointProvider = (values.endpoint_provider ?? '').trim().toLowerCase();
         const nextCondition = values.condition.trim();
         const nextFirstTokenTimeOut = values.first_token_time_out ?? 0;
         const nextSessionKeepTime = values.session_keep_time ?? 0;
 
         if (nextName && nextName !== group.name) payload.name = nextName;
         if (nextEndpointType !== normalizeEndpointType(group.endpoint_type)) payload.endpoint_type = nextEndpointType;
+        if (nextEndpointProvider !== ((group.endpoint_provider ?? '').trim().toLowerCase())) payload.endpoint_provider = nextEndpointProvider;
         if (values.mode !== group.mode) payload.mode = values.mode;
         if (nextRegex !== (group.match_regex ?? '')) payload.match_regex = nextRegex;
         if (nextCondition !== (group.condition ?? '')) payload.condition = nextCondition;
@@ -486,7 +490,9 @@ export function GroupCard({ group }: { group: Group }) {
             },
             onError,
         });
-    }, [group.condition, group.endpoint_type, group.first_token_time_out, group.session_keep_time, group.id, group.items, group.match_regex, group.mode, group.name, onSuccess, onError, updateGroup]);
+    }, [group.condition, group.endpoint_provider, group.endpoint_type, group.first_token_time_out, group.session_keep_time, group.id, group.items, group.match_regex, group.mode, group.name, onSuccess, onError, updateGroup]);
+
+    const resolvedMode = MODE_LABELS[group.mode] ? group.mode : GroupMode.Auto;
 
     const handleRemoveFailedMembers = useCallback(() => {
         if (!group.id) return;
@@ -527,6 +533,7 @@ export function GroupCard({ group }: { group: Group }) {
         const values: GroupEditorValues = {
             name: group.name,
             endpoint_type: normalizeEndpointType(group.endpoint_type),
+            endpoint_provider: group.endpoint_provider ?? '',
             match_regex: group.match_regex ?? '',
             condition: group.condition ?? '',
             mode: group.mode,
@@ -541,7 +548,7 @@ export function GroupCard({ group }: { group: Group }) {
             handledTestCompletionRef.current = null;
             toast.success(t('toast.removedFailedModels'));
         });
-    }, [group.condition, group.endpoint_type, group.first_token_time_out, group.id, group.match_regex, group.mode, group.name, group.session_keep_time, handleSubmitEdit, members, t, testProgress?.results]);
+    }, [group.condition, group.endpoint_provider, group.endpoint_type, group.first_token_time_out, group.id, group.match_regex, group.mode, group.name, group.session_keep_time, handleSubmitEdit, members, t, testProgress?.results]);
 
     const failedTestResults = useMemo(
         () => (testProgress?.done ? (testProgress.results ?? []).filter((result) => !result.passed) : []),
@@ -588,6 +595,7 @@ export function GroupCard({ group }: { group: Group }) {
 
         return map;
     }, [isTesting, members, testProgress?.results]);
+
 
     const availabilitySummary = useMemo(() => {
         if (!testProgress?.done) {
@@ -751,7 +759,7 @@ export function GroupCard({ group }: { group: Group }) {
             <section className="relative mb-4 rounded-lg border border-border/25 bg-card p-3">
                 <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border/25 bg-card px-2.5 py-1 text-[0.64rem] font-semibold text-muted-foreground">
                     <Waves className="size-3.5" />
-                    {t(`mode.${MODE_LABELS[group.mode]}`)}
+                    {t(`mode.${MODE_LABELS[resolvedMode]}`)}
                 </div>
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
                 {([GroupMode.RoundRobin, GroupMode.Random, GroupMode.Failover, GroupMode.Weighted, GroupMode.Auto] as const).map((m) => (
@@ -766,7 +774,7 @@ export function GroupCard({ group }: { group: Group }) {
                         }}
                         className={cn(
                             'rounded-md px-3 py-2 text-xs font-medium transition-[transform,border-color,background-color] duration-300',
-                            group.mode === m
+                            resolvedMode === m
                                 ? 'border border-primary/20 bg-primary text-primary-foreground'
                                 : 'border border-border/25 bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/16 hover:bg-card',
                             // Keep visuals stable (no opacity/disabled flicker) while still preventing double-submit via onClick guard.
@@ -792,7 +800,7 @@ export function GroupCard({ group }: { group: Group }) {
                     onDrop={handleDropReorder}
                     onDragFinish={handleDragFinish}
                     autoScrollOnAdd={false}
-                    showWeight={group.mode === GroupMode.Weighted || group.mode === GroupMode.Auto}
+                    showWeight={resolvedMode === GroupMode.Weighted || resolvedMode === GroupMode.Auto}
                     layoutScope={`card-${group.id ?? 'unknown'}`}
                 />
             </section>

@@ -88,6 +88,7 @@ func createGroup(c *gin.Context) {
 		return
 	}
 	group.EndpointType = model.NormalizeEndpointType(group.EndpointType)
+	group.EndpointProvider = strings.ToLower(strings.TrimSpace(group.EndpointProvider))
 	if group.MatchRegex != "" {
 		_, err := regexp2.Compile(group.MatchRegex, regexp2.ECMAScript)
 		if err != nil {
@@ -116,6 +117,10 @@ func updateGroup(c *gin.Context) {
 	if req.EndpointType != nil {
 		normalized := model.NormalizeEndpointType(*req.EndpointType)
 		req.EndpointType = &normalized
+	}
+	if req.EndpointProvider != nil {
+		normalizedProvider := strings.ToLower(strings.TrimSpace(*req.EndpointProvider))
+		req.EndpointProvider = &normalizedProvider
 	}
 	if req.MatchRegex != nil {
 		_, err := regexp2.Compile(*req.MatchRegex, regexp2.ECMAScript)
@@ -147,7 +152,7 @@ func classifyGroupMutationError(err error) (int, string, bool) {
 	switch {
 	case strings.Contains(msg, "group name is required"):
 		return http.StatusBadRequest, "group name is required", true
-	case strings.Contains(msg, "endpoint_type") &&
+	case (strings.Contains(msg, "endpoint_type") || strings.Contains(msg, "endpoint_provider")) &&
 		(strings.Contains(msg, "no such column") ||
 			strings.Contains(msg, "has no column named") ||
 			strings.Contains(msg, "unknown column") ||

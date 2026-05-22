@@ -211,7 +211,7 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 					routeRound, keyRound, maxKeyRetriesPerRoute)
 
 				span := routeIter.StartAttempt(channel.ID, usedKey.ID, channel.Name, resolvedModel)
-				statusCode, fwdErr := forwardMediaRequest(c, cfg, channel, usedKey.ChannelKey, bodyBytes, requestModel, resolvedModel, streamRequested)
+				statusCode, fwdErr := forwardMediaRequest(c, cfg, group, channel, usedKey.ChannelKey, bodyBytes, requestModel, resolvedModel, streamRequested)
 
 				written := c.Writer.Written()
 				decision := ClassifyRelayError(statusCode, fwdErr, written)
@@ -417,6 +417,7 @@ func extractModelFromMultipart(c *gin.Context) (string, []byte, bool, error) {
 func forwardMediaRequest(
 	c *gin.Context,
 	cfg mediaEndpointConfig,
+	group dbmodel.Group,
 	channel *dbmodel.Channel,
 	key string,
 	bodyBytes []byte,
@@ -427,13 +428,14 @@ func forwardMediaRequest(
 	if cfg.MultipartInput {
 		return forwardMediaRequestMultipart(c, cfg, channel, key, requestModel, resolvedModel, streamRequested)
 	}
-	return forwardMediaRequestJSON(c, cfg, channel, key, bodyBytes, requestModel, resolvedModel, streamRequested)
+	return forwardMediaRequestJSON(c, cfg, group, channel, key, bodyBytes, requestModel, resolvedModel, streamRequested)
 }
 
 // forwardMediaRequestJSON handles JSON-based media endpoint forwarding.
 func forwardMediaRequestJSON(
 	c *gin.Context,
 	cfg mediaEndpointConfig,
+	group dbmodel.Group,
 	channel *dbmodel.Channel,
 	key string,
 	bodyBytes []byte,
@@ -735,4 +737,44 @@ func handleJSONResponse(c *gin.Context, response *http.Response) (int, error) {
 	}
 
 	return response.StatusCode, nil
+}
+
+
+type musicGenerationChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+func rewriteMusicRequestByProvider(group dbmodel.Group, cfg mediaEndpointConfig, body []byte, resolvedModel string) ([]byte, string, error) {
+	if cfg.UpstreamPath != "/v1/music/generations" {
+		return body, cfg.UpstreamPath, nil
+	}
+	provider := strings.ToLower(strings.TrimSpace(group.EndpointProvider))
+	if provider == "" || provider == "auto" {
+		return body, cfg.UpstreamPath, nil
+	}
+
+	if provider != "newapi" && provider != "minimax" {
+		return body, cfg.UpstreamPath, nil
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, "", err
+	}
+
+	raw["model"] = resolvedModel
+	if _, ok := raw["messages"]; !ok {
+		prompt := strings.TrimSpace(fmt.Sprintf("%v", raw["prompt"]))
+		if prompt != "" && prompt != "<nil>" {
+			raw["messages"] = []musicGenerationChatMessage{{Role: "user", Content: prompt}}
+		}
+	}
+	delete(raw, "prompt")
+
+	converted, err := json.Marshal(raw)
+	if err != nil {
+		return nil, "", err
+	}
+	return converted, "/v1/music_generation", nil
 }

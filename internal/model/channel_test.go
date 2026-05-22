@@ -72,12 +72,30 @@ func TestRequestRewriteConfigValidate(t *testing.T) {
 			wantErr:     "unsupported system message strategy: broken",
 		},
 		{
+			name: "valid preserve profile config",
+			cfg: &RequestRewriteConfig{
+				Enabled: true,
+				Profile: RequestRewriteProfilePreserve,
+				HeaderProfile: "codex",
+			},
+			channelType: outbound.OutboundTypeOpenAIResponse,
+		},
+		{
 			name: "valid openai chat compat config",
 			cfg: &RequestRewriteConfig{
 				Enabled:               true,
 				Profile:               RequestRewriteProfileOpenAIChatCompat,
 				ToolRoleStrategy:      ToolRoleStrategyStringifyToUser,
 				SystemMessageStrategy: SystemMessageStrategyMerge,
+			},
+			channelType: outbound.OutboundTypeOpenAIChat,
+		},
+		{
+			name: "valid codex headers on responses channel",
+			cfg: &RequestRewriteConfig{
+				Enabled:      true,
+				Profile:      RequestRewriteProfileOpenAIChatCompat,
+				HeaderProfile: "codex",
 			},
 			channelType: outbound.OutboundTypeOpenAIChat,
 		},

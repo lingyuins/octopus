@@ -14,6 +14,7 @@ type Group struct {
 	ID                int         `json:"id" gorm:"primaryKey"`
 	Name              string      `json:"name" gorm:"unique;not null"`
 	EndpointType      string      `json:"endpoint_type" gorm:"not null;default:*;index"`
+	EndpointProvider  string      `json:"endpoint_provider,omitempty" gorm:"not null;default:''"`
 	Mode              GroupMode   `json:"mode" gorm:"not null"`
 	MatchRegex        string      `json:"match_regex"`
 	FirstTokenTimeOut int         `json:"first_token_time_out"` // 单个渠道首个Token响应超时时间(秒)
@@ -36,6 +37,7 @@ type GroupUpdateRequest struct {
 	ID                int                      `json:"id" binding:"required"`
 	Name              *string                  `json:"name,omitempty"`                 // 仅在名称变更时发送
 	EndpointType      *string                  `json:"endpoint_type,omitempty"`        // 仅在 API 分类变更时发送
+	EndpointProvider  *string                  `json:"endpoint_provider,omitempty"`    // 仅在端点提供方变更时发送
 	Mode              *GroupMode               `json:"mode,omitempty"`                 // 仅在模式变更时发送
 	MatchRegex        *string                  `json:"match_regex,omitempty"`          // 仅在匹配正则变更时发送
 	Condition         *string                  `json:"condition,omitempty"`            // 仅在条件变更时发送

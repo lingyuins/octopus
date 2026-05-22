@@ -26,6 +26,7 @@ import (
 	"github.com/lingyuins/octopus/internal/transformer/inbound"
 	"github.com/lingyuins/octopus/internal/transformer/model"
 	"github.com/lingyuins/octopus/internal/transformer/outbound"
+	"github.com/lingyuins/octopus/internal/transformer/rewrite"
 	"github.com/lingyuins/octopus/internal/utils/log"
 	"github.com/lingyuins/octopus/internal/utils/semantic_cache"
 	"github.com/tmaxmax/go-sse"
@@ -267,6 +268,9 @@ func Handler(endpointType string, inboundType inbound.InboundType, c *gin.Contex
 		resp.Error(c, http.StatusServiceUnavailable, "no available channel")
 		return
 	}
+
+	// 根据分组端点提供方做请求兼容改写
+	internalRequest = rewriteConversationRequestByProvider(group, internalRequest)
 
 	// 初始化 Metrics
 	metrics := NewRelayMetrics(apiKeyID, requestModel, endpointType, group.EndpointType, internalRequest)
@@ -585,7 +589,7 @@ func parseRequest(inboundType inbound.InboundType, c *gin.Context) (*model.Inter
 func (ra *relayAttempt) forward() (int, error) {
 	ctx := ra.operationCtx
 
-	requestForOutbound, err := prepareInternalRequestForOutbound(ra.channel, ra.internalRequest, ra.groupEndpointType)
+	requestForOutbound, effectiveRewrite, err := prepareInternalRequestForOutbound(ra.channel, ra.internalRequest, ra.groupEndpointType)
 	if err != nil {
 		log.Warnf("failed to prepare outbound request data: %v", err)
 		return 0, fmt.Errorf("failed to prepare outbound request data: %w", err)
@@ -604,7 +608,7 @@ func (ra *relayAttempt) forward() (int, error) {
 	}
 
 	// 复制请求头
-	ra.copyHeaders(outboundRequest)
+	ra.copyHeaders(outboundRequest, effectiveRewrite)
 
 	// 发送请求
 	response, err := ra.sendRequest(outboundRequest)
@@ -645,7 +649,7 @@ func (ra *relayAttempt) handleForwardResponse(response *http.Response) (int, err
 }
 
 // copyHeaders 复制请求头，过滤 hop-by-hop 头
-func (ra *relayAttempt) copyHeaders(outboundRequest *http.Request) {
+func (ra *relayAttempt) copyHeaders(outboundRequest *http.Request, effectiveRewrite *rewrite.EffectiveConfig) {
 	for key, values := range ra.c.Request.Header {
 		if hopByHopHeaders[strings.ToLower(key)] {
 			continue
@@ -657,6 +661,12 @@ func (ra *relayAttempt) copyHeaders(outboundRequest *http.Request) {
 	if len(ra.channel.CustomHeader) > 0 {
 		for _, header := range ra.channel.CustomHeader {
 			outboundRequest.Header.Set(header.HeaderKey, header.HeaderValue)
+		}
+	}
+
+	if effectiveRewrite != nil && len(effectiveRewrite.ExtraHeaders) > 0 {
+		for key, value := range effectiveRewrite.ExtraHeaders {
+			outboundRequest.Header.Set(key, value)
 		}
 	}
 }
@@ -919,4 +929,39 @@ func (ra *relayAttempt) collectResponse() {
 	}
 
 	ra.metrics.SetInternalResponse(internalResponse, ra.internalRequest.Model)
+}
+
+
+func rewriteConversationRequestByProvider(group dbmodel.Group, req *model.InternalLLMRequest) *model.InternalLLMRequest {
+	if req == nil {
+		return req
+	}
+	endpointType := dbmodel.NormalizeEndpointType(group.EndpointType)
+	provider := strings.ToLower(strings.TrimSpace(group.EndpointProvider))
+	if provider == "" || provider == "auto" {
+		return req
+	}
+	if endpointType == dbmodel.EndpointTypeAll {
+		return req
+	}
+	if endpointType != dbmodel.EndpointTypeChat {
+		return req
+	}
+	if provider != "deepseek" && provider != "mimo" {
+		return req
+	}
+
+	cloned := *req
+	if len(req.Messages) > 0 {
+		cloned.Messages = make([]model.Message, len(req.Messages))
+		for i, msg := range req.Messages {
+			cloned.Messages[i] = msg
+			if provider == "deepseek" {
+				cloned.Messages[i].Reasoning = nil
+			} else if provider == "mimo" {
+				cloned.Messages[i].ReasoningSignature = nil
+			}
+		}
+	}
+	return &cloned
 }

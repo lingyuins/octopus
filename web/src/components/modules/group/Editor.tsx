@@ -14,7 +14,7 @@ import { getModelIcon } from '@/lib/model-icons';
 import { GroupMode } from '@/api/endpoints/group';
 import type { SelectedMember } from './ItemList';
 import { MemberList } from './ItemList';
-import { matchesGroupName, memberKey, normalizeKey, MODE_LABELS, ENDPOINT_TYPE_OPTIONS, normalizeEndpointType } from './utils';
+import { CHAT_ENDPOINT_PROVIDER_OPTIONS, matchesGroupName, memberKey, MODE_LABELS, MUSIC_ENDPOINT_PROVIDER_OPTIONS, ENDPOINT_TYPE_OPTIONS, normalizeEndpointProvider, normalizeEndpointType, normalizeKey } from './utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
 import { HelpCircle } from 'lucide-react';
 
@@ -23,6 +23,7 @@ import { HelpCircle } from 'lucide-react';
 export type GroupEditorValues = {
     name: string;
     endpoint_type: string;
+    endpoint_provider?: string;
     match_regex: string;
     condition: string;
     mode: GroupMode;
@@ -279,6 +280,7 @@ export function GroupEditor({
 
     const [groupName, setGroupName] = useState(initial?.name ?? '');
     const [endpointType, setEndpointType] = useState(normalizeEndpointType(initial?.endpoint_type));
+    const [endpointProvider, setEndpointProvider] = useState(normalizeEndpointProvider(initial?.endpoint_provider));
     const [matchRegex, setMatchRegex] = useState(initial?.match_regex ?? '');
     const [mode, setMode] = useState<GroupMode>((initial?.mode ?? GroupMode.Auto) as GroupMode);
     const [firstTokenTimeOut, setFirstTokenTimeOut] = useState<number>(initial?.first_token_time_out ?? 0);
@@ -356,6 +358,7 @@ export function GroupEditor({
         setRemovingIds(new Set());
     }, []);
 
+    const supportsProviderSelection = endpointType !== '*' && (endpointType === 'music_generation' || endpointType === 'chat');
     const isValid = groupKey.length > 0 && selectedMembers.length > 0 && !regexError;
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -364,6 +367,7 @@ export function GroupEditor({
         onSubmit({
             name: groupName,
             endpoint_type: endpointType,
+            endpoint_provider: supportsProviderSelection ? endpointProvider : '',
             match_regex: regexKey,
             mode,
             first_token_time_out: firstTokenTimeOut,
@@ -422,6 +426,46 @@ export function GroupEditor({
                                         {t('form.endpointType.hint')}
                                     </p>
                                 </Field>
+                                {endpointType === 'music_generation' ? (
+                                    <Field>
+                                        <FieldLabel htmlFor="group-endpoint-provider">音乐接口类型</FieldLabel>
+                                        <select
+                                            id="group-endpoint-provider"
+                                            value={endpointProvider}
+                                            onChange={(e) => setEndpointProvider(normalizeEndpointProvider(e.target.value))}
+                                            className="h-10 w-full rounded-lg border border-border/40 bg-card px-3 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-300 outline-none hover:border-primary/15 focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20"
+                                        >
+                                            {MUSIC_ENDPOINT_PROVIDER_OPTIONS.map((option) => (
+                                                <option key={option.value || 'auto'} value={option.value}>
+                                                    {option.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            选择后端音乐接口类型，保存后由后端自动改写穿透 JSON。
+                                        </p>
+                                    </Field>
+                                ) : null}
+                                {endpointType === 'chat' ? (
+                                    <Field>
+                                        <FieldLabel htmlFor="group-endpoint-provider">对话接口类型</FieldLabel>
+                                        <select
+                                            id="group-endpoint-provider"
+                                            value={endpointProvider}
+                                            onChange={(e) => setEndpointProvider(normalizeEndpointProvider(e.target.value))}
+                                            className="h-10 w-full rounded-lg border border-border/40 bg-card px-3 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-300 outline-none hover:border-primary/15 focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20"
+                                        >
+                                            {CHAT_ENDPOINT_PROVIDER_OPTIONS.map((option) => (
+                                                <option key={option.value || 'auto'} value={option.value}>
+                                                    {option.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            选择对话接口类型，保存后由后端自动改写对话透传 JSON。
+                                        </p>
+                                    </Field>
+                                ) : null}
                                 <Field className="md:col-span-2">
                                     <FieldLabel htmlFor="group-match-regex">{t('form.matchRegex')}</FieldLabel>
                                     <Input

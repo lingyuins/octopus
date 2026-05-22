@@ -8,30 +8,30 @@ import (
 	"github.com/lingyuins/octopus/internal/transformer/rewrite"
 )
 
-func prepareInternalRequestForOutbound(channel *appmodel.Channel, request *transmodel.InternalLLMRequest, groupEndpointType string) (*transmodel.InternalLLMRequest, error) {
+func prepareInternalRequestForOutbound(channel *appmodel.Channel, request *transmodel.InternalLLMRequest, groupEndpointType string) (*transmodel.InternalLLMRequest, *rewrite.EffectiveConfig, error) {
 	if channel == nil {
-		return nil, fmt.Errorf("channel is nil")
+		return nil, nil, fmt.Errorf("channel is nil")
 	}
 	if request == nil {
-		return nil, fmt.Errorf("request is nil")
+		return nil, nil, fmt.Errorf("request is nil")
 	}
 
 	effectiveRewrite, enabled, err := rewrite.Resolve(channel.Type, channel.RequestRewrite)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if !enabled {
 		attachRelayGroupEndpointMetadata(request, groupEndpointType)
-		return request, nil
+		return request, effectiveRewrite, nil
 	}
 
 	rewritten, err := rewrite.Apply(request, effectiveRewrite)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	attachRelayGroupEndpointMetadata(rewritten, groupEndpointType)
-	return rewritten, nil
+	return rewritten, effectiveRewrite, nil
 }
 
 func attachRelayGroupEndpointMetadata(request *transmodel.InternalLLMRequest, groupEndpointType string) {

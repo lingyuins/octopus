@@ -2,6 +2,7 @@ import {
     AutoGroupType,
     ChannelType,
     RequestRewriteProfile,
+    RequestRewriteHeaderProfile,
     SystemMessageStrategy,
     ToolRoleStrategy,
     type Channel,
@@ -71,23 +72,25 @@ export interface ChannelFormData {
 export function createDefaultRequestRewriteFormData(): RequestRewriteConfig {
     return {
         enabled: false,
-        profile: RequestRewriteProfile.OpenAIChatCompat,
+        profile: RequestRewriteProfile.Preserve,
         tool_role_strategy: ToolRoleStrategy.Keep,
         system_message_strategy: SystemMessageStrategy.Keep,
+        header_profile: RequestRewriteHeaderProfile.None,
     };
 }
 
 export function normalizeRequestRewriteFormData(config?: RequestRewriteConfig | null): RequestRewriteConfig {
     return {
         enabled: config?.enabled ?? false,
-        profile: config?.profile ?? RequestRewriteProfile.OpenAIChatCompat,
+        profile: config?.profile ?? RequestRewriteProfile.Preserve,
         tool_role_strategy: config?.tool_role_strategy ?? ToolRoleStrategy.Keep,
         system_message_strategy: config?.system_message_strategy ?? SystemMessageStrategy.Keep,
+        header_profile: config?.header_profile ?? RequestRewriteHeaderProfile.None,
     };
 }
 
 export function isRequestRewriteSupportedChannelType(channelType: ChannelType): boolean {
-    return channelType === ChannelType.OpenAIChat || channelType === ChannelType.Mimo;
+    return channelType === ChannelType.OpenAIChat || channelType === ChannelType.Mimo || channelType === ChannelType.OpenAIResponse;
 }
 
 export function getEffectiveRequestRewriteFormData(channelType: ChannelType, config?: RequestRewriteConfig | null): RequestRewriteConfig {
@@ -1159,6 +1162,7 @@ export function ChannelForm({
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-lg">
+                                            <SelectItem className="rounded-xl" value={RequestRewriteProfile.Preserve}>保留</SelectItem>
                                             <SelectItem className="rounded-xl" value={RequestRewriteProfile.OpenAIChatCompat}>{t('requestRewriteProfileOpenAIChatCompat')}</SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -1185,6 +1189,31 @@ export function ChannelForm({
                                         <SelectContent className="rounded-lg">
                                             <SelectItem className="rounded-xl" value={ToolRoleStrategy.Keep}>{t('requestRewriteStrategyKeep')}</SelectItem>
                                             <SelectItem className="rounded-xl" value={ToolRoleStrategy.StringifyToUser}>{t('requestRewriteStrategyStringifyToUser')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className={fieldGroupClassName}>
+                                    <label htmlFor={`${idPrefix}-request-rewrite-header-profile`} className={labelClassName}>
+                                        Headers 请求重写
+                                    </label>
+                                    <Select
+                                        value={formData.request_rewrite.header_profile || '__none__'}
+                                        onValueChange={(value) => onFormDataChange({
+                                            ...formData,
+                                            request_rewrite: {
+                                                ...formData.request_rewrite,
+                                                header_profile: value === '__none__' ? RequestRewriteHeaderProfile.None : value as RequestRewriteHeaderProfile,
+                                            },
+                                        })}
+                                        disabled={!requestRewriteSupported || !formData.request_rewrite.enabled}
+                                    >
+                                        <SelectTrigger id={`${idPrefix}-request-rewrite-header-profile`} className="w-full rounded-lg border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-lg">
+                                            <SelectItem className="rounded-xl" value="__none__">无</SelectItem>
+                                            <SelectItem className="rounded-xl" value={RequestRewriteHeaderProfile.Codex}>Codex</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>

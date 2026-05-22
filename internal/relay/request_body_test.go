@@ -2,6 +2,7 @@ package relay
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -273,5 +274,29 @@ func TestHandleSSEResponseFlushesLines(t *testing.T) {
 	}
 	if recorder.Body.String() != "event: message\n"+"data: {\"ok\":true}\n\n" {
 		t.Fatalf("body = %q, want original SSE payload", recorder.Body.String())
+	}
+}
+
+
+func TestRewriteMusicRequestByProvider_NewAPI(t *testing.T) {
+	group := dbmodel.Group{EndpointProvider: "newapi"}
+	body := []byte(`{"model":"music-2.6","prompt":"hello music","temperature":0.7}`)
+	gotBody, gotPath, err := rewriteMusicRequestByProvider(group, mediaEndpointConfig{UpstreamPath: "/v1/music/generations"}, body, "music-2.6")
+	if err != nil {
+		t.Fatalf("rewriteMusicRequestByProvider() error = %v", err)
+	}
+	if gotPath != "/v1/music_generation" {
+		t.Fatalf("path = %q, want %q", gotPath, "/v1/music_generation")
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(gotBody, &raw); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
+	}
+	if _, ok := raw["prompt"]; ok {
+		t.Fatal("prompt should be removed")
+	}
+	messages, ok := raw["messages"].([]any)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("messages = %#v, want 1 message", raw["messages"])
 	}
 }

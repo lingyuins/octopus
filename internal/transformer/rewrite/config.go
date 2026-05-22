@@ -12,6 +12,7 @@ type EffectiveConfig struct {
 	EnsureAssistantContentWithToolCalls bool
 	ToolRoleStrategy                    appmodel.ToolRoleStrategy
 	SystemMessageStrategy               appmodel.SystemMessageStrategy
+	ExtraHeaders                        map[string]string
 }
 
 func Resolve(channelType outbound.OutboundType, cfg *appmodel.RequestRewriteConfig) (*EffectiveConfig, bool, error) {
@@ -29,6 +30,28 @@ func Resolve(channelType outbound.OutboundType, cfg *appmodel.RequestRewriteConf
 		EnsureAssistantContentWithToolCalls: true,
 		ToolRoleStrategy:                    appmodel.ToolRoleStrategyKeep,
 		SystemMessageStrategy:               appmodel.SystemMessageStrategyKeep,
+	}
+
+
+	if cfg.Profile == appmodel.RequestRewriteProfilePreserve {
+		if cfg.HeaderProfile == "codex" {
+			effective.ExtraHeaders = map[string]string{
+				"User-Agent": "Codex Desktop/0.131.0 (Windows 10.0.19045; x86_64) unknown (Codex Desktop; 26.519.21041)",
+				"Origin": "https://chat.openai.com",
+				"Referer": "https://chat.openai.com/",
+				"Accept": "application/json",
+			}
+		}
+		return effective, true, nil
+	}
+
+	if cfg.HeaderProfile == "codex" {
+		effective.ExtraHeaders = map[string]string{
+			"User-Agent": "Codex Desktop/0.131.0 (Windows 10.0.19045; x86_64) unknown (Codex Desktop; 26.519.21041)",
+			"Origin": "https://chat.openai.com",
+			"Referer": "https://chat.openai.com/",
+			"Accept": "application/json",
+		}
 	}
 
 	if cfg.ToolRoleStrategy != "" {

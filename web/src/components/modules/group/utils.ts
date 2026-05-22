@@ -22,8 +22,6 @@ export const MODE_LABELS: Record<GroupMode, string> = {
 export const ENDPOINT_TYPE_OPTIONS = [
     { labelKey: 'form.endpointType.options.all', value: '*' },
     { labelKey: 'form.endpointType.options.chat', value: 'chat' },
-    { labelKey: 'form.endpointType.options.deepseek', value: 'deepseek' },
-    { labelKey: 'form.endpointType.options.mimo', value: 'mimo' },
     { labelKey: 'form.endpointType.options.embeddings', value: 'embeddings' },
     { labelKey: 'form.endpointType.options.rerank', value: 'rerank' },
     { labelKey: 'form.endpointType.options.moderations', value: 'moderations' },
@@ -35,9 +33,26 @@ export const ENDPOINT_TYPE_OPTIONS = [
     { labelKey: 'form.endpointType.options.search', value: 'search' },
 ] as const;
 
+
+export const MUSIC_ENDPOINT_PROVIDER_OPTIONS = [
+    { label: 'Auto', value: '' },
+    { label: 'New API', value: 'newapi' },
+    { label: 'MiniMax', value: 'minimax' },
+] as const;
+
+export const CHAT_ENDPOINT_PROVIDER_OPTIONS = [
+    { label: 'Auto', value: '' },
+    { label: 'DeepSeek', value: 'deepseek' },
+    { label: 'Mimo', value: 'mimo' },
+] as const;
+
+export function normalizeEndpointProvider(value?: string | null) {
+    return value?.trim().toLowerCase() || '';
+}
+
 export function normalizeEndpointType(value?: string | null) {
     const normalized = value?.trim().toLowerCase();
-    if (normalized === 'responses' || normalized === 'messages') {
+    if (normalized === 'responses' || normalized === 'messages' || normalized === 'deepseek' || normalized === 'mimo') {
         return 'chat';
     }
     return normalized || '*';

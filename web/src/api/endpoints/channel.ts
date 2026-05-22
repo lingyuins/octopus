@@ -27,7 +27,13 @@ export enum AutoGroupType {
 }
 
 export enum RequestRewriteProfile {
+    Preserve = 'preserve',
     OpenAIChatCompat = 'openai_chat_compat',
+}
+
+export enum RequestRewriteHeaderProfile {
+    None = '',
+    Codex = 'codex',
 }
 
 export enum ToolRoleStrategy {
@@ -45,6 +51,7 @@ export type RequestRewriteConfig = {
     profile?: RequestRewriteProfile | null;
     tool_role_strategy?: ToolRoleStrategy | null;
     system_message_strategy?: SystemMessageStrategy | null;
+    header_profile?: RequestRewriteHeaderProfile | '' | null;
 };
 
 export type BaseUrl = {

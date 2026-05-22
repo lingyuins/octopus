@@ -34,6 +34,7 @@ export interface Group {
     id?: number;
     name: string;
     endpoint_type: string;
+    endpoint_provider?: string;
     mode: GroupMode;
     match_regex: string;
     condition?: string;
@@ -76,6 +77,7 @@ export interface GroupDraftTestRequestItem {
 
 export interface GroupDraftTestRequest {
     endpoint_type: string;
+    endpoint_provider?: string;
     items: GroupDraftTestRequestItem[];
 }
 
@@ -346,6 +348,7 @@ export interface GroupUpdateRequest {
     id: number;
     name?: string;
     endpoint_type?: string;
+    endpoint_provider?: string;
     mode?: GroupMode;
     match_regex?: string;
     condition?: string;

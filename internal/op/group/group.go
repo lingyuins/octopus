@@ -282,6 +282,7 @@ func conversationEndpointLookupOrder(endpointType string, requestModel string) [
 func normalizeGroup(group model.Group) model.Group {
 	group.Name = strings.TrimSpace(group.Name)
 	group.EndpointType = model.NormalizeEndpointType(group.EndpointType)
+	group.EndpointProvider = strings.ToLower(strings.TrimSpace(group.EndpointProvider))
 	group.MatchRegex = strings.TrimSpace(group.MatchRegex)
 	for i := range group.Items {
 		group.Items[i].ModelName = strings.TrimSpace(group.Items[i].ModelName)
@@ -611,6 +612,7 @@ func GroupCreate(group *model.Group, ctx context.Context) error {
 		return fmt.Errorf("group name is required")
 	}
 	group.EndpointType = model.NormalizeEndpointType(group.EndpointType)
+	group.EndpointProvider = strings.ToLower(strings.TrimSpace(group.EndpointProvider))
 	group.MatchRegex = strings.TrimSpace(group.MatchRegex)
 	group.Items = NormalizeItems(group.Items)
 	if err := db.GetDB().WithContext(ctx).Create(group).Error; err != nil {
@@ -652,6 +654,10 @@ func GroupUpdate(req *model.GroupUpdateRequest, ctx context.Context) (*model.Gro
 	if req.EndpointType != nil {
 		selectFields = append(selectFields, "endpoint_type")
 		updates.EndpointType = model.NormalizeEndpointType(*req.EndpointType)
+	}
+	if req.EndpointProvider != nil {
+		selectFields = append(selectFields, "endpoint_provider")
+		updates.EndpointProvider = strings.ToLower(strings.TrimSpace(*req.EndpointProvider))
 	}
 	if req.Mode != nil {
 		selectFields = append(selectFields, "mode")

@@ -20,7 +20,9 @@ const (
 type RequestRewriteProfile string
 
 const (
+	RequestRewriteProfilePreserve         RequestRewriteProfile = "preserve"
 	RequestRewriteProfileOpenAIChatCompat RequestRewriteProfile = "openai_chat_compat"
+	RequestRewriteProfileCodexHeaders     RequestRewriteProfile = "codex_headers"
 )
 
 type ToolRoleStrategy string
@@ -42,6 +44,7 @@ type RequestRewriteConfig struct {
 	Profile               RequestRewriteProfile `json:"profile,omitempty"`
 	ToolRoleStrategy      ToolRoleStrategy      `json:"tool_role_strategy,omitempty"`
 	SystemMessageStrategy SystemMessageStrategy `json:"system_message_strategy,omitempty"`
+	HeaderProfile         string                `json:"header_profile,omitempty"`
 }
 
 type Channel struct {
@@ -148,6 +151,8 @@ func (c *RequestRewriteConfig) Validate(channelType outbound.OutboundType) error
 	}
 
 	switch c.Profile {
+	case RequestRewriteProfilePreserve:
+		// preserve means no body rewrite
 	case RequestRewriteProfileOpenAIChatCompat:
 		if channelType != outbound.OutboundTypeOpenAIChat && channelType != outbound.OutboundTypeMimo {
 			return fmt.Errorf("request rewrite profile %s is not supported for channel type %d", c.Profile, channelType)
