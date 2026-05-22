@@ -419,11 +419,37 @@ func GroupListModel(ctx context.Context) ([]string, error) {
 		if _, ok := seen[name]; ok {
 			continue
 		}
+
+		// Only include groups that have at least one valid item
+		// whose channel exists and is enabled.
+		if !groupHasValidItem(group) {
+			continue
+		}
+
 		seen[name] = struct{}{}
 		models = append(models, name)
 	}
 	sort.Strings(models)
 	return models, nil
+}
+
+// groupHasValidItem checks whether a group has at least one item whose
+// referenced channel exists and is enabled.
+func groupHasValidItem(group model.Group) bool {
+	if len(group.Items) == 0 {
+		return false
+	}
+	for _, item := range group.Items {
+		if item.ChannelID <= 0 || item.ModelName == "" {
+			continue
+		}
+		ch, ok := channel.GetCache().Get(item.ChannelID)
+		if !ok || !ch.Enabled {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 func GroupGet(id int, ctx context.Context) (*model.Group, error) {
