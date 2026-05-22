@@ -88,6 +88,19 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 	}
 	logEndpointType := resolveRelayLogEndpointType(groupEndpointType, group.EndpointType)
 
+	// Narrow * group items: a * group may contain items that only support
+	// specific endpoint types (e.g., chat-only items don't support image_generation).
+	// Filter items to only those likely compatible with the requested endpoint.
+	if group.EndpointType == dbmodel.EndpointTypeAll && groupEndpointType != dbmodel.EndpointTypeAll {
+		narrowed := narrowGroupItemsForEndpoint(group, groupEndpointType)
+		if len(narrowed.Items) == 0 {
+			log.Infof("no endpoint-matching items in '*' group: model=%s endpoint_type=%s", requestModel, groupEndpointType)
+			resp.Error(c, http.StatusNotFound, "model not found")
+			return
+		}
+		group = narrowed
+	}
+
 	// 3. Create load balancer iterator
 	iter := balancer.NewIterator(group, apiKeyID, requestModel)
 	if iter.Len() == 0 {
