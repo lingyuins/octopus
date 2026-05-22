@@ -273,3 +273,157 @@ func contains(slice []string, s string) bool {
 	}
 	return false
 }
+
+// --- GroupListModelCapabilities tests ---
+
+func TestGroupListModelCapabilities_ChatOnly(t *testing.T) {
+	groupCache.Clear()
+	chCache := channel.GetCache()
+	chCache.Clear()
+
+	setupValidGroup(1, "gpt-4o", model.EndpointTypeChat)
+
+	caps, err := GroupListModelCapabilities(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(caps) != 1 {
+		t.Fatalf("expected 1 capability, got %d", len(caps))
+	}
+	c := caps[0]
+	if c.Name != "gpt-4o" {
+		t.Errorf("name = %q, want gpt-4o", c.Name)
+	}
+	if !c.Conversation {
+		t.Error("gpt-4o should be conversation")
+	}
+	if !c.Available {
+		t.Error("gpt-4o should be available")
+	}
+	if len(c.Endpoints) != 1 || c.Endpoints[0] != model.EndpointTypeChat {
+		t.Errorf("endpoints = %v, want [chat]", c.Endpoints)
+	}
+
+	chCache.Clear()
+}
+
+func TestGroupListModelCapabilities_MusicOnly(t *testing.T) {
+	groupCache.Clear()
+	chCache := channel.GetCache()
+	chCache.Clear()
+
+	setupValidGroup(1, "music-2.6", model.EndpointTypeMusicGeneration)
+
+	caps, err := GroupListModelCapabilities(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(caps) != 1 {
+		t.Fatalf("expected 1 capability, got %d", len(caps))
+	}
+	c := caps[0]
+	if c.Conversation {
+		t.Error("music-2.6 should NOT be conversation")
+	}
+	if len(c.Endpoints) != 1 || c.Endpoints[0] != model.EndpointTypeMusicGeneration {
+		t.Errorf("endpoints = %v, want [music_generation]", c.Endpoints)
+	}
+
+	chCache.Clear()
+}
+
+func TestGroupListModelCapabilities_MultiEndpointAggregation(t *testing.T) {
+	groupCache.Clear()
+	chCache := channel.GetCache()
+	chCache.Clear()
+
+	// Same model name across two groups with different endpoint types
+	setupValidGroup(1, "gpt-4.1", model.EndpointTypeResponses)
+	setupValidGroup(2, "gpt-4.1", model.EndpointTypeMessages)
+
+	caps, err := GroupListModelCapabilities(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(caps) != 1 {
+		t.Fatalf("expected 1 capability (aggregated), got %d: %+v", len(caps), caps)
+	}
+	c := caps[0]
+	if c.Name != "gpt-4.1" {
+		t.Errorf("name = %q, want gpt-4.1", c.Name)
+	}
+	if !c.Conversation {
+		t.Error("gpt-4.1 should be conversation (has responses + messages)")
+	}
+	if len(c.Endpoints) != 2 {
+		t.Errorf("expected 2 endpoints, got %v", c.Endpoints)
+	}
+
+	chCache.Clear()
+}
+
+func TestGroupListModelCapabilities_GlobalStarGroup(t *testing.T) {
+	groupCache.Clear()
+	chCache := channel.GetCache()
+	chCache.Clear()
+
+	setupValidGroup(1, "universal-model", model.EndpointTypeAll)
+
+	caps, err := GroupListModelCapabilities(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(caps) != 1 {
+		t.Fatalf("expected 1 capability, got %d", len(caps))
+	}
+	c := caps[0]
+	if c.Name != "universal-model" {
+		t.Errorf("name = %q, want universal-model", c.Name)
+	}
+	if len(c.Endpoints) != 1 || c.Endpoints[0] != model.EndpointTypeAll {
+		t.Errorf("endpoints = %v, want [*]", c.Endpoints)
+	}
+
+	chCache.Clear()
+}
+
+func TestGroupListModelCapabilities_InvalidGroupsExcluded(t *testing.T) {
+	groupCache.Clear()
+	chCache := channel.GetCache()
+	chCache.Clear()
+
+	// Empty group — should not appear
+	groupCache.Set(99, model.Group{
+		ID:           99,
+		Name:         "empty-model",
+		EndpointType: model.EndpointTypeChat,
+		Items:        nil,
+	})
+
+	// Disabled channel — should not appear
+	chCache.Set(888, model.Channel{ID: 888, Name: "disabled-ch", Enabled: false})
+	groupCache.Set(98, model.Group{
+		ID:           98,
+		Name:         "dead-model",
+		EndpointType: model.EndpointTypeChat,
+		Items: []model.GroupItem{
+			{ID: 98, GroupID: 98, ChannelID: 888, ModelName: "dead-model", Priority: 1, Weight: 1},
+		},
+	})
+
+	// Valid group
+	setupValidGroup(1, "real-model", model.EndpointTypeChat)
+
+	caps, err := GroupListModelCapabilities(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(caps) != 1 {
+		t.Fatalf("expected 1 capability (only real-model), got %d: %+v", len(caps), caps)
+	}
+	if caps[0].Name != "real-model" {
+		t.Errorf("expected real-model, got %q", caps[0].Name)
+	}
+
+	chCache.Clear()
+}

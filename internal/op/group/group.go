@@ -513,6 +513,64 @@ func GroupListModelByEndpoint(endpointType string, ctx context.Context) ([]strin
 	return models, nil
 }
 
+// GroupListModelCapabilities returns an aggregated view of all routable
+// models with their supported endpoint types, conversation-family flag,
+// and availability status.
+//
+// Models with the same name but different endpoint types are merged into
+// a single entry with deduplicated, sorted endpoints.
+func GroupListModelCapabilities(ctx context.Context) ([]model.ModelCapability, error) {
+	// Collect valid groups, grouped by model name
+	byName := make(map[string][]string, groupCache.Len())
+	for _, group := range groupCache.GetAll() {
+		name := strings.TrimSpace(group.Name)
+		if name == "" {
+			continue
+		}
+		if !groupHasValidItem(group) {
+			continue
+		}
+		ep := model.NormalizeEndpointType(group.EndpointType)
+		byName[name] = append(byName[name], ep)
+	}
+
+	caps := make([]model.ModelCapability, 0, len(byName))
+	for name, endpoints := range byName {
+		// Deduplicate and sort
+		seen := make(map[string]struct{}, len(endpoints))
+		uniq := make([]string, 0, len(endpoints))
+		for _, ep := range endpoints {
+			if _, ok := seen[ep]; ok {
+				continue
+			}
+			seen[ep] = struct{}{}
+			uniq = append(uniq, ep)
+		}
+		sort.Strings(uniq)
+
+		// Determine conversation flag
+		conversation := false
+		for _, ep := range uniq {
+			if model.IsConversationEndpointType(ep) {
+				conversation = true
+				break
+			}
+		}
+
+		caps = append(caps, model.ModelCapability{
+			Name:         name,
+			Endpoints:    uniq,
+			Conversation: conversation,
+			Available:    true,
+		})
+	}
+
+	sort.SliceStable(caps, func(i, j int) bool {
+		return caps[i].Name < caps[j].Name
+	})
+	return caps, nil
+}
+
 func GroupGet(id int, ctx context.Context) (*model.Group, error) {
 	group, ok := groupCache.Get(id)
 	if !ok {
