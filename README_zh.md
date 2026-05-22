@@ -380,6 +380,78 @@ http://localhost:3000
 
 ---
 
+### 🔍 模型发现与能力查询
+
+Octopus 提供多层模型可见性：
+
+#### `/v1/models` — 兼容模型列表
+
+返回所有至少具有一个启用渠道的模型名称。兼容 OpenAI SDK。
+
+这是最宽泛的视图 — 模型出现在这里，表示 Octopus 有渠道*声明*了它。
+
+#### `/v1/models?endpoint=<type>` — 按端点类型过滤
+
+按**声明的端点类型**缩小列表：
+
+- `?endpoint=chat` — 对话模型（chat / responses / messages / deepseek / mimo）
+- `?endpoint=embeddings` — 嵌入模型
+- `?endpoint=image_generation` — 图像生成模型
+- `?endpoint=music_generation` — 音乐生成模型
+- …… 同样适用于 `audio_speech`、`audio_transcription`、`video_generation`、`search`、`rerank`、`moderations`
+
+省略 `endpoint` 或设为 `*` 时返回全部模型。
+
+> 部分端点之间的边界并非绝对。**对话族**（`chat`、`responses`、`messages`、`deepseek`、`mimo`）可以在 `endpoint` 过滤器中互相可见，因为 Octopus 可以透明桥接这些格式。
+
+#### `GET /api/v1/model/capabilities` — 声明的能力表（管理 API）
+
+仅管理端可用的端点，返回每个可路由模型的**聚合能力视图**：
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "name": "gpt-4o",
+      "endpoints": ["chat"],
+      "conversation": true,
+      "available": true
+    },
+    {
+      "name": "music-2.6",
+      "endpoints": ["music_generation"],
+      "conversation": false,
+      "available": true
+    }
+  ]
+}
+```
+
+| 字段 | 含义 |
+|------|------|
+| `name` | 对客户端公开的模型名称 |
+| `endpoints` | 模型声明的端点类型（去重并排序） |
+| `conversation` | 是否属于对话族 |
+| `available` | 是否至少有一个启用的渠道 |
+
+这是**声明的**能力 — 即你的 `Group` 配置所描述的能力。实际可路由的能力可能更窄；见下方 `*` group 行为。
+
+#### `*` Group 语义
+
+端点类型为 `*`（EndpointTypeAll）的分组是一个**万能通行证**：它可以被任意端点类型选中，包括 `chat`、`embeddings`、`image_generation` 等。
+
+然而，**万能选中并不意味着组内每个条目都真正支持该端点**。对于非对话端点（image / video / music / audio / search / rerank / moderation），relay 层现在会在进入负载均衡器之前过滤 `*` 组条目：
+
+- 仅保留其渠道类型或模型名暗示支持当前端点的条目。
+- 如果没有条目能通过过滤，请求直接返回 `404 model not found`，而不是盲目尝试不兼容的渠道。
+- 对话端点（`chat`、`responses`、`messages`、`deepseek`、`mimo`）**不受**此过滤影响。
+
+> **提示：** 如果你在 `/v1/models` 或 `/api/v1/model/capabilities` 中看到某个模型，但对特定端点仍然返回 `model not found`，请检查 `*` 组中的条目是否真的支持该端点 — relay 级收窄可能已将它们全部过滤掉。
+
+---
+
 ### 📁 分组管理
 
 分组用于将多个渠道聚合为一个统一的对外模型名称。

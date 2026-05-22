@@ -379,6 +379,78 @@ Semantic cache is currently evaluated only for non-streaming OpenAI Chat and Ope
 
 ---
 
+### 🔍 Model Discovery & Capabilities
+
+Octopus exposes multiple levels of model visibility:
+
+#### `/v1/models` — Flat Compatible Model List
+
+Returns all model names that have at least one enabled channel. Compatible with OpenAI SDKs.
+
+This is the broadest view — if a model appears here, Octopus has a channel that *declares* it.
+
+#### `/v1/models?endpoint=<type>` — Endpoint-Filtered List
+
+Narrows the list to models whose **declared endpoint type** matches the filter:
+
+- `?endpoint=chat` — conversation models (chat / responses / messages / deepseek / mimo)
+- `?endpoint=embeddings` — embedding models
+- `?endpoint=image_generation` — image models
+- `?endpoint=music_generation` — music models
+- … and so on for `audio_speech`, `audio_transcription`, `video_generation`, `search`, `rerank`, `moderations`
+
+When `endpoint` is omitted or set to `*`, all models are returned.
+
+> Boundaries between some endpoints are not absolute. Models from the **conversation family** (`chat`, `responses`, `messages`, `deepseek`, `mimo`) are visible to one another through the `endpoint` filter because Octopus can bridge these formats transparently.
+
+#### `GET /api/v1/model/capabilities` — Declared Capability Table (Management API)
+
+A management-only endpoint that returns the **aggregated capability view** of every routable model:
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "name": "gpt-4o",
+      "endpoints": ["chat"],
+      "conversation": true,
+      "available": true
+    },
+    {
+      "name": "music-2.6",
+      "endpoints": ["music_generation"],
+      "conversation": false,
+      "available": true
+    }
+  ]
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `name` | Model name as exposed to clients |
+| `endpoints` | Endpoint types the model declares (deduplicated, sorted) |
+| `conversation` | Whether the model belongs to the conversation family |
+| `available` | Whether the model has at least one enabled channel |
+
+This is the **declared** capability — what your `Group` configuration says. The actual routable capability may be narrower; see `*` group behaviour below.
+
+#### `*` Group Semantics
+
+A group with endpoint type `*` (EndpointTypeAll) is a **universal pass**: it can be selected by any endpoint type, including `chat`, `embeddings`, `image_generation`, etc.
+
+However, **universal selection does not mean every item in the group actually supports the endpoint**. For non-conversation endpoints (image / video / music / audio / search / rerank / moderation), the relay layer now filters `*` group items before the balancer:
+
+- Only items whose channel type or model name hint at support for the requested endpoint are kept.
+- If no items survive filtering, the request returns `404 model not found` instead of blindly trying incompatible channels.
+- Conversation endpoints (`chat`, `responses`, `messages`, `deepseek`, `mimo`) are **not** affected by this filtering.
+
+> **Tip:** When you see a model in `/v1/models` or `/api/v1/model/capabilities` but it still returns `model not found` for a specific endpoint, check whether the `*` group's items actually support that endpoint — the relay narrowing may have filtered them all out.
+
+---
+
 ### 📁 Group Management
 
 Groups aggregate multiple channels into a unified external model name.
