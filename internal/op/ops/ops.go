@@ -289,28 +289,22 @@ func buildOpsProviderPromptCacheSummaryFromLogs(
 	var totalInputTokens int64
 
 	for _, relayLog := range logs {
-		isSemanticHit := relayLog.SemanticCacheHit
 		usage, ok := parseOpsProviderPromptCacheUsage(relayLog.ResponseContent)
-		if !ok && !isSemanticHit {
+		if !ok {
 			continue
 		}
-		if isSemanticHit {
-			// Semantic cache hit: count as cached, use input tokens as cache read
-			if relayLog.InputTokens <= 0 {
-				continue
-			}
-			usage = opsProviderPromptCacheUsage{
-				PromptTokens: int64(relayLog.InputTokens),
-				CachedTokens: int64(relayLog.InputTokens),
-			}
+		if signals, ok := cacheusage.ParseProviderPromptCacheUsageSignals(relayLog.ResponseContent); ok && signals.SemanticCacheHit {
+			continue
 		}
+		// Count as cached if provider returned cached_tokens (>0) or has cache_write tokens (Anthropic prompt cache)
+		isCached := usage.CachedTokens > 0 || usage.CacheCreationInputTokens > 0
 
 		aggregate := providers[relayLog.ChannelId]
 		if aggregate.ChannelName == "" {
 			aggregate.ChannelName = strings.TrimSpace(relayLog.ChannelName)
 		}
 		aggregate.RequestCount++
-		if usage.CachedTokens > 0 {
+		if isCached {
 			aggregate.CachedRequestCount++
 		}
 		aggregate.TotalInputTokens += usage.TotalInputTokens
@@ -323,7 +317,7 @@ func buildOpsProviderPromptCacheSummaryFromLogs(
 		bucketIndex := int((time.Unix(relayLog.Time, 0).Truncate(time.Hour).Sub(start)) / time.Hour)
 		if bucketIndex >= 0 && bucketIndex < bucketCount {
 			summary.Trend[bucketIndex].RequestCount++
-			if usage.CachedTokens > 0 {
+			if isCached {
 				summary.Trend[bucketIndex].CachedRequestCount++
 			}
 			summary.Trend[bucketIndex].CacheReadTokens += usage.CachedTokens
