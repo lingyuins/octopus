@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.9.4] - 2026-05
+
+### 🚀 Features
+- Complete backup/restore overhaul.
+- Add client IP logging and API key IP restriction.
+- Expand endpoint provider rewrites and improve relay hardening.
+- Add CCswitch deep link generator to group toolbar.
+
+### 🐛 Bug Fixes
+- Cap relay logs and audit logs backup export at 500k rows to prevent OOM.
+- Hide availability test for non-conversation endpoint types.
+- Resolve frontend-backend type mismatches.
+- Add labels and contextual hints to alert rule form fields.
+- Fix telemetry runtime metrics imports and wire session, sticky, quota alert, and quota monitor stats into the ops dashboard.
+- Auto-detect git commit and build time for local builds.
+- Include semantic cache hits and Anthropic cache writes in provider prompt cache trends.
+- Remove redundant token unit suffix formatting in the UI.
+
+### 🛠 Optimizations/Refactor
+- Cap model picker height for better channel browsing ergonomics.
+
+**Full Changelog:** https://github.com/lingyuins/octopus/compare/v1.9.3...v1.9.4
+
+---
+
 ## [v1.9.3] - 2026-07
 
 ### 🚀 Features
