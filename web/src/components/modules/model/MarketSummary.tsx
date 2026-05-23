@@ -11,10 +11,11 @@ type MarketSummaryValue = {
     coverage_count: number;
     unique_channel_count: number;
     average_latency_ms: number;
-    last_update_time: string;
+    last_update_time?: string;
 };
 
-function formatLastUpdate(value: string, fallback: string) {
+function formatLastUpdate(value: string | undefined, fallback: string) {
+    if (!value) return fallback;
     const formatted = formatDateTime(value);
     if (formatted === '-') return fallback;
     const date = new Date(value);

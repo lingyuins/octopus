@@ -1506,6 +1506,19 @@
     "emptyState": {
       "title": "No groups yet",
       "description": "You can create a group manually or use auto grouping / AI routing to generate them quickly."
+    },
+    "ccswitch": {
+      "title": "Generate CCswitch Link",
+      "description": "Export the group routing configuration as a CCswitch deep link for one-click import into CCswitch.",
+      "groupLabel": "Select Group",
+      "selectGroup": "-- Select Group --",
+      "appLabel": "Target App",
+      "apiKeyLabel": "API Key",
+      "apiKeyHint": "Enter the Octopus API Key for this group (sk-octopus-...)",
+      "generate": "Generate Link",
+      "generatedLink": "Generated Link",
+      "copy": "Copy Link",
+      "copied": "Copied"
     }
   },
   "model": {

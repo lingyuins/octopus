@@ -18,6 +18,7 @@ import { useNavStore, type NavItem } from '@/components/modules/navbar';
 import { CreateDialogContent as ChannelCreateContent } from '@/components/modules/channel/Create';
 import { ChannelGroupManagerDialog } from '@/components/modules/channel/GroupManager';
 import { CreateDialogContent as GroupCreateContent } from '@/components/modules/group/Create';
+import { CCSwitchLinkButton } from '@/components/modules/group/CCSwitchLinkButton';
 import { CreateDialogContent as ModelCreateContent } from '@/components/modules/model/Create';
 import { useTranslations } from 'next-intl';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -267,6 +268,9 @@ export function Toolbar() {
                     )}
                 </div>
 
+                {toolbarItem === 'group' && (
+                    <CCSwitchLinkButton className="hidden sm:inline-flex" />
+                )}
                 <div className="flex h-11 items-center gap-1 rounded-xl border border-border bg-muted/30 p-1">
                     {toolbarItem === 'model' && (
                         <ModelMarketSummary

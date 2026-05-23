@@ -1506,6 +1506,19 @@
     "emptyState": {
       "title": "暂无分组",
       "description": "你可以手动新建分组，或使用自动分组 / AI路由快速生成。"
+    },
+    "ccswitch": {
+      "title": "生成 CCswitch 链接",
+      "description": "将当前分组路由配置导出为 CCswitch 深度链接，一键导入到 CCswitch 中使用。",
+      "groupLabel": "选择分组",
+      "selectGroup": "-- 请选择分组 --",
+      "appLabel": "目标应用",
+      "apiKeyLabel": "API 密钥",
+      "apiKeyHint": "输入该分组使用的 Octopus API Key (sk-octopus-...)",
+      "generate": "生成链接",
+      "generatedLink": "生成的链接",
+      "copy": "复制链接",
+      "copied": "已复制"
     }
   },
   "model": {
