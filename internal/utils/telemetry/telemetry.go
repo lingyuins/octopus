@@ -29,6 +29,11 @@ type Store struct {
 	activeConns    atomic.Int64
 	throughputRPS  atomic.Int64 // updated once per second by background goroutine
 
+	// Session metrics (updated periodically by relay)
+	activeSessions      atomic.Int64
+	stickyBoundSessions atomic.Int64
+	quotaAlerts         atomic.Int64
+
 	// Latency sampling (mutex-protected ring buffer)
 	latencySamples []float64
 	latencyCursor  int
@@ -177,6 +182,15 @@ func (s *Store) RecordRequest(latencyMs int64, success bool) {
 func (s *Store) ActiveConnectionsInc()  { s.activeConns.Add(1) }
 func (s *Store) ActiveConnectionsDec()  { s.activeConns.Add(-1) }
 
+// SetActiveSessions updates the active stream session count (called from relay).
+func (s *Store) SetActiveSessions(n int64) { s.activeSessions.Store(n) }
+
+// SetStickyBoundSessions updates the sticky session count (called from balancer).
+func (s *Store) SetStickyBoundSessions(n int64) { s.stickyBoundSessions.Store(n) }
+
+// SetQuotaAlerts updates the quota alert count (called from alert evaluator).
+func (s *Store) SetQuotaAlerts(n int64) { s.quotaAlerts.Store(n) }
+
 // Snapshot returns a point-in-time snapshot of all runtime metrics.
 func (s *Store) Snapshot() Snapshot {
 	s.mu.Lock()
@@ -201,31 +215,37 @@ func (s *Store) Snapshot() Snapshot {
 	runtime.ReadMemStats(&memStats)
 
 	return Snapshot{
-		TotalRequests:     totalReq,
-		TotalFailures:     s.totalFailures.Load(),
-		AvgLatencyMs:      avgLatencyMs,
-		ErrorRate:         errorRate,
-		P95LatencyMs:      p95,
-		ThroughputRPS:     float64(s.throughputRPS.Load()),
-		ActiveConnections: s.activeConns.Load(),
-		MemoryMB:          int64(memStats.Alloc / 1024 / 1024),
-		TrendSnapshots:    trend,
-		HasTrendData:      hasTrend,
+		TotalRequests:        totalReq,
+		TotalFailures:        s.totalFailures.Load(),
+		AvgLatencyMs:         avgLatencyMs,
+		ErrorRate:            errorRate,
+		P95LatencyMs:         p95,
+		ThroughputRPS:        float64(s.throughputRPS.Load()),
+		ActiveConnections:    s.activeConns.Load(),
+		ActiveSessions:       s.activeSessions.Load(),
+		StickyBoundSessions:  s.stickyBoundSessions.Load(),
+		QuotaAlerts:          s.quotaAlerts.Load(),
+		MemoryMB:             int64(memStats.Alloc / 1024 / 1024),
+		TrendSnapshots:       trend,
+		HasTrendData:         hasTrend,
 	}
 }
 
 // Snapshot holds a point-in-time view of all runtime metrics.
 type Snapshot struct {
-	TotalRequests     int64
-	TotalFailures     int64
-	AvgLatencyMs      float64
-	ErrorRate         float64
-	P95LatencyMs      float64
-	ThroughputRPS     float64
-	ActiveConnections int64
-	MemoryMB          int64
-	TrendSnapshots    []TrendPoint
-	HasTrendData      bool
+	TotalRequests        int64
+	TotalFailures        int64
+	AvgLatencyMs         float64
+	ErrorRate            float64
+	P95LatencyMs         float64
+	ThroughputRPS        float64
+	ActiveConnections    int64
+	ActiveSessions       int64
+	StickyBoundSessions  int64
+	QuotaAlerts          int64
+	MemoryMB             int64
+	TrendSnapshots       []TrendPoint
+	HasTrendData         bool
 }
 
 func p95Locked(samples []float64) float64 {

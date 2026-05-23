@@ -902,9 +902,9 @@ func TelemetrySummaryGet(ctx context.Context) (*model.OpsTelemetrySummary, error
 	}
 
 	summary.SessionQuotaActivity = model.OpsTelemetrySessionQuotaActivity{
-		ActiveSessions:      0, // inaccessible from relay due to import cycle
-		StickyBoundSessions: 0, // inaccessible from balancer due to import cycle
-		QuotaAlerts:         0,
+		ActiveSessions:      int(snap.ActiveSessions),
+		StickyBoundSessions: int(snap.StickyBoundSessions),
+		QuotaAlerts:         int(snap.QuotaAlerts),
 		SessionsByAPIKey:    sessionsByAPIKey,
 		QuotaMonitors:       0,
 	}
