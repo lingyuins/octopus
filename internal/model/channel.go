@@ -22,7 +22,7 @@ type RequestRewriteProfile string
 const (
 	RequestRewriteProfilePreserve         RequestRewriteProfile = "preserve"
 	RequestRewriteProfileOpenAIChatCompat RequestRewriteProfile = "openai_chat_compat"
-	RequestRewriteProfileCodexHeaders     RequestRewriteProfile = "codex_headers"
+	RequestRewriteProfileCodexHeaders     RequestRewriteProfile = "codex"
 )
 
 type ToolRoleStrategy string

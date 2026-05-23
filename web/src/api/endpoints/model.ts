@@ -51,7 +51,7 @@ export interface ModelMarketSummary {
     coverage_count: number;
     unique_channel_count: number;
     average_latency_ms: number;
-    last_update_time: string;
+    last_update_time?: string;
 }
 
 export interface ModelMarketResponse {

@@ -33,8 +33,10 @@ func Resolve(channelType outbound.OutboundType, cfg *appmodel.RequestRewriteConf
 	}
 
 
+	codexProfile := string(appmodel.RequestRewriteProfileCodexHeaders)
+
 	if cfg.Profile == appmodel.RequestRewriteProfilePreserve {
-		if cfg.HeaderProfile == "codex" {
+		if cfg.HeaderProfile == codexProfile {
 			effective.ExtraHeaders = map[string]string{
 				"User-Agent": "Codex Desktop/0.131.0 (Windows 10.0.19045; x86_64) unknown (Codex Desktop; 26.519.21041)",
 				"Origin": "https://chat.openai.com",
@@ -45,7 +47,7 @@ func Resolve(channelType outbound.OutboundType, cfg *appmodel.RequestRewriteConf
 		return effective, true, nil
 	}
 
-	if cfg.HeaderProfile == "codex" {
+	if cfg.HeaderProfile == codexProfile {
 		effective.ExtraHeaders = map[string]string{
 			"User-Agent": "Codex Desktop/0.131.0 (Windows 10.0.19045; x86_64) unknown (Codex Desktop; 26.519.21041)",
 			"Origin": "https://chat.openai.com",
