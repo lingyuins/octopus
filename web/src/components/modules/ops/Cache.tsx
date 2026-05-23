@@ -9,6 +9,7 @@ import { useNavStore } from '@/components/modules/navbar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MetricCard, QueryState, StatusBadge, formatPercent, formatUnixTime } from '@/components/modules/analytics/shared';
+import { formatProviderPromptCacheCount } from './cache-format';
 
 type CacheView = 'semantic' | 'providerPrompt';
 type CacheTranslations = (key: string) => string;
@@ -171,6 +172,8 @@ function ProviderPromptCacheView({
 }) {
     const trend = data.trend ?? [];
     const maxReadTokens = Math.max(...trend.map((item) => item.cache_read_tokens), 1);
+    const readTokens = formatProviderPromptCacheCount(data.cache_read_tokens);
+    const writeTokens = formatProviderPromptCacheCount(data.cache_write_tokens);
 
     return (
         <div className="space-y-4">
@@ -190,12 +193,14 @@ function ProviderPromptCacheView({
                 />
                 <MetricCard
                     title={t('cache.providerPrompt.metrics.cacheReadTokens')}
-                    value={formatCount(data.cache_read_tokens)}
+                    value={readTokens.value}
+                    unit={readTokens.unit}
                     icon={HardDrive}
                 />
                 <MetricCard
                     title={t('cache.providerPrompt.metrics.cacheWriteTokens')}
-                    value={formatCount(data.cache_write_tokens)}
+                    value={writeTokens.value}
+                    unit={writeTokens.unit}
                     icon={Database}
                 />
                 <MetricCard
