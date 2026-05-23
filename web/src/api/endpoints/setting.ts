@@ -103,8 +103,17 @@ export function useSetSetting() {
 /**
  * 数据库导入/导出
  */
+export interface DBImportStep {
+    table: string;
+    mode: string;
+    rows_affected: number;
+    ok: boolean;
+    error?: string;
+}
+
 export interface DBImportResult {
     rows_affected: Record<string, number>;
+    progress: DBImportStep[];
 }
 
 export interface DBExportOptions {
@@ -206,15 +215,18 @@ export function useExportDB() {
 }
 
 /**
- * 导入数据库（上传 JSON 文件，增量导入）
+ * 导入数据库（上传 JSON 文件，支持增量/完整导入）
  */
 export function useImportDB() {
     return useMutation({
-        mutationFn: async (file: File) => {
+        mutationFn: async ({ file, mode }: { file: File; mode: 'incremental' | 'full' }) => {
             const form = new FormData();
             form.append('file', file);
 
-            const res = await fetch(`${API_BASE_URL}/api/v1/setting/import`, {
+            const params = new URLSearchParams();
+            params.set('mode', mode);
+
+            const res = await fetch(`${API_BASE_URL}/api/v1/setting/import?${params.toString()}`, {
                 method: 'POST',
                 headers: {
                     Authorization: getAuthHeader(),

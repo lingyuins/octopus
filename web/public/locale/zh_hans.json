@@ -1004,14 +1004,20 @@
         "success": "开始导出"
       },
       "import": {
-        "title": "导入（增量）",
+        "title": "导入",
         "selected": "已选择文件",
         "button": "导入 JSON",
         "importing": "导入中...",
         "noFile": "请先选择 JSON 文件",
         "success": "导入成功",
         "failed": "导入失败",
-        "result": "导入结果"
+        "result": "导入结果",
+        "mode": {
+          "label": "导入模式",
+          "incremental": "增量导入",
+          "full": "完整恢复",
+          "fullWarning": "完整恢复会先清空所有现有数据再导入。此操作不可逆，请确保已备份当前数据。"
+        }
       }
     },
     "routeGroups": {

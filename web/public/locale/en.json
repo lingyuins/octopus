@@ -1004,14 +1004,20 @@
         "success": "Export started"
       },
       "import": {
-        "title": "Import (Incremental)",
+        "title": "Import",
         "selected": "File selected",
         "button": "Import JSON",
         "importing": "Importing...",
         "noFile": "Please select a JSON file first",
         "success": "Import successful",
         "failed": "Import failed",
-        "result": "Import result"
+        "result": "Import result",
+        "mode": {
+          "label": "Import mode",
+          "incremental": "Incremental",
+          "full": "Full Restore",
+          "fullWarning": "Full restore will clear ALL existing data before importing. This is irreversible. Make sure you have a current backup."
+        }
       }
     },
     "routeGroups": {

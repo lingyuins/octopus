@@ -161,7 +161,13 @@ func importDB(c *gin.Context) {
 		return
 	}
 
-	result, err := backup.ImportIncremental(c.Request.Context(), &dump)
+	mode := c.DefaultQuery("mode", model.ImportModeIncremental)
+	if mode != model.ImportModeIncremental && mode != model.ImportModeFull {
+		resp.Error(c, http.StatusBadRequest, fmt.Sprintf("invalid import mode: %s (use 'incremental' or 'full')", mode))
+		return
+	}
+
+	result, err := backup.ImportWithMode(c.Request.Context(), &dump, mode)
 	if err != nil {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
