@@ -133,7 +133,7 @@ function ModelPickerSection({
                 </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-3">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 max-h-[28rem]">
                 <Accordion type="multiple" className="w-full space-y-2">
                     {filteredChannels.map((channel) => {
                         const total = channel.models.length;
