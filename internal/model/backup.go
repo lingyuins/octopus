@@ -14,23 +14,24 @@ type DBDump struct {
 	IncludeLogs  bool      `json:"include_logs"`
 	IncludeStats bool      `json:"include_stats"`
 
-	Channels     []Channel     `json:"channels,omitempty"`
-	ChannelKeys  []ChannelKey  `json:"channel_keys,omitempty"`
+	Channels      []Channel      `json:"channels,omitempty"`
+	ChannelKeys   []ChannelKey   `json:"channel_keys,omitempty"`
 	ChannelGroups []ChannelGroup `json:"channel_groups,omitempty"`
-	Groups       []Group       `json:"groups,omitempty"`
-	GroupItems   []GroupItem   `json:"group_items,omitempty"`
-	LLMInfos     []LLMInfo     `json:"llm_infos,omitempty"`
-	APIKeys      []APIKey      `json:"api_keys,omitempty"`
-	Users        []User        `json:"users,omitempty"`
-	Settings     []Setting     `json:"settings,omitempty"`
+	Groups        []Group        `json:"groups,omitempty"`
+	GroupItems    []GroupItem    `json:"group_items,omitempty"`
+	LLMInfos      []LLMInfo      `json:"llm_infos,omitempty"`
+	APIKeys       []APIKey       `json:"api_keys,omitempty"`
+	Users         []User         `json:"users,omitempty"`
+	Settings      []Setting      `json:"settings,omitempty"`
 
 	AlertRules         []AlertRule         `json:"alert_rules,omitempty"`
 	AlertNotifChannels []AlertNotifChannel `json:"alert_notif_channels,omitempty"`
 	AlertStateRecords  []AlertStateRecord  `json:"alert_state_records,omitempty"`
 	AlertHistory       []AlertHistory      `json:"alert_history,omitempty"`
 
-	AuditLogs     []AuditLog     `json:"audit_logs,omitempty"`
-	RuntimeStates []AutoStrategyState `json:"runtime_states,omitempty"`
+	AuditLogs            []AuditLog            `json:"audit_logs,omitempty"`
+	RuntimeStates        []AutoStrategyState   `json:"runtime_states,omitempty"`
+	CircuitBreakerStates []CircuitBreakerState `json:"circuit_breaker_states,omitempty"`
 
 	StatsTotal   []StatsTotal   `json:"stats_total,omitempty"`
 	StatsDaily   []StatsDaily   `json:"stats_daily,omitempty"`

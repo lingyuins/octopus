@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.9.5] - 2026-05
+
+### 🚀 Features
+- Include circuit breaker runtime state in backup export and restore workflows.
+
+### 🐛 Bug Fixes
+- Allow API key IP allowlists to match client addresses that include ports.
+- Allow the request origin in CSP `connect-src` for separated management console deployments.
+- Fix telemetry latency percentile calculations so empty samples do not skew p95.
+- Fix provider prompt cache token metric unit formatting in the ops dashboard.
+
+### 🛠 Optimizations/Refactor
+- Add OCI image metadata labels for Docker image version, revision, and build time.
+
+**Full Changelog:** https://github.com/lingyuins/octopus/compare/v1.9.4...v1.9.5
+
+---
+
 ## [v1.9.4] - 2026-05
 
 ### 🚀 Features

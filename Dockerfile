@@ -76,6 +76,12 @@ RUN set -eux; \
 # Runtime stage
 # =============================================================================
 FROM alpine:3.20
+ARG APP_VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=unknown
+LABEL org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${GIT_COMMIT}" \
+      org.opencontainers.image.created="${BUILD_TIME}"
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata

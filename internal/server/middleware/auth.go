@@ -122,11 +122,7 @@ func isIPAllowed(clientIP string, allowedIPs string) bool {
 	if allowedIPs == "" {
 		return true
 	}
-	client := strings.TrimSpace(clientIP)
-	if client == "" {
-		return false
-	}
-	parsedClient := net.ParseIP(client)
+	parsedClient := parseClientIP(clientIP)
 	if parsedClient == nil {
 		return false
 	}
@@ -151,4 +147,15 @@ func isIPAllowed(clientIP string, allowedIPs string) bool {
 		}
 	}
 	return false
+}
+
+func parseClientIP(clientIP string) net.IP {
+	client := strings.TrimSpace(clientIP)
+	if client == "" {
+		return nil
+	}
+	if host, _, err := net.SplitHostPort(client); err == nil {
+		client = host
+	}
+	return net.ParseIP(client)
 }

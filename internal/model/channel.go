@@ -157,6 +157,8 @@ func (c *RequestRewriteConfig) Validate(channelType outbound.OutboundType) error
 		if channelType != outbound.OutboundTypeOpenAIChat && channelType != outbound.OutboundTypeMimo {
 			return fmt.Errorf("request rewrite profile %s is not supported for channel type %d", c.Profile, channelType)
 		}
+	case RequestRewriteProfileCodexHeaders:
+		// codex profile currently affects header shaping only and is allowed for enabled rewrite configs.
 	default:
 		return fmt.Errorf("unsupported request rewrite profile: %s", c.Profile)
 	}
@@ -320,11 +322,11 @@ func (c *Channel) GetChannelKeyExcludingWithCooldown(excludeKeyIDs []int, rateli
 		if _, excluded := excludeSet[k.ID]; excluded {
 			continue
 		}
-if ratelimitCooldownSec > 0 && k.LastUseTimeStamp > 0 && k.StatusCode >= 400 {
-				if nowSec-k.LastUseTimeStamp < int64(ratelimitCooldownSec) {
-					continue
-				}
+		if ratelimitCooldownSec > 0 && k.LastUseTimeStamp > 0 && k.StatusCode >= 400 {
+			if nowSec-k.LastUseTimeStamp < int64(ratelimitCooldownSec) {
+				continue
 			}
+		}
 		if !bestSet || k.TotalCost < bestCost {
 			best = k
 			bestCost = k.TotalCost

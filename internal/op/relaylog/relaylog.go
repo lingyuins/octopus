@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/lingyuins/octopus/internal/db"
+	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op/cacheusage"
 	"github.com/lingyuins/octopus/internal/op/setting"
-	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/utils/log"
 	"github.com/lingyuins/octopus/internal/utils/snowflake"
 	"gorm.io/gorm"
@@ -287,6 +287,7 @@ func RelayLogList(ctx context.Context, startTime, endTime *int, page, pageSize i
 
 			query := db.GetDB().WithContext(ctx).
 				Select("id", "time", "request_model_name", "request_api_key_id", "request_api_key_name",
+					"client_ip",
 					"endpoint_type", "channel_id", "channel_name", "actual_model_name",
 					"input_tokens", "output_tokens", "response_content", "ftut", "use_time",
 					"cost", "error", "attempts", "total_attempts")

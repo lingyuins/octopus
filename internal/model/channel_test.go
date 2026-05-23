@@ -74,8 +74,8 @@ func TestRequestRewriteConfigValidate(t *testing.T) {
 		{
 			name: "valid preserve profile config",
 			cfg: &RequestRewriteConfig{
-				Enabled: true,
-				Profile: RequestRewriteProfilePreserve,
+				Enabled:       true,
+				Profile:       RequestRewriteProfilePreserve,
 				HeaderProfile: "codex",
 			},
 			channelType: outbound.OutboundTypeOpenAIResponse,
@@ -93,8 +93,8 @@ func TestRequestRewriteConfigValidate(t *testing.T) {
 		{
 			name: "valid codex headers on responses channel",
 			cfg: &RequestRewriteConfig{
-				Enabled:      true,
-				Profile:      RequestRewriteProfileOpenAIChatCompat,
+				Enabled:       true,
+				Profile:       RequestRewriteProfileOpenAIChatCompat,
 				HeaderProfile: "codex",
 			},
 			channelType: outbound.OutboundTypeOpenAIChat,
@@ -222,5 +222,16 @@ func TestChannelGetNormalizedBaseUrlAddsProviderVersionPath(t *testing.T) {
 				t.Fatalf("GetNormalizedBaseUrl() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRequestRewriteConfigValidate_AllowsCodexProfile(t *testing.T) {
+	cfg := &RequestRewriteConfig{
+		Enabled: true,
+		Profile: RequestRewriteProfileCodexHeaders,
+	}
+
+	if err := cfg.Validate(outbound.OutboundTypeOpenAIChat); err != nil {
+		t.Fatalf("Validate() error = %v", err)
 	}
 }

@@ -75,6 +75,9 @@ func ExportAll(ctx context.Context, includeLogs, includeStats bool) (*model.DBDu
 	if err := conn.Find(&d.RuntimeStates).Error; err != nil {
 		return nil, fmt.Errorf("export runtime_states: %w", err)
 	}
+	if err := conn.Find(&d.CircuitBreakerStates).Error; err != nil {
+		return nil, fmt.Errorf("export circuit_breaker_states: %w", err)
+	}
 
 	if includeStats {
 		if err := conn.Find(&d.StatsTotal).Error; err != nil {
@@ -185,9 +188,9 @@ func ImportWithMode(ctx context.Context, dump *model.DBDump, mode string) (*mode
 			deleteOrder := []string{
 				"relay_logs", "stats_api_key", "stats_channel", "stats_model",
 				"stats_hourly", "stats_daily", "stats_total",
-				"group_items", "group_channel_items", "groups",
+				"group_items", "channel_groups", "groups",
 				"alert_history", "alert_state_records", "alert_rules", "alert_notif_channels",
-				"audit_logs", "runtime_states",
+				"audit_logs", "runtime_states", "circuit_breaker_states",
 				"api_keys", "users", "channel_keys", "channel_groups", "channels",
 				"llm_infos", "settings",
 			}
@@ -267,6 +270,11 @@ func ImportWithMode(ctx context.Context, dump *model.DBDump, mode string) (*mode
 		}
 		if len(dump.RuntimeStates) > 0 {
 			if err := cfg.doNothing("runtime_states", toAny(dump.RuntimeStates)); err != nil {
+				return err
+			}
+		}
+		if len(dump.CircuitBreakerStates) > 0 {
+			if err := cfg.doNothing("circuit_breaker_states", toAny(dump.CircuitBreakerStates)); err != nil {
 				return err
 			}
 		}
