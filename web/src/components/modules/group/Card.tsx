@@ -14,7 +14,7 @@ import type { MemberAvailabilityMeta, SelectedMember } from './ItemList';
 import { MemberList } from './ItemList';
 import { GroupEditor, type GroupEditorValues } from './Editor';
 import { AIRouteButton } from './AIRouteButton';
-import { buildChannelNameByModelKey, modelChannelKey, MODE_LABELS, inferGroupCapabilities, CAPABILITY_LABEL_KEYS, CAPABILITY_COLORS, endpointTypeLabelKey, normalizeEndpointType } from './utils';
+import { buildChannelNameByModelKey, modelChannelKey, MODE_LABELS, inferGroupCapabilities, CAPABILITY_LABEL_KEYS, CAPABILITY_COLORS, endpointTypeLabelKey, normalizeEndpointType, supportsGroupTest } from './utils';
 import { GroupMode, type GroupUpdateRequest } from '@/api/endpoints/group';
 import {
     MorphingDialog,
@@ -85,7 +85,7 @@ function EditDialogContent({
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {group.id ? (
+{group.id && supportsGroupTest(group.endpoint_type) ? (
                             <AIRouteButton
                                 scope="group"
                                 groupId={group.id}
@@ -678,6 +678,7 @@ export function GroupCard({ group }: { group: Group }) {
                         </MorphingDialogContainer>
                     </MorphingDialog>
 
+                    {supportsGroupTest(group.endpoint_type) ? (
                     <Tooltip side="top" sideOffset={10} align="center">
                         <TooltipTrigger asChild>
                             <button
@@ -691,6 +692,7 @@ export function GroupCard({ group }: { group: Group }) {
                         </TooltipTrigger>
                         <TooltipContent>{t('detail.actions.testAvailability')}</TooltipContent>
                     </Tooltip>
+                    ) : null}
 
                     <Tooltip side="top" sideOffset={10} align="center">
                         <TooltipTrigger>

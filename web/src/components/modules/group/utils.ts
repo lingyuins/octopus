@@ -61,6 +61,12 @@ export function normalizeEndpointType(value?: string | null) {
     return normalized || '*';
 }
 
+const CONVERSATION_ENDPOINT_TYPES = new Set(['chat', 'deepseek', 'mimo', 'responses', 'messages', '*']);
+
+export function supportsGroupTest(endpointType?: string | null) {
+    return CONVERSATION_ENDPOINT_TYPES.has(normalizeEndpointType(endpointType));
+}
+
 export function endpointTypeLabelKey(value?: string | null) {
     const endpointType = normalizeEndpointType(value);
     return ENDPOINT_TYPE_OPTIONS.find((option) => option.value === endpointType)?.labelKey;
