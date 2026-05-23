@@ -15,7 +15,19 @@ import (
 
 const (
 	defaultAIRouteParallelism = 3
+	maxAcquireCooldownWait    = 10 * time.Second
 )
+
+// aiRouteCooldownError is returned by Acquire when all eligible services are
+// in cooldown and the wait exceeds maxAcquireCooldownWait. Callers should
+// release any held resources, wait for the cooldown, then retry.
+type aiRouteCooldownError struct {
+	RetryAfter time.Duration
+}
+
+func (e *aiRouteCooldownError) Error() string {
+	return fmt.Sprintf("all AI route services are in cooldown, retry after %v", e.RetryAfter.Round(time.Second))
+}
 
 type aiRouteService struct {
 	Index   int
@@ -97,6 +109,9 @@ func (p *roundRobinAIRouteServicePool) Acquire(
 		wait := time.Until(waitUntil)
 		if wait <= 0 {
 			continue
+		}
+		if wait > maxAcquireCooldownWait {
+			return nil, &aiRouteCooldownError{RetryAfter: wait}
 		}
 
 		timer := time.NewTimer(wait)

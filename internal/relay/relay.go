@@ -950,7 +950,22 @@ func rewriteConversationRequestByProvider(group dbmodel.Group, req *model.Intern
 	if endpointType != dbmodel.EndpointTypeChat {
 		return req
 	}
-	if provider != "deepseek" && provider != "mimo" {
+
+	// Provider rewrite config: which non-standard message fields to strip.
+	// Some providers (e.g. standard OpenAI) reject reasoning_content / reasoning_signature fields.
+	type providerRewrite struct {
+		stripReasoning          bool
+		stripReasoningSignature bool
+	}
+	providers := map[string]providerRewrite{
+		"openai":      {stripReasoning: true, stripReasoningSignature: true},
+		"deepseek":    {stripReasoning: true, stripReasoningSignature: false},
+		"mimo":        {stripReasoning: false, stripReasoningSignature: true},
+		"siliconflow": {stripReasoning: false, stripReasoningSignature: true},
+		"newapi":      {stripReasoning: true, stripReasoningSignature: true},
+	}
+	cfg, ok := providers[provider]
+	if !ok {
 		return req
 	}
 
@@ -959,9 +974,10 @@ func rewriteConversationRequestByProvider(group dbmodel.Group, req *model.Intern
 		cloned.Messages = make([]model.Message, len(req.Messages))
 		for i, msg := range req.Messages {
 			cloned.Messages[i] = msg
-			if provider == "deepseek" {
+			if cfg.stripReasoning {
 				cloned.Messages[i].Reasoning = nil
-			} else if provider == "mimo" {
+			}
+			if cfg.stripReasoningSignature {
 				cloned.Messages[i].ReasoningSignature = nil
 			}
 		}

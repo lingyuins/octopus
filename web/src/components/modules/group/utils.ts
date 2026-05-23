@@ -42,8 +42,11 @@ export const MUSIC_ENDPOINT_PROVIDER_OPTIONS = [
 
 export const CHAT_ENDPOINT_PROVIDER_OPTIONS = [
     { label: 'Auto', value: '' },
+    { label: 'OpenAI', value: 'openai' },
     { label: 'DeepSeek', value: 'deepseek' },
     { label: 'Mimo', value: 'mimo' },
+    { label: 'SiliconFlow', value: 'siliconflow' },
+    { label: 'New API', value: 'newapi' },
 ] as const;
 
 export function normalizeEndpointProvider(value?: string | null) {

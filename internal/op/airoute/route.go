@@ -422,26 +422,45 @@ func generateAIRoutesFromModelList(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := sem.Acquire(ctx, 1); err != nil {
-				results <- aiRouteBucketResult{Index: bucketIndex, Total: len(buckets), Err: err}
-				return
-			}
-			defer sem.Release(1)
 
-			routes, bucketErr := generateAIRoutesForBucket(
-				ctx,
-				servicePool,
-				len(services),
-				bucket,
-				targetGroupName,
-				bucketIndex+1,
-				tracker,
-			)
-			results <- aiRouteBucketResult{
-				Index:  bucketIndex,
-				Total:  len(buckets),
-				Routes: routes,
-				Err:    bucketErr,
+			for {
+				if err := sem.Acquire(ctx, 1); err != nil {
+					results <- aiRouteBucketResult{Index: bucketIndex, Total: len(buckets), Err: err}
+					return
+				}
+
+				routes, bucketErr := generateAIRoutesForBucket(
+					ctx,
+					servicePool,
+					len(services),
+					bucket,
+					targetGroupName,
+					bucketIndex+1,
+					tracker,
+				)
+
+				var cooldownErr *aiRouteCooldownError
+				if bucketErr != nil && errors.As(bucketErr, &cooldownErr) && cooldownErr.RetryAfter > 0 {
+					sem.Release(1)
+					log.Warnf("ai route bucket %d: all services in cooldown, sleeping %v before retry",
+						bucketIndex+1, cooldownErr.RetryAfter.Round(time.Second))
+					select {
+					case <-ctx.Done():
+						results <- aiRouteBucketResult{Index: bucketIndex, Total: len(buckets), Err: ctx.Err()}
+						return
+					case <-time.After(cooldownErr.RetryAfter):
+					}
+					continue
+				}
+
+				sem.Release(1)
+				results <- aiRouteBucketResult{
+					Index:  bucketIndex,
+					Total:  len(buckets),
+					Routes: routes,
+					Err:    bucketErr,
+				}
+				return
 			}
 		}()
 	}
@@ -605,6 +624,11 @@ func generateAIRoutesForBucket(
 
 		nextLease, nextErr := servicePool.Next(ctx, lease, hint, exclude, callErr)
 		if nextErr != nil {
+			// Propagate cooldown errors so the caller can release resources and retry
+			var cooldownErr *aiRouteCooldownError
+			if errors.As(nextErr, &cooldownErr) {
+				return nil, cooldownErr
+			}
 			if tracker != nil {
 				tracker.FailBatch(batchIndex, bucket, lease.Service.Name, attempt, callErr.Error())
 			}
