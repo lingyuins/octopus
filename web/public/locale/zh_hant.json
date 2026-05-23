@@ -1466,6 +1466,12 @@
           "musicGeneration": "音樂生成",
           "search": "搜尋"
         }
+      },
+      "endpointProvider": {
+        "musicLabel": "音樂接口類型",
+        "musicHint": "選擇後端音樂接口類型，保存後由後端自動改寫穿透 JSON。",
+        "chatLabel": "對話接口類型",
+        "chatHint": "選擇對話接口類型，保存後由後端自動改寫對話透傳 JSON。"
       }
     },
     "mode": {

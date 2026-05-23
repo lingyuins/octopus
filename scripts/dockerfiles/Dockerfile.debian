@@ -8,12 +8,13 @@ RUN apt-get update && apt-get install -y ca-certificates tzdata gosu && \
     ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     dpkg-reconfigure -f noninteractive tzdata && \
     rm -rf /var/cache/apt/*  && \
-    mkdir -p /app
+    mkdir -p /app /app/data
 
-COPY build/docker/${TARGETPLATFORM}/octopus /app/octopus
+COPY --chown=octopus:octopus build/docker/${TARGETPLATFORM}/octopus /app/octopus
 COPY scripts/dockerfiles/entrypoint.sh /entrypoint.sh
 
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh && \
+    chown -R octopus:octopus /app
 
 USER octopus
 
