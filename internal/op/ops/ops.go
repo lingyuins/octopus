@@ -839,6 +839,16 @@ func opsQuotaStatusRank(status string) int {
 	}
 }
 
+func countQuotaMonitors(apiKeys []model.APIKey) int {
+	count := 0
+	for _, k := range apiKeys {
+		if k.MaxCost > 0 || k.RateLimitRPM > 0 || k.RateLimitTPM > 0 || hasPerModelQuota(k.PerModelQuotaJSON) {
+			count++
+		}
+	}
+	return count
+}
+
 func TelemetrySummaryGet(ctx context.Context) (*model.OpsTelemetrySummary, error) {
 	summary := &model.OpsTelemetrySummary{}
 	snap := telemetry.Global().Snapshot()
@@ -906,7 +916,7 @@ func TelemetrySummaryGet(ctx context.Context) (*model.OpsTelemetrySummary, error
 		StickyBoundSessions: int(snap.StickyBoundSessions),
 		QuotaAlerts:         int(snap.QuotaAlerts),
 		SessionsByAPIKey:    sessionsByAPIKey,
-		QuotaMonitors:       0,
+		QuotaMonitors:       countQuotaMonitors(apiKeys),
 	}
 
 	// ── PromptCache ──

@@ -12,6 +12,7 @@ import (
 	"github.com/lingyuins/octopus/internal/op/setting"
 	"github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/utils/log"
+	"github.com/lingyuins/octopus/internal/utils/telemetry"
 )
 
 const TaskAlertEvaluate = "alert_evaluate"
@@ -70,6 +71,18 @@ func EvaluateAlertRules() {
 		}
 		_ = now
 	}
+
+	// Push quota exceed alert count to shared telemetry for ops dashboard
+	var quotaFiringCount int64
+	for _, rule := range rules {
+		if rule.ConditionType == model.AlertConditionQuotaExceeded {
+			state := alert.StateGet(rule.ID)
+			if state.State == model.AlertStateFiring {
+				quotaFiringCount++
+			}
+		}
+	}
+	telemetry.Global().SetQuotaAlerts(quotaFiringCount)
 }
 
 func evaluateRule(rule *model.AlertRule) bool {
