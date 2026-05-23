@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	loginRateLimitWindow    = 10 * time.Minute
-	loginRateLimitMaxFailed = 5
+	loginRateLimitWindow     = 10 * time.Minute
+	loginRateLimitMaxFailed  = 5
+	loginRateLimitCleanupInterval = 10 * time.Minute
 )
 
 type loginAttempt struct {
@@ -93,4 +94,31 @@ func isLoginBlocked(key string, now time.Time) bool {
 		return false
 	}
 	return false
+}
+
+// startLoginRateLimitCleanup periodically purges expired entries from the login attempt cache.
+func startLoginRateLimitCleanup() {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// cleanup goroutine is best-effort; re-panics are not propagated
+			}
+		}()
+		ticker := time.NewTicker(loginRateLimitCleanupInterval)
+		defer ticker.Stop()
+		for range ticker.C {
+			now := time.Now()
+			loginAttemptCache.Lock()
+			for key, attempt := range loginAttemptCache.items {
+				if now.Sub(attempt.LastFailedAt) > loginRateLimitWindow {
+					delete(loginAttemptCache.items, key)
+				}
+			}
+			loginAttemptCache.Unlock()
+		}
+	}()
+}
+
+func init() {
+	startLoginRateLimitCleanup()
 }

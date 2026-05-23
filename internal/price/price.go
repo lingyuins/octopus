@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/lingyuins/octopus/internal/client"
@@ -33,7 +34,10 @@ var Provider = []string{
 	"v0",         // v0 系列
 }
 
-var lastUpdateTime time.Time
+var (
+	lastUpdateTime   time.Time
+	lastUpdateTimeMu sync.RWMutex
+)
 
 func UpdateLLMPrice(ctx context.Context) error {
 	log.Debugf("update LLM price task started")
@@ -82,11 +86,15 @@ func UpdateLLMPrice(ctx context.Context) error {
 		}
 	}
 	llmPriceLock.Unlock()
+	lastUpdateTimeMu.Lock()
 	lastUpdateTime = time.Now()
+	lastUpdateTimeMu.Unlock()
 	return nil
 }
 
 func GetLastUpdateTime() time.Time {
+	lastUpdateTimeMu.RLock()
+	defer lastUpdateTimeMu.RUnlock()
 	return lastUpdateTime
 }
 

@@ -32,7 +32,7 @@ func init() {
 func listAlertRules(c *gin.Context) {
 	rules, err := alert.RuleList(c.Request.Context())
 	if err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
+		resp.InternalError(c)
 		return
 	}
 	resp.Success(c, rules)
@@ -45,7 +45,7 @@ func createAlertRule(c *gin.Context) {
 		return
 	}
 	if err := alert.RuleCreate(c.Request.Context(), &rule); err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
+		resp.InternalError(c)
 		return
 	}
 	resp.Success(c, rule)
@@ -58,7 +58,7 @@ func updateAlertRule(c *gin.Context) {
 		return
 	}
 	if err := alert.RuleUpdate(c.Request.Context(), &rule); err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
+		resp.InternalError(c)
 		return
 	}
 	resp.Success(c, nil)
@@ -71,7 +71,7 @@ func deleteAlertRule(c *gin.Context) {
 		return
 	}
 	if err := alert.RuleDelete(c.Request.Context(), id); err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
+		resp.InternalError(c)
 		return
 	}
 	resp.Success(c, nil)
@@ -80,7 +80,7 @@ func deleteAlertRule(c *gin.Context) {
 func listNotifChannels(c *gin.Context) {
 	channels, err := alert.NotifChannelList(c.Request.Context())
 	if err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
+		resp.InternalError(c)
 		return
 	}
 	resp.Success(c, channels)
@@ -93,7 +93,7 @@ func createNotifChannel(c *gin.Context) {
 		return
 	}
 	if err := alert.NotifChannelCreate(c.Request.Context(), &ch); err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
+		resp.InternalError(c)
 		return
 	}
 	resp.Success(c, ch)
@@ -106,7 +106,7 @@ func updateNotifChannel(c *gin.Context) {
 		return
 	}
 	if err := alert.NotifChannelUpdate(c.Request.Context(), &ch); err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
+		resp.InternalError(c)
 		return
 	}
 	resp.Success(c, nil)
@@ -119,7 +119,7 @@ func deleteNotifChannel(c *gin.Context) {
 		return
 	}
 	if err := alert.NotifChannelDelete(c.Request.Context(), id); err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
+		resp.InternalError(c)
 		return
 	}
 	resp.Success(c, nil)
@@ -127,9 +127,12 @@ func deleteNotifChannel(c *gin.Context) {
 
 func listAlertHistory(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	if limit < 1 || limit > 500 {
+		limit = 100
+	}
 	history, err := alert.HistoryList(c.Request.Context(), limit)
 	if err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
+		resp.InternalError(c)
 		return
 	}
 	resp.Success(c, history)

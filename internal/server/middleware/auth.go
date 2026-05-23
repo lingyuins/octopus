@@ -44,7 +44,7 @@ func Auth() gin.HandlerFunc {
 		}
 		role = currentUser.Role
 		if role == "" {
-			role = model.UserRoleAdmin
+			role = model.UserRoleViewer
 		}
 		c.Set("user_id", int(currentUser.ID))
 		c.Set("username", currentUser.Username)

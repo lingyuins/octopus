@@ -428,7 +428,7 @@ export function GroupEditor({
                                 </Field>
                                 {endpointType === 'music_generation' ? (
                                     <Field>
-                                        <FieldLabel htmlFor="group-endpoint-provider">音乐接口类型</FieldLabel>
+                                        <FieldLabel htmlFor="group-endpoint-provider">{t('form.endpointProvider.musicLabel')}</FieldLabel>
                                         <select
                                             id="group-endpoint-provider"
                                             value={endpointProvider}
@@ -442,13 +442,13 @@ export function GroupEditor({
                                             ))}
                                         </select>
                                         <p className="mt-1 text-xs text-muted-foreground">
-                                            选择后端音乐接口类型，保存后由后端自动改写穿透 JSON。
+                                            {t('form.endpointProvider.musicHint')}
                                         </p>
                                     </Field>
                                 ) : null}
                                 {endpointType === 'chat' ? (
                                     <Field>
-                                        <FieldLabel htmlFor="group-endpoint-provider">对话接口类型</FieldLabel>
+                                        <FieldLabel htmlFor="group-endpoint-provider">{t('form.endpointProvider.chatLabel')}</FieldLabel>
                                         <select
                                             id="group-endpoint-provider"
                                             value={endpointProvider}
@@ -462,7 +462,7 @@ export function GroupEditor({
                                             ))}
                                         </select>
                                         <p className="mt-1 text-xs text-muted-foreground">
-                                            选择对话接口类型，保存后由后端自动改写对话透传 JSON。
+                                            {t('form.endpointProvider.chatHint')}
                                         </p>
                                     </Field>
                                 ) : null}

@@ -289,7 +289,7 @@ export function AppContainer() {
         return () => {
             cancelled = true;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        // dependencies intentionally exclude activeItem; bootstrap should only run when auth state changes
     }, [authLoading, isAPIKeyAuth, isAuthenticated]);
 
     useEffect(() => {

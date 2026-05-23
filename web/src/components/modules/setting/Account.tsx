@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { useChangeUsername, useChangePassword, useAuth } from '@/api/endpoints/user';
 import { toast } from '@/components/common/Toast';
 
+const LOGOUT_DELAY_MS = 1000;
+
 export function SettingAccount() {
     const t = useTranslations('setting');
     const { logout } = useAuth();
@@ -34,7 +36,7 @@ export function SettingAccount() {
             {
                 onSuccess: () => {
                     toast.success(t('account.username.success'));
-                    setTimeout(() => logout(), 1000);
+                    setTimeout(() => logout(), LOGOUT_DELAY_MS);
                 },
                 onError: () => {
                     toast.error(t('account.username.failed'));
@@ -66,7 +68,7 @@ export function SettingAccount() {
             {
                 onSuccess: () => {
                     toast.success(t('account.password.success'));
-                    setTimeout(() => logout(), 1000);
+                    setTimeout(() => logout(), LOGOUT_DELAY_MS);
                 },
                 onError: () => {
                     toast.error(t('account.password.failed'));

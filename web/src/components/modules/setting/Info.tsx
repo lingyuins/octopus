@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/common/Toast';
 import { isOctopusCacheName, isFontCacheName, SW_MESSAGE_TYPE } from '@/lib/sw';
 
+const CACHE_CLEAR_DELAY_MS = 1500;
+
 export function SettingInfo() {
     const t = useTranslations('setting');
     const latestInfoQuery = useLatestInfo();
@@ -61,7 +63,7 @@ export function SettingInfo() {
                 // 更新成功后清理缓存并刷新
                 setTimeout(() => {
                     void clearCacheAndReload();
-                }, 1500);
+                }, CACHE_CLEAR_DELAY_MS);
             },
             onError: () => {
                 toast.error(t('info.updateFailed'));

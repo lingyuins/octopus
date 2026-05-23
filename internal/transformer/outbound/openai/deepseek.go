@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/lingyuins/octopus/internal/transformer/model"
+	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
 func isDeepSeekCompatRequest(baseURL string, request *model.InternalLLMRequest) bool {
@@ -132,7 +133,9 @@ func extractDeepSeekThinkingType(raw json.RawMessage) (string, bool) {
 func mergeDeepSeekThinkingExtraBody(raw json.RawMessage, thinkingType string) json.RawMessage {
 	payload := map[string]any{}
 	if len(raw) > 0 {
-		_ = json.Unmarshal(raw, &payload)
+		if err := json.Unmarshal(raw, &payload); err != nil {
+			log.Warnf("failed to unmarshal deepseek extra body: %v", err)
+		}
 	}
 
 	payload["thinking"] = map[string]any{

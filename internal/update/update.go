@@ -115,7 +115,7 @@ func unzip(data []byte, dest string) error {
 
 		info := f.FileInfo()
 		if info.IsDir() {
-			os.MkdirAll(fpath, os.ModePerm)
+			os.MkdirAll(fpath, 0755)
 			continue
 		}
 		if info.Mode()&os.ModeSymlink != 0 {

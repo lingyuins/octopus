@@ -88,6 +88,10 @@ func runStart() error {
 
 	shutdown.Register(server.Close)
 	shutdown.Register(func() error {
+		task.Shutdown()
+		return nil
+	})
+	shutdown.Register(func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 

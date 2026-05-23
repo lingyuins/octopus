@@ -215,7 +215,7 @@ export function useLogs(options: { pageSize?: number } = {}) {
         const connect = async () => {
             if (!token) {
                 setIsConnected(false);
-                setError(new Error('未认证，无法建立日志流'));
+                setError(new Error('Not authenticated, cannot establish log stream'));
                 return;
             }
 
@@ -233,10 +233,10 @@ export function useLogs(options: { pageSize?: number } = {}) {
                     });
                     if (cancelled) return;
                     if (!response.ok) {
-                        throw new Error(`日志流连接失败: ${response.status}`);
+                        throw new Error(`Log stream connection failed: ${response.status}`);
                     }
                     if (!response.body) {
-                        throw new Error('日志流响应为空');
+                        throw new Error('Log stream response is empty');
                     }
 
                     retryAttempt = 0;
@@ -282,7 +282,7 @@ export function useLogs(options: { pageSize?: number } = {}) {
                     if (cancelled) return;
 
                     setIsConnected(false);
-                    setError(new Error('日志流连接已断开，正在重连...'));
+                    setError(new Error('Log stream disconnected, reconnecting...'));
                     logger.warn('日志流连接已断开，准备重连');
                 } catch (e) {
                     if (cancelled) return;
@@ -291,7 +291,7 @@ export function useLogs(options: { pageSize?: number } = {}) {
                     }
 
                     setIsConnected(false);
-                    setError(e instanceof Error ? e : new Error('日志流连接失败'));
+                    setError(e instanceof Error ? e : new Error('Log stream connection failed'));
                     logger.warn('日志流连接失败，准备重连:', e);
                 } finally {
                     abortRef.current = null;

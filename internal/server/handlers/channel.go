@@ -18,6 +18,7 @@ import (
 	"github.com/lingyuins/octopus/internal/server/resp"
 	"github.com/lingyuins/octopus/internal/server/router"
 	"github.com/lingyuins/octopus/internal/task"
+	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
 func init() {
@@ -126,6 +127,11 @@ func createChannel(c *gin.Context) {
 	stats := st.ChannelGet(channel.ID)
 	channel.Stats = &stats
 	go func(channel *model.Channel) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Warnf("post-create channel async task panic recovered: channel_id=%d panic=%v", channel.ID, r)
+			}
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 		modelStr := channel.Model + "," + channel.CustomModel
@@ -155,6 +161,11 @@ func updateChannel(c *gin.Context) {
 	stats := st.ChannelGet(channel.ID)
 	channel.Stats = &stats
 	go func(channel *model.Channel) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Warnf("post-update channel async task panic recovered: channel_id=%d panic=%v", channel.ID, r)
+			}
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 		modelStr := channel.Model + "," + channel.CustomModel

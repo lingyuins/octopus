@@ -20,9 +20,25 @@ type taskEntry struct {
 }
 
 var (
-	tasks   = make(map[string]*taskEntry)
-	tasksMu sync.RWMutex
+	tasks          = make(map[string]*taskEntry)
+	tasksMu        sync.RWMutex
+	taskShutdownCh = make(chan struct{})
 )
+
+// Shutdown signals all registered tasks to stop and waits for them to finish.
+func Shutdown() {
+	close(taskShutdownCh)
+	tasksMu.RLock()
+	defer tasksMu.RUnlock()
+	for _, entry := range tasks {
+		select {
+		case <-entry.stopCh:
+		default:
+			close(entry.stopCh)
+		}
+	}
+	log.Infof("all background tasks have been stopped")
+}
 
 // Register 注册一个定时任务
 // runOnStart: 是否在启动时立即执行一次
@@ -87,8 +103,8 @@ func RUN() {
 	}
 	tasksMu.RUnlock()
 
-	// 阻塞主协程
-	select {}
+	// 阻塞主协程直到收到关闭信号
+	<-taskShutdownCh
 }
 
 func runTask(entry *taskEntry) {

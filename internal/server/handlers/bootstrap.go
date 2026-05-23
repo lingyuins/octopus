@@ -8,18 +8,21 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
 	usr "github.com/lingyuins/octopus/internal/op/user"
+	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
 	"github.com/lingyuins/octopus/internal/server/router"
 )
 
 func init() {
 	router.NewGroupRouter("/api/v1/bootstrap").
+		Use(middleware.RequireJSON()).
 		AddRoute(
 			router.NewRoute("/status", http.MethodGet).
 				Handle(getBootstrapStatus),
 		).
 		AddRoute(
 			router.NewRoute("/create-admin", http.MethodPost).
+				Use(middleware.LoginRateLimit()).
 				Handle(createBootstrapAdmin),
 		)
 }

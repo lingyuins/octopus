@@ -641,9 +641,12 @@ func (ra *relayAttempt) handleForwardResponse(response *http.Response) (int, err
 		return response.StatusCode, nil
 	}
 
-	body, err := io.ReadAll(response.Body)
+	body, err := io.ReadAll(io.LimitReader(response.Body, maxErrorBodyBytes+1))
 	if err != nil {
 		return response.StatusCode, fmt.Errorf("failed to read response body: %w", err)
+	}
+	if len(body) > maxErrorBodyBytes {
+		return response.StatusCode, fmt.Errorf("upstream error: %d: response body too large", response.StatusCode)
 	}
 	return response.StatusCode, fmt.Errorf("upstream error: %d: %s", response.StatusCode, string(body))
 }

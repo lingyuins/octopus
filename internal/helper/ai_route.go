@@ -132,6 +132,12 @@ func StartGenerateAIRoute(req model.GenerateAIRouteRequest) (*model.GenerateAIRo
 	}()
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Errorf("ai route generation panic recovered: task_id=%s panic=%v", progress.ID, r)
+				close(stopHeartbeat)
+			}
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), aiRouteTaskTimeout)
 		defer cancel()
 

@@ -28,6 +28,7 @@ const (
 	defaultMaxRouteRetries      = 2
 	defaultRatelimitCooldown    = 300
 	defaultMaxTotalAttempts     = 0
+	maxErrorBodyBytes           = 64 << 10 // 64 KiB — upstream error responses should be concise
 )
 
 func init() {

@@ -1,8 +1,10 @@
 'use client';
 
+import { Suspense } from 'react';
 import { CONTENT_MAP } from './config';
 import type { RouteId } from './config';
 import { useTranslations } from 'next-intl';
+import { LoadingState } from '@/components/common/LoadingState';
 
 export function ContentLoader({ activeRoute }: { activeRoute: RouteId }) {
     const t = useTranslations('common');
@@ -16,5 +18,9 @@ export function ContentLoader({ activeRoute }: { activeRoute: RouteId }) {
         );
     }
 
-    return <Component />;
+    return (
+        <Suspense fallback={<LoadingState />}>
+            <Component />
+        </Suspense>
+    );
 }
