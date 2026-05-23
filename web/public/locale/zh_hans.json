@@ -566,10 +566,22 @@
       "confirmDelete": "确认删除该规则吗？此操作不可撤销。",
       "cooldown": "冷却 {seconds} 秒",
       "form": {
-        "namePlaceholder": "规则名称",
-        "thresholdPlaceholder": "阈值",
+        "name": "规则名称",
+        "namePlaceholder": "输入规则名称",
+        "condition": "触发条件",
+        "threshold": "阈值",
+        "thresholdPlaceholder": "触发阈值",
+        "cooldown": "冷却时间（秒）",
         "cooldownPlaceholder": "冷却秒数",
-        "noChannel": "不绑定渠道"
+        "channel": "通知渠道",
+        "noChannel": "不绑定渠道",
+        "cooldownHint": "触发告警后进入冷却期，期间不会重复告警",
+        "thresholdHint": {
+          "cost_threshold": "当日累计费用超过该金额时触发告警（元）",
+          "error_rate": "滑动窗口内错误率超过该百分比时触发告警",
+          "quota_exceeded": "配额使用率超过该百分比时触发告警",
+          "channel_down": "渠道连续不可用次数超过该值时触发告警"
+        }
       }
     },
     "channels": {

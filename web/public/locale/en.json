@@ -566,10 +566,22 @@
       "confirmDelete": "Delete this rule? This cannot be undone.",
       "cooldown": "cooldown {seconds}s",
       "form": {
+        "name": "Rule Name",
         "namePlaceholder": "Rule name",
+        "condition": "Condition",
+        "threshold": "Threshold",
         "thresholdPlaceholder": "Threshold",
+        "cooldown": "Cooldown (sec)",
         "cooldownPlaceholder": "Cooldown seconds",
-        "noChannel": "No Channel"
+        "channel": "Notification Channel",
+        "noChannel": "No Channel",
+        "cooldownHint": "Cooldown period after alert fires; no duplicate alerts during this time",
+        "thresholdHint": {
+          "cost_threshold": "Alert when daily accumulated cost exceeds this amount (USD)",
+          "error_rate": "Alert when error rate in sliding window exceeds this percentage",
+          "quota_exceeded": "Alert when quota usage exceeds this percentage",
+          "channel_down": "Alert when consecutive channel failures exceed this count"
+        }
       }
     },
     "channels": {

@@ -372,47 +372,65 @@ export function Alert() {
                     {showNewRule && (
                         <div className="p-4 rounded-xl bg-muted/30 border border-border space-y-3">
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                <Input
-                                    placeholder={t('rules.form.namePlaceholder')}
-                                    value={newRule.name}
-                                    onChange={(e) => setNewRule({ ...newRule, name: e.target.value })}
-                                    className="rounded-xl"
-                                />
-                                <select
-                                    value={newRule.condition_type}
-                                    onChange={(e) => setNewRule({ ...newRule, condition_type: e.target.value as ConditionType })}
-                                    className="h-9 px-3 rounded-xl bg-background border border-border text-sm"
-                                >
-                                    {CONDITION_TYPES.map((ct) => (
-                                        <option key={ct} value={ct}>{getConditionLabel(ct)}</option>
-                                    ))}
-                                </select>
-                                <Input
-                                    type="number"
-                                    placeholder={t('rules.form.thresholdPlaceholder')}
-                                    value={newRule.threshold}
-                                    onChange={(e) => setNewRule({ ...newRule, threshold: Number(e.target.value) })}
-                                    className="rounded-xl"
-                                />
+                                <label className="grid gap-1">
+                                    <span className="text-xs font-medium text-muted-foreground">{t('rules.form.name')}</span>
+                                    <Input
+                                        placeholder={t('rules.form.namePlaceholder')}
+                                        value={newRule.name}
+                                        onChange={(e) => setNewRule({ ...newRule, name: e.target.value })}
+                                        className="rounded-xl"
+                                    />
+                                </label>
+                                <label className="grid gap-1">
+                                    <span className="text-xs font-medium text-muted-foreground">{t('rules.form.condition')}</span>
+                                    <select
+                                        value={newRule.condition_type}
+                                        onChange={(e) => setNewRule({ ...newRule, condition_type: e.target.value as ConditionType })}
+                                        className="h-10 rounded-xl bg-background border border-border text-sm px-3"
+                                    >
+                                        {CONDITION_TYPES.map((ct) => (
+                                            <option key={ct} value={ct}>{getConditionLabel(ct)}</option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <label className="grid gap-1">
+                                    <span className="text-xs font-medium text-muted-foreground">{t('rules.form.threshold')}</span>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        placeholder={t('rules.form.thresholdPlaceholder')}
+                                        value={newRule.threshold}
+                                        onChange={(e) => setNewRule({ ...newRule, threshold: Number(e.target.value) })}
+                                        className="rounded-xl"
+                                    />
+                                    <span className="text-[11px] text-muted-foreground/70">{t(`rules.form.thresholdHint.${newRule.condition_type}`)}</span>
+                                </label>
+                                <label className="grid gap-1">
+                                    <span className="text-xs font-medium text-muted-foreground">{t('rules.form.cooldown')}</span>
+                                    <Input
+                                        type="number"
+                                        min="0"
+                                        placeholder={t('rules.form.cooldownPlaceholder')}
+                                        value={newRule.cooldown_sec}
+                                        onChange={(e) => setNewRule({ ...newRule, cooldown_sec: Number(e.target.value) })}
+                                        className="rounded-xl"
+                                    />
+                                    <span className="text-[11px] text-muted-foreground/70">{t('rules.form.cooldownHint')}</span>
+                                </label>
+                            </div>
+                            <label className="grid gap-1">
+                                <span className="text-xs font-medium text-muted-foreground">{t('rules.form.channel')}</span>
                                 <select
                                     value={newRule.notif_channel_id}
                                     onChange={(e) => setNewRule({ ...newRule, notif_channel_id: Number(e.target.value) })}
-                                    className="h-9 px-3 rounded-xl bg-background border border-border text-sm"
+                                    className="h-10 rounded-xl bg-background border border-border text-sm px-3"
                                 >
                                     <option value={0}>{t('rules.form.noChannel')}</option>
                                     {(channels || []).map((ch) => (
                                         <option key={ch.id} value={ch.id}>{ch.name} ({getChannelTypeLabel(ch.type)})</option>
                                     ))}
                                 </select>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    placeholder={t('rules.form.cooldownPlaceholder')}
-                                    value={newRule.cooldown_sec}
-                                    onChange={(e) => setNewRule({ ...newRule, cooldown_sec: Number(e.target.value) })}
-                                    className="rounded-xl"
-                                />
-                            </div>
+                            </label>
                             <div className="flex gap-2">
                                 <button
                                     onClick={handleCreateRule}
@@ -453,47 +471,64 @@ export function Alert() {
                                             {isEditing ? (
                                                 <div className="flex-1 space-y-3">
                                                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                                        <Input
-                                                            value={editingRule.name}
-                                                            onChange={(e) => setEditingRule({ ...editingRule, name: e.target.value })}
-                                                            placeholder={t('rules.form.namePlaceholder')}
-                                                            className="rounded-xl"
-                                                        />
-                                                        <select
-                                                            value={editingRule.condition_type}
-                                                            onChange={(e) => setEditingRule({ ...editingRule, condition_type: e.target.value as ConditionType })}
-                                                            className="h-9 px-3 rounded-xl bg-background border border-border text-sm"
-                                                        >
-                                                            {CONDITION_TYPES.map((ct) => (
-                                                                <option key={ct} value={ct}>{getConditionLabel(ct)}</option>
-                                                            ))}
-                                                        </select>
-                                                        <Input
-                                                            type="number"
-                                                            value={editingRule.threshold}
-                                                            onChange={(e) => setEditingRule({ ...editingRule, threshold: Number(e.target.value) })}
-                                                            placeholder={t('rules.form.thresholdPlaceholder')}
-                                                            className="rounded-xl"
-                                                        />
+                                                        <label className="grid gap-1">
+                                                            <span className="text-xs font-medium text-muted-foreground">{t('rules.form.name')}</span>
+                                                            <Input
+                                                                value={editingRule.name}
+                                                                onChange={(e) => setEditingRule({ ...editingRule, name: e.target.value })}
+                                                                placeholder={t('rules.form.namePlaceholder')}
+                                                                className="rounded-xl"
+                                                            />
+                                                        </label>
+                                                        <label className="grid gap-1">
+                                                            <span className="text-xs font-medium text-muted-foreground">{t('rules.form.condition')}</span>
+                                                            <select
+                                                                value={editingRule.condition_type}
+                                                                onChange={(e) => setEditingRule({ ...editingRule, condition_type: e.target.value as ConditionType })}
+                                                                className="h-10 rounded-xl bg-background border border-border text-sm px-3"
+                                                            >
+                                                                {CONDITION_TYPES.map((ct) => (
+                                                                    <option key={ct} value={ct}>{getConditionLabel(ct)}</option>
+                                                                ))}
+                                                            </select>
+                                                        </label>
+                                                        <label className="grid gap-1">
+                                                            <span className="text-xs font-medium text-muted-foreground">{t('rules.form.threshold')}</span>
+                                                            <Input
+                                                                type="number"
+                                                                value={editingRule.threshold}
+                                                                onChange={(e) => setEditingRule({ ...editingRule, threshold: Number(e.target.value) })}
+                                                                placeholder={t('rules.form.thresholdPlaceholder')}
+                                                                className="rounded-xl"
+                                                            />
+                                                            <span className="text-[11px] text-muted-foreground/70">{t(`rules.form.thresholdHint.${editingRule.condition_type}`)}</span>
+                                                        </label>
+                                                        <label className="grid gap-1">
+                                                            <span className="text-xs font-medium text-muted-foreground">{t('rules.form.cooldown')}</span>
+                                                            <Input
+                                                                type="number"
+                                                                min="0"
+                                                                value={editingRule.cooldown_sec}
+                                                                onChange={(e) => setEditingRule({ ...editingRule, cooldown_sec: Number(e.target.value) })}
+                                                                placeholder={t('rules.form.cooldownPlaceholder')}
+                                                                className="rounded-xl"
+                                                            />
+                                                            <span className="text-[11px] text-muted-foreground/70">{t('rules.form.cooldownHint')}</span>
+                                                        </label>
+                                                    </div>
+                                                    <label className="grid gap-1">
+                                                        <span className="text-xs font-medium text-muted-foreground">{t('rules.form.channel')}</span>
                                                         <select
                                                             value={editingRule.notif_channel_id}
                                                             onChange={(e) => setEditingRule({ ...editingRule, notif_channel_id: Number(e.target.value) })}
-                                                            className="h-9 px-3 rounded-xl bg-background border border-border text-sm"
+                                                            className="h-10 rounded-xl bg-background border border-border text-sm px-3"
                                                         >
                                                             <option value={0}>{t('rules.form.noChannel')}</option>
                                                             {(channels || []).map((ch) => (
                                                                 <option key={ch.id} value={ch.id}>{ch.name} ({getChannelTypeLabel(ch.type)})</option>
                                                             ))}
                                                         </select>
-                                                        <Input
-                                                            type="number"
-                                                            min="0"
-                                                            value={editingRule.cooldown_sec}
-                                                            onChange={(e) => setEditingRule({ ...editingRule, cooldown_sec: Number(e.target.value) })}
-                                                            placeholder={t('rules.form.cooldownPlaceholder')}
-                                                            className="rounded-xl"
-                                                        />
-                                                    </div>
+                                                    </label>
                                                     <div className="flex items-center gap-2">
                                                         <button
                                                             onClick={() => handleSaveRule(rule)}

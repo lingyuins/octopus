@@ -566,10 +566,22 @@
       "confirmDelete": "確認刪除此規則嗎？此操作無法復原。",
       "cooldown": "冷卻 {seconds} 秒",
       "form": {
-        "namePlaceholder": "規則名稱",
-        "thresholdPlaceholder": "閾值",
+        "name": "規則名稱",
+        "namePlaceholder": "輸入規則名稱",
+        "condition": "觸發條件",
+        "threshold": "閾值",
+        "thresholdPlaceholder": "觸發閾值",
+        "cooldown": "冷卻時間（秒）",
         "cooldownPlaceholder": "冷卻秒數",
-        "noChannel": "不綁定渠道"
+        "channel": "通知渠道",
+        "noChannel": "不綁定渠道",
+        "cooldownHint": "觸發告警後進入冷卻期，期間不會重複告警",
+        "thresholdHint": {
+          "cost_threshold": "當日累計費用超過該金額時觸發告警（元）",
+          "error_rate": "滑動視窗內錯誤率超過該百分比時觸發告警",
+          "quota_exceeded": "配額使用率超過該百分比時觸發告警",
+          "channel_down": "渠道連續不可用次數超過該值時觸發告警"
+        }
       }
     },
     "channels": {
