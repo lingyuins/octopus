@@ -273,7 +273,8 @@ func Handler(endpointType string, inboundType inbound.InboundType, c *gin.Contex
 	internalRequest = rewriteConversationRequestByProvider(group, internalRequest)
 
 	// 初始化 Metrics
-	metrics := NewRelayMetrics(apiKeyID, requestModel, endpointType, group.EndpointType, internalRequest)
+	clientIP := c.ClientIP()
+	metrics := NewRelayMetrics(apiKeyID, requestModel, endpointType, group.EndpointType, clientIP, internalRequest)
 
 	// 请求级上下文
 	req := &relayRequest{

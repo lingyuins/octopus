@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -99,6 +100,11 @@ func APIKeyAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		if !isIPAllowed(c.ClientIP(), apiKeyObj.AllowedIPs) {
+			resp.Error(c, http.StatusForbidden, "IP address not allowed for this API key")
+			c.Abort()
+			return
+		}
 		c.Set("request_type", requestType)
 		c.Set("supported_models", apiKeyObj.SupportedModels)
 		c.Set("api_key_id", apiKeyObj.ID)
@@ -107,4 +113,42 @@ func APIKeyAuth() gin.HandlerFunc {
 		c.Set("per_model_quota_json", apiKeyObj.PerModelQuotaJSON)
 		c.Next()
 	}
+}
+
+// isIPAllowed checks whether clientIP matches any entry in the allowedIPs list.
+// allowedIPs is a comma-separated list of IPs or CIDR ranges (e.g. "10.0.0.1,192.168.0.0/16").
+// An empty allowedIPs string means all IPs are allowed.
+func isIPAllowed(clientIP string, allowedIPs string) bool {
+	if allowedIPs == "" {
+		return true
+	}
+	client := strings.TrimSpace(clientIP)
+	if client == "" {
+		return false
+	}
+	parsedClient := net.ParseIP(client)
+	if parsedClient == nil {
+		return false
+	}
+	for _, entry := range strings.Split(allowedIPs, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if strings.Contains(entry, "/") {
+			_, cidr, err := net.ParseCIDR(entry)
+			if err != nil {
+				continue
+			}
+			if cidr.Contains(parsedClient) {
+				return true
+			}
+		} else {
+			allowed := net.ParseIP(entry)
+			if allowed != nil && allowed.Equal(parsedClient) {
+				return true
+			}
+		}
+	}
+	return false
 }

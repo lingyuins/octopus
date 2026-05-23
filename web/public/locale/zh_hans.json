@@ -1048,6 +1048,8 @@
           "label": "按模型配额（JSON）",
           "placeholder": "{\"gpt-4o\":{\"rpm\":5,\"tpm\":50000}}"
         },
+        "allowedIPs": "IP 白名单",
+        "allowedIPsPlaceholder": "逗号分隔的 IP 或 CIDR，如 10.0.0.1,192.168.0.0/16",
         "unlimited": "无限制",
         "expireAt": "过期日期",
         "expireTimePlaceholder": "HH:mm",

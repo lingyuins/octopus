@@ -1048,6 +1048,8 @@
           "label": "Per-Model Quota (JSON)",
           "placeholder": "{\"gpt-4o\":{\"rpm\":5,\"tpm\":50000}}"
         },
+        "allowedIPs": "Allowed IPs",
+        "allowedIPsPlaceholder": "Comma-separated IPs or CIDR, e.g. 10.0.0.1,192.168.0.0/16",
         "unlimited": "Unlimited",
         "expireAt": "Expire Date",
         "expireTimePlaceholder": "HH:mm",

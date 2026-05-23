@@ -21,6 +21,7 @@ type RelayMetrics struct {
 	APIKeyID     int
 	RequestModel string
 	EndpointType string
+	ClientIP     string
 	StartTime    time.Time
 
 	// 首 Token 时间
@@ -35,11 +36,12 @@ type RelayMetrics struct {
 	Stats       model.StatsMetrics
 }
 
-func NewRelayMetrics(apiKeyID int, requestModel string, requestedEndpointType string, matchedGroupEndpointType string, req *transformerModel.InternalLLMRequest) *RelayMetrics {
+func NewRelayMetrics(apiKeyID int, requestModel string, requestedEndpointType string, matchedGroupEndpointType string, clientIP string, req *transformerModel.InternalLLMRequest) *RelayMetrics {
 	return &RelayMetrics{
 		APIKeyID:        apiKeyID,
 		RequestModel:    requestModel,
 		EndpointType:    resolveRelayLogEndpointType(requestedEndpointType, matchedGroupEndpointType),
+		ClientIP:        clientIP,
 		StartTime:       time.Now(),
 		InternalRequest: req,
 	}
@@ -164,6 +166,7 @@ func (m *RelayMetrics) saveLog(ctx context.Context, err error, duration time.Dur
 		Time:             m.StartTime.Unix(),
 		RequestModelName: m.RequestModel,
 		RequestAPIKeyID:  m.APIKeyID,
+		ClientIP:         m.ClientIP,
 		EndpointType:     m.EndpointType,
 		ChannelName:      channelName,
 		ChannelId:        channelID,

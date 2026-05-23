@@ -101,6 +101,7 @@ function APIKeyForm({ apiKey, isPending, submitLabel, onSubmit, onClose }: APIKe
         rate_limit_rpm: apiKey?.rate_limit_rpm ?? 0,
         rate_limit_tpm: apiKey?.rate_limit_tpm ?? 0,
         per_model_quota_json: apiKey?.per_model_quota_json ?? '',
+        allowed_ips: apiKey?.allowed_ips ?? '',
     }));
     const [maxCostInput, setMaxCostInput] = useState(() =>
         apiKey?.max_cost != null ? String(apiKey.max_cost) : ''
@@ -261,6 +262,18 @@ function APIKeyForm({ apiKey, isPending, submitLabel, onSubmit, onClose }: APIKe
                     placeholder={PER_MODEL_QUOTA_PLACEHOLDER}
                     value={form.per_model_quota_json ?? ''}
                     onChange={(e) => updateForm({ per_model_quota_json: e.target.value })}
+                    className="h-9 text-sm rounded-xl font-mono"
+                    disabled={isPending}
+                />
+            </div>
+
+            <div className="grid gap-1 text-xs text-muted-foreground">
+                {t('apiKey.form.allowedIPs')}
+                <Input
+                    type="text"
+                    placeholder={t('apiKey.form.allowedIPsPlaceholder')}
+                    value={form.allowed_ips ?? ''}
+                    onChange={(e) => updateForm({ allowed_ips: e.target.value })}
                     className="h-9 text-sm rounded-xl font-mono"
                     disabled={isPending}
                 />

@@ -1044,10 +1044,12 @@
           "label": "速率限制（TPM）",
           "placeholder": "每分鐘 Token 數，0 表示無限制"
         },
-        "perModelQuota": {
-          "label": "按模型配額（JSON）",
+"perModelQuota": {
+          "label": "按模型限額（JSON）",
           "placeholder": "{\"gpt-4o\":{\"rpm\":5,\"tpm\":50000}}"
         },
+        "allowedIPs": "IP 白名單",
+        "allowedIPsPlaceholder": "逗號分隔的 IP 或 CIDR，如 10.0.0.1,192.168.0.0/16",
         "unlimited": "無限制",
         "expireAt": "過期日期",
         "expireTimePlaceholder": "HH:mm",

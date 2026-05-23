@@ -29,6 +29,7 @@ type RelayLog struct {
 	RequestModelName  string           `json:"request_model_name" gorm:"column:request_model_name"`     // 请求模型名称
 	RequestAPIKeyID   int              `json:"request_api_key_id" gorm:"column:request_api_key_id"`     // 请求使用的 API Key ID
 	RequestAPIKeyName string           `json:"request_api_key_name" gorm:"column:request_api_key_name"` // 请求使用的 API Key 名称
+	ClientIP          string           `json:"client_ip" gorm:"column:client_ip"`                       // 客户端 IP
 	EndpointType      string           `json:"endpoint_type" gorm:"column:endpoint_type"`               // 命中的端点分类
 	ChannelId         int              `json:"channel" gorm:"column:channel_id"`                        // 实际使用的渠道ID
 	ChannelName       string           `json:"channel_name" gorm:"column:channel_name"`                 // 渠道名称
@@ -54,6 +55,7 @@ type RelayLogListItem struct {
 	RequestModelName  string           `json:"request_model_name" gorm:"column:request_model_name"`
 	RequestAPIKeyID   int              `json:"request_api_key_id" gorm:"column:request_api_key_id"`
 	RequestAPIKeyName string           `json:"request_api_key_name" gorm:"column:request_api_key_name"`
+	ClientIP          string           `json:"client_ip" gorm:"column:client_ip"`
 	EndpointType      string           `json:"endpoint_type" gorm:"column:endpoint_type"`
 	ChannelId         int              `json:"channel" gorm:"column:channel_id"`
 	ChannelName       string           `json:"channel_name" gorm:"column:channel_name"`
@@ -85,6 +87,7 @@ func (r *RelayLog) ToListItem() RelayLogListItem {
 		RequestModelName:  r.RequestModelName,
 		RequestAPIKeyID:   r.RequestAPIKeyID,
 		RequestAPIKeyName: r.RequestAPIKeyName,
+		ClientIP:          r.ClientIP,
 		EndpointType:      r.EndpointType,
 		ChannelId:         r.ChannelId,
 		ChannelName:       r.ChannelName,

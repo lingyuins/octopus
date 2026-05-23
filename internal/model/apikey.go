@@ -11,4 +11,5 @@ type APIKey struct {
 	RateLimitRPM      int     `json:"rate_limit_rpm,omitempty" gorm:"default:0"`
 	RateLimitTPM      int     `json:"rate_limit_tpm,omitempty" gorm:"default:0"`
 	PerModelQuotaJSON string  `json:"per_model_quota_json,omitempty" gorm:"column:per_model_quota_json"`
+	AllowedIPs        string  `json:"allowed_ips,omitempty" gorm:"column:allowed_ips"` // 逗号分隔的允许 IP/CIDR 列表
 }

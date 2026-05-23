@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { Clock, Cpu, Zap, AlertCircle, ArrowDownToLine, ArrowUpFromLine, DollarSign, ArrowRight, ArrowDown, Send, MessageSquare, Loader2, RotateCw, ChevronDown, ChevronUp, Pin, KeyRound } from 'lucide-react';
+import { Clock, Cpu, Zap, AlertCircle, ArrowDownToLine, ArrowUpFromLine, DollarSign, ArrowRight, ArrowDown, Send, MessageSquare, Loader2, RotateCw, ChevronDown, ChevronUp, Pin, KeyRound, Globe } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'motion/react';
 import JsonView from '@uiw/react-json-view';
@@ -202,6 +202,7 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
         [displayFields.actualModelName]
     );
     const requestAPIKeyName = displayFields.requestAPIKeyName;
+	const clientIP = log.client_ip || '';
     const cacheReadTokens = displayFields.cacheReadTokens;
     const semanticCacheHit = displayFields.semanticCacheHit;
     const effectiveInputTokens = Math.max(0, log.input_tokens - cacheReadTokens);
@@ -281,6 +282,12 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
                                         <span className="truncate" title={requestAPIKeyName}>
                                             {requestAPIKeyName}
                                         </span>
+                                    </div>
+                                )}
+                                {clientIP && (
+                                    <div className="flex items-center gap-1.5">
+                                        <Globe className="size-3.5 shrink-0 text-sky-500" />
+                                        <span className="truncate" title={clientIP}>{clientIP}</span>
                                     </div>
                                 )}
                                 <div className="flex items-center gap-1.5">

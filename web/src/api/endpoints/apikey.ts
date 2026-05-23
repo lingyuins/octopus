@@ -19,6 +19,7 @@ export interface APIKey {
     rate_limit_rpm?: number; // 每分钟请求数限制，0 表示无限制
     rate_limit_tpm?: number; // 每分钟 token 数限制，0 表示无限制
     per_model_quota_json?: string; // 按模型的配额 JSON: {"gpt-4o":{"rpm":5,"tpm":50000}}
+    allowed_ips?: string; // 逗号分隔的允许 IP/CIDR 列表
 }
 
 /**
