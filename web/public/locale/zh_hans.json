@@ -998,6 +998,7 @@
       "export": {
         "title": "导出",
         "includeLogs": "包含日志",
+        "includeLogsHint": "最多导出最近 50 万条日志",
         "includeStats": "包含统计",
         "button": "下载 JSON",
         "exporting": "导出中...",

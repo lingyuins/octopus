@@ -145,7 +145,12 @@ func exportDB(c *gin.Context) {
 
 	c.Header("Content-Type", "application/json")
 	c.Header("Content-Disposition", "attachment; filename=\"octopus-export-"+time.Now().Format("20060102150405")+".json\"")
-	c.JSON(http.StatusOK, dump)
+	c.Status(http.StatusOK)
+
+	// Stream JSON to avoid buffering the entire dump in memory
+	encoder := json.NewEncoder(c.Writer)
+	encoder.SetEscapeHTML(false)
+	_ = encoder.Encode(dump)
 }
 
 func importDB(c *gin.Context) {

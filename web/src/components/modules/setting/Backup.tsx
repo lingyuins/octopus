@@ -80,7 +80,10 @@ export function SettingBackup() {
                 <div className="text-sm font-semibold text-card-foreground">{t('backup.export.title')}</div>
 
                 <div className="flex items-center justify-between gap-4">
-                    <div className="text-sm text-muted-foreground">{t('backup.export.includeLogs')}</div>
+                    <div>
+                        <div className="text-sm text-muted-foreground">{t('backup.export.includeLogs')}</div>
+                        {includeLogs && <div className="text-[11px] text-muted-foreground/70">{t('backup.export.includeLogsHint')}</div>}
+                    </div>
                     <Switch checked={includeLogs} onCheckedChange={setIncludeLogs} />
                 </div>
 

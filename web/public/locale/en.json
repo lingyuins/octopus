@@ -998,6 +998,7 @@
       "export": {
         "title": "Export",
         "includeLogs": "Include Logs",
+        "includeLogsHint": "Up to 500k most recent log entries",
         "includeStats": "Include Stats",
         "button": "Download JSON",
         "exporting": "Exporting...",

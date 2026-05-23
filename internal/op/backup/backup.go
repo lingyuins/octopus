@@ -12,6 +12,8 @@ import (
 )
 
 const dbDumpVersion = 1
+const maxRelayLogsExport = 500_000
+const maxAuditLogsExport = 500_000
 
 func ExportAll(ctx context.Context, includeLogs, includeStats bool) (*model.DBDump, error) {
 	conn := db.GetDB().WithContext(ctx)
@@ -67,7 +69,7 @@ func ExportAll(ctx context.Context, includeLogs, includeStats bool) (*model.DBDu
 	}
 
 	// Audit & runtime
-	if err := conn.Find(&d.AuditLogs).Error; err != nil {
+	if err := conn.Order("id DESC").Limit(maxAuditLogsExport).Find(&d.AuditLogs).Error; err != nil {
 		return nil, fmt.Errorf("export audit_logs: %w", err)
 	}
 	if err := conn.Find(&d.RuntimeStates).Error; err != nil {
@@ -96,7 +98,7 @@ func ExportAll(ctx context.Context, includeLogs, includeStats bool) (*model.DBDu
 	}
 
 	if includeLogs {
-		if err := conn.Find(&d.RelayLogs).Error; err != nil {
+		if err := conn.Order("id DESC").Limit(maxRelayLogsExport).Find(&d.RelayLogs).Error; err != nil {
 			return nil, fmt.Errorf("export relay_logs: %w", err)
 		}
 	}
