@@ -289,12 +289,20 @@ func buildOpsProviderPromptCacheSummaryFromLogs(
 	var totalInputTokens int64
 
 	for _, relayLog := range logs {
+		isSemanticHit := relayLog.SemanticCacheHit
 		usage, ok := parseOpsProviderPromptCacheUsage(relayLog.ResponseContent)
-		if !ok {
+		if !ok && !isSemanticHit {
 			continue
 		}
-		if signals, ok := cacheusage.ParseProviderPromptCacheUsageSignals(relayLog.ResponseContent); ok && signals.SemanticCacheHit {
-			continue
+		if isSemanticHit {
+			// Semantic cache hit: count as cached, use input tokens as cache read
+			if relayLog.InputTokens <= 0 {
+				continue
+			}
+			usage = opsProviderPromptCacheUsage{
+				PromptTokens: int64(relayLog.InputTokens),
+				CachedTokens: int64(relayLog.InputTokens),
+			}
 		}
 
 		aggregate := providers[relayLog.ChannelId]
