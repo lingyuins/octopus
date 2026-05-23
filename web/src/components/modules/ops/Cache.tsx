@@ -191,13 +191,11 @@ function ProviderPromptCacheView({
                 <MetricCard
                     title={t('cache.providerPrompt.metrics.cacheReadTokens')}
                     value={formatCount(data.cache_read_tokens)}
-                    unit="T"
                     icon={HardDrive}
                 />
                 <MetricCard
                     title={t('cache.providerPrompt.metrics.cacheWriteTokens')}
                     value={formatCount(data.cache_write_tokens)}
-                    unit="T"
                     icon={Database}
                 />
                 <MetricCard
