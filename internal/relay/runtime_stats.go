@@ -4,6 +4,8 @@ import (
 	"runtime"
 	"sync/atomic"
 	"time"
+
+	"github.com/lingyuins/octopus/internal/utils/telemetry"
 )
 
 var processStartedAt = time.Now()
@@ -70,10 +72,12 @@ func InflightCount() int64 {
 }
 
 func InflightInc() int64 {
+	telemetry.Global().ActiveConnectionsInc()
 	return atomic.AddInt64(&inflightRequests, 1)
 }
 
 func InflightDec() int64 {
+	telemetry.Global().ActiveConnectionsDec()
 	return atomic.AddInt64(&inflightRequests, -1)
 }
 

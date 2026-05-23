@@ -13,6 +13,7 @@ import (
 	"github.com/lingyuins/octopus/internal/task"
 	"github.com/lingyuins/octopus/internal/utils/log"
 	"github.com/lingyuins/octopus/internal/utils/shutdown"
+	"github.com/lingyuins/octopus/internal/utils/telemetry"
 	"github.com/spf13/cobra"
 )
 
@@ -55,6 +56,12 @@ func runStart() error {
 		return fmt.Errorf("cache init error: %w", err)
 	}
 	shutdown.Register(op.SaveCache)
+
+	telemetry.Global().StartBackground()
+	shutdown.Register(func() error {
+		telemetry.Global().StopBackground()
+		return nil
+	})
 
 	restoreCtx, restoreCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	if err := balancer.LoadRuntimeState(restoreCtx); err != nil {

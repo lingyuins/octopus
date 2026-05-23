@@ -14,6 +14,7 @@ import (
 	"github.com/lingyuins/octopus/internal/price"
 	transformerModel "github.com/lingyuins/octopus/internal/transformer/model"
 	"github.com/lingyuins/octopus/internal/utils/log"
+	"github.com/lingyuins/octopus/internal/utils/telemetry"
 )
 
 // RelayMetrics 负责最终的日志收集与持久化
@@ -118,6 +119,7 @@ func (m *RelayMetrics) Save(success bool, err error, attempts []model.ChannelAtt
 		totalAttempts, forwardedAttempts)
 
 	m.saveLog(ctx, err, duration, attempts, channelID, channelName)
+	telemetry.Global().RecordRequest(duration.Milliseconds(), success)
 }
 
 func finalChannel(attempts []model.ChannelAttempt) (int, string) {

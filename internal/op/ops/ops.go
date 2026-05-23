@@ -23,6 +23,7 @@ import (
 	"github.com/lingyuins/octopus/internal/op/setting"
 	"github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/utils/semantic_cache"
+	"github.com/lingyuins/octopus/internal/utils/telemetry"
 )
 
 const (
@@ -840,39 +841,35 @@ func opsQuotaStatusRank(status string) int {
 
 func TelemetrySummaryGet(ctx context.Context) (*model.OpsTelemetrySummary, error) {
 	summary := &model.OpsTelemetrySummary{}
+	snap := telemetry.Global().Snapshot()
 
 	// ── Hero ──
-	totalStats := stats.TotalGet()
-	totalRequests := totalStats.RequestSuccess + totalStats.RequestFailed
-	var avgLatencyMs float64
-	if totalRequests > 0 {
-		avgLatencyMs = float64(totalStats.WaitTime) / float64(totalRequests)
-	}
-	var errorRate float64
-	if totalRequests > 0 {
-		errorRate = float64(totalStats.RequestFailed) / float64(totalRequests) * 100
-	}
-
 	summary.Hero = model.OpsTelemetryHeroMetrics{
 		UptimeSeconds:     int64(time.Since(processStartTime).Seconds()),
-		TotalRequests:     totalRequests,
-		AvgLatencyMs:      avgLatencyMs,
-		ErrorRate:         errorRate,
-		ActiveConnections: 0, // inaccessible from relay due to import cycle
-		MemoryUsageMB:     processMemoryMB(),
+		TotalRequests:     snap.TotalRequests,
+		AvgLatencyMs:      snap.AvgLatencyMs,
+		ErrorRate:         snap.ErrorRate,
+		ActiveConnections: snap.ActiveConnections,
+		MemoryUsageMB:     snap.MemoryMB,
 	}
 
 	// ── RuntimeSignals ──
-	memMB := processMemoryMB()
+	trends := make([]model.OpsTelemetryTrendPoint, 0, len(snap.TrendSnapshots))
+	for _, tp := range snap.TrendSnapshots {
+		trends = append(trends, model.OpsTelemetryTrendPoint{
+			Timestamp:    tp.Timestamp,
+			RequestDelta: tp.RequestDelta,
+			FailedDelta:  tp.FailedDelta,
+			AvgLatencyMs: tp.AvgLatencyMs,
+			MemoryMB:     tp.MemoryMB,
+		})
+	}
 
-	var p95LatencyMs float64
-	var throughputRPS float64
-	// Trend snapshots are stored in internal/relay; unavailable here due to import cycle.
 	summary.RuntimeSignals = model.OpsTelemetryRuntimeSignals{
-		P95LatencyMs:   p95LatencyMs,
-		ThroughputRPS:  throughputRPS,
-		MemoryMB:       memMB,
-		TrendSnapshots: nil,
+		P95LatencyMs:   snap.P95LatencyMs,
+		ThroughputRPS:  snap.ThroughputRPS,
+		MemoryMB:       snap.MemoryMB,
+		TrendSnapshots: trends,
 	}
 
 	// ── DatabaseHealth ──
