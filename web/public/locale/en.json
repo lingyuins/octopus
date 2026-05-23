@@ -1520,17 +1520,23 @@
       "description": "You can create a group manually or use auto grouping / AI routing to generate them quickly."
     },
     "ccswitch": {
-      "title": "Generate CCswitch Link",
-      "description": "Export the group routing configuration as a CCswitch deep link for one-click import into CCswitch.",
-      "groupLabel": "Select Group",
-      "selectGroup": "-- Select Group --",
+      "title": "Generate CC Switch Link",
+      "description": "Choose a target app, route group, and Octopus API key to generate a CC Switch v1 provider import link.",
+      "groupLabel": "Route Group",
+      "selectGroup": "Select group",
       "appLabel": "Target App",
-      "apiKeyLabel": "API Key",
+      "apiKeyLabel": "Octopus API Key",
+      "selectAPIKey": "Select API key",
+      "endpoint": "Import Endpoint",
+      "model": "Default Model",
       "apiKeyHint": "Enter the Octopus API Key for this group (sk-octopus-...)",
       "generate": "Generate Link",
       "generatedLink": "Generated Link",
       "copy": "Copy Link",
-      "copied": "Copied"
+      "copied": "Copied",
+      "missingPublicApiBaseUrl": "Set the public API base URL in system settings first.",
+      "missingGroup": "Create at least one route group first.",
+      "missingAPIKey": "Create and enable at least one Octopus API key first."
     }
   },
   "model": {
@@ -1687,12 +1693,20 @@
       "noBaseUrls": "No Base URLs",
       "noKeys": "No Keys",
       "ccSwitch": {
-        "description": "Generate a CC Switch import deep link from the current channel configuration.",
+        "description": "Generate a CC Switch v1 provider import link with a target app, route group, and Octopus API key.",
+        "app": "Target App",
+        "group": "Route Group",
+        "selectGroup": "Select group",
+        "apiKey": "Octopus API Key",
+        "selectAPIKey": "Select API key",
+        "endpoint": "Import Endpoint",
+        "model": "Default Model",
         "publicApiBase": "Public API Base",
         "upstreamBase": "Upstream Base",
-        "apiKey": "API Key",
         "missingPublicApiBaseUrl": "Please set Public API Base URL in system settings first.",
-        "missingKey": "Please configure at least one enabled API key for this channel."
+        "missingKey": "Please configure at least one enabled API key for this channel.",
+        "missingGroup": "Create at least one route group first.",
+        "missingAPIKey": "Create and enable at least one Octopus API key first."
       },
       "metrics": {
         "totalRequests": "Total Requests",

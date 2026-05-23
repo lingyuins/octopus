@@ -24,6 +24,7 @@ import (
 	"github.com/lingyuins/octopus/internal/relay/balancer"
 	"github.com/lingyuins/octopus/internal/server/resp"
 	"github.com/lingyuins/octopus/internal/utils/log"
+	"github.com/lingyuins/octopus/internal/utils/telemetry"
 )
 
 func mediaEndpointTypeToGroupEndpointType(endpointType MediaEndpointType) string {
@@ -349,6 +350,7 @@ func recordMediaRelayLog(apiKeyID int, requestModel string, endpointType string,
 		log.Warnf("failed to update daily stats for media relay: %v", statsErr)
 	}
 	st.APIKeyUpdate(apiKeyID, stats)
+	telemetry.Global().RecordRequest(duration.Milliseconds(), relayErr == nil)
 }
 
 func recordPreparedCandidateSkip(iter *balancer.Iterator, item dbmodel.GroupItem, prepare PrepareCandidateResult) {
@@ -740,7 +742,6 @@ func handleJSONResponse(c *gin.Context, response *http.Response) (int, error) {
 
 	return response.StatusCode, nil
 }
-
 
 type musicGenerationChatMessage struct {
 	Role    string `json:"role"`

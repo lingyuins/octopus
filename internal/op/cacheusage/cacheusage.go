@@ -26,6 +26,9 @@ type providerPromptCacheUsagePayload struct {
 		InputTokensDetails *struct {
 			CachedTokens int64 `json:"cached_tokens"`
 		} `json:"input_tokens_details"`
+		InputTokenDetails *struct {
+			CachedTokens int64 `json:"cached_tokens"`
+		} `json:"input_token_details"`
 		PromptTokensDetails *struct {
 			CachedTokens int64 `json:"cached_tokens"`
 		} `json:"prompt_tokens_details"`
@@ -52,6 +55,9 @@ func ParseProviderPromptCacheUsageSignals(responseContent string) (ProviderPromp
 	}
 	if payload.Usage.InputTokensDetails != nil {
 		usage.CachedTokens = payload.Usage.InputTokensDetails.CachedTokens
+	}
+	if usage.CachedTokens <= 0 && payload.Usage.InputTokenDetails != nil {
+		usage.CachedTokens = payload.Usage.InputTokenDetails.CachedTokens
 	}
 	if usage.CachedTokens <= 0 && payload.Usage.PromptTokensDetails != nil {
 		usage.CachedTokens = payload.Usage.PromptTokensDetails.CachedTokens

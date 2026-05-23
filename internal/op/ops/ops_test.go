@@ -6,6 +6,7 @@ import (
 
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op/llm"
+	"github.com/lingyuins/octopus/internal/utils/telemetry"
 )
 
 func TestBuildOpsCacheStatus_ComputesRates(t *testing.T) {
@@ -219,6 +220,19 @@ func TestParseOpsProviderPromptCacheUsage_TopLevelCachedTokensFallback(t *testin
 	}
 }
 
+func TestParseOpsProviderPromptCacheUsage_InputTokenDetailsAlias(t *testing.T) {
+	usage, ok := parseOpsProviderPromptCacheUsage(`{"usage":{"input_tokens":1000,"input_token_details":{"cached_tokens":320},"output_tokens":10}}`)
+	if !ok {
+		t.Fatal("expected provider prompt cache usage to be parsed")
+	}
+	if usage.CachedTokens != 320 {
+		t.Fatalf("CachedTokens = %d, want 320", usage.CachedTokens)
+	}
+	if usage.TotalInputTokens != 1000 {
+		t.Fatalf("TotalInputTokens = %d, want 1000", usage.TotalInputTokens)
+	}
+}
+
 func TestBuildOpsProviderPromptCacheSummaryFromLogs_AggregatesByChannelAndTrend(t *testing.T) {
 	llmCache := llm.GetCache()
 	oldLLMs := llmCache.GetAll()
@@ -295,5 +309,82 @@ func TestBuildOpsProviderPromptCacheSummaryFromLogs_AggregatesByChannelAndTrend(
 	}
 	if summary.Trend[3].CacheReadTokens != 250 {
 		t.Fatalf("trend[3].CacheReadTokens = %d, want 250", summary.Trend[3].CacheReadTokens)
+	}
+}
+
+func TestBuildOpsProviderPromptCacheSummaryFromLogs_UsesTimezoneAlignedBuckets(t *testing.T) {
+	now := time.Date(2026, 5, 24, 10, 15, 0, 0, time.UTC)
+	start := opsHourlyWindowStart(now, 8)
+	wantStart := time.Date(2026, 5, 23, 11, 0, 0, 0, time.UTC)
+	if !start.Equal(wantStart) {
+		t.Fatalf("start = %s, want %s", start.Format(time.RFC3339), wantStart.Format(time.RFC3339))
+	}
+
+	logTime := time.Date(2026, 5, 24, 2, 30, 0, 0, time.UTC)
+	summary := buildOpsProviderPromptCacheSummaryFromLogs([]model.RelayLog{{
+		Time:            logTime.Unix(),
+		ChannelId:       1,
+		ChannelName:     "openai",
+		ActualModelName: "gpt-4o",
+		ResponseContent: `{"usage":{"input_tokens":1000,"input_token_details":{"cached_tokens":250}}}`,
+	}}, start)
+
+	if summary.RequestCount != 1 || summary.CacheReadTokens != 250 {
+		t.Fatalf("unexpected summary: %+v", summary)
+	}
+	if summary.Trend[15].RequestCount != 1 {
+		t.Fatalf("trend[15].RequestCount = %d, want 1", summary.Trend[15].RequestCount)
+	}
+	if summary.Trend[15].Timestamp != time.Date(2026, 5, 24, 2, 0, 0, 0, time.UTC).Unix() {
+		t.Fatalf("trend[15].Timestamp = %d, want 2026-05-24T02:00:00Z", summary.Trend[15].Timestamp)
+	}
+}
+
+func TestBuildOpsTelemetryHeroMetrics_FallsBackToPersistedStats(t *testing.T) {
+	snap := telemetry.NewStore().Snapshot()
+	total := model.StatsTotal{StatsMetrics: model.StatsMetrics{
+		WaitTime:       1200,
+		RequestSuccess: 2,
+		RequestFailed:  1,
+	}}
+
+	got := buildOpsTelemetryHeroMetrics(snap, total, 99)
+
+	if got.TotalRequests != 3 {
+		t.Fatalf("TotalRequests = %d, want 3", got.TotalRequests)
+	}
+	if got.AvgLatencyMs != 400 {
+		t.Fatalf("AvgLatencyMs = %v, want 400", got.AvgLatencyMs)
+	}
+	if got.ErrorRate != float64(1)/float64(3)*100 {
+		t.Fatalf("ErrorRate = %v, want %v", got.ErrorRate, float64(1)/float64(3)*100)
+	}
+}
+
+func TestBuildOpsTelemetryRuntimeSignals_FallsBackToRecentLogs(t *testing.T) {
+	snap := telemetry.NewStore().Snapshot()
+	now := time.Date(2026, 5, 24, 10, 10, 0, 0, time.UTC)
+	logs := []model.RelayLog{
+		{Time: now.Add(-50 * time.Second).Unix(), UseTime: 100},
+		{Time: now.Add(-40 * time.Second).Unix(), UseTime: 200, Error: "upstream error"},
+		{Time: now.Add(-30 * time.Second).Unix(), UseTime: 900},
+	}
+
+	got := buildOpsTelemetryRuntimeSignals(snap, logs, now)
+
+	if got.P95LatencyMs != 900 {
+		t.Fatalf("P95LatencyMs = %v, want 900", got.P95LatencyMs)
+	}
+	if got.ThroughputRPS != float64(3)/60 {
+		t.Fatalf("ThroughputRPS = %v, want %v", got.ThroughputRPS, float64(3)/60)
+	}
+	var latestWithRequests model.OpsTelemetryTrendPoint
+	for _, point := range got.TrendSnapshots {
+		if point.RequestDelta > 0 {
+			latestWithRequests = point
+		}
+	}
+	if latestWithRequests.RequestDelta != 3 || latestWithRequests.FailedDelta != 1 {
+		t.Fatalf("unexpected trend point with requests: %+v", latestWithRequests)
 	}
 }

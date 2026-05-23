@@ -1520,17 +1520,23 @@
       "description": "你可以手动新建分组，或使用自动分组 / AI路由快速生成。"
     },
     "ccswitch": {
-      "title": "生成 CCswitch 链接",
-      "description": "将当前分组路由配置导出为 CCswitch 深度链接，一键导入到 CCswitch 中使用。",
-      "groupLabel": "选择分组",
-      "selectGroup": "-- 请选择分组 --",
+      "title": "生成 CC Switch 链接",
+      "description": "选择目标应用、路由分组和 Octopus API Key，生成符合 CC Switch v1 协议的提供方导入链接。",
+      "groupLabel": "路由分组",
+      "selectGroup": "选择分组",
       "appLabel": "目标应用",
-      "apiKeyLabel": "API 密钥",
+      "apiKeyLabel": "Octopus API Key",
+      "selectAPIKey": "选择 API Key",
+      "endpoint": "导入端点",
+      "model": "默认模型",
       "apiKeyHint": "输入该分组使用的 Octopus API Key (sk-octopus-...)",
       "generate": "生成链接",
       "generatedLink": "生成的链接",
       "copy": "复制链接",
-      "copied": "已复制"
+      "copied": "已复制",
+      "missingPublicApiBaseUrl": "请先在系统设置中填写公开 API 基础地址。",
+      "missingGroup": "请先创建至少一个路由分组。",
+      "missingAPIKey": "请先创建并启用至少一个 Octopus API Key。"
     }
   },
   "model": {
@@ -1687,12 +1693,20 @@
       "noBaseUrls": "暂无 Base URL",
       "noKeys": "暂无密钥",
       "ccSwitch": {
-        "description": "基于当前渠道配置生成可导入到 CC Switch 的深链接。",
+        "description": "生成符合 CC Switch v1 协议的提供方导入链接，可选择目标应用、路由分组和 Octopus API Key。",
+        "app": "目标应用",
+        "group": "路由分组",
+        "selectGroup": "选择分组",
+        "apiKey": "Octopus API Key",
+        "selectAPIKey": "选择 API Key",
+        "endpoint": "导入端点",
+        "model": "默认模型",
         "publicApiBase": "公开 API 地址",
         "upstreamBase": "上游地址",
-        "apiKey": "API Key",
         "missingPublicApiBaseUrl": "请先在系统设置中填写公开 API 基础地址。",
-        "missingKey": "请先为该渠道配置至少一个已启用的 API Key。"
+        "missingKey": "请先为该渠道配置至少一个已启用的 API Key。",
+        "missingGroup": "请先创建至少一个路由分组。",
+        "missingAPIKey": "请先创建并启用至少一个 Octopus API Key。"
       },
       "metrics": {
         "totalRequests": "总请求",

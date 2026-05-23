@@ -12,10 +12,10 @@ import (
 	"github.com/lingyuins/octopus/internal/conf"
 	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/op/airoute"
 	"github.com/lingyuins/octopus/internal/op/analytics"
 	"github.com/lingyuins/octopus/internal/op/apikey"
 	"github.com/lingyuins/octopus/internal/op/cacheusage"
-	"github.com/lingyuins/octopus/internal/op/airoute"
 	"github.com/lingyuins/octopus/internal/op/channel"
 	"github.com/lingyuins/octopus/internal/op/group"
 	"github.com/lingyuins/octopus/internal/op/llm"
@@ -28,7 +28,6 @@ import (
 
 const (
 	opsHealthErrorWindow           = 24 * time.Hour
-	opsProviderPromptCacheWindow   = 24 * time.Hour
 	opsFailingGroupLimit           = 6
 	semanticCacheDefaultTTLSeconds = 3600
 	semanticCacheDefaultThreshold  = 98
@@ -262,10 +261,24 @@ func buildOpsCacheStatus(
 }
 
 func buildOpsProviderPromptCacheSummary(ctx context.Context) model.OpsProviderPromptCacheSummary {
-	now := time.Now()
-	start := now.Add(-23 * time.Hour).Truncate(time.Hour)
+	start := opsHourlyWindowStart(time.Now(), configuredStatsTimezoneOffsetHours())
 	logs := loadOpsProviderPromptCacheLogs(ctx, start)
 	return buildOpsProviderPromptCacheSummaryFromLogs(logs, start)
+}
+
+func configuredStatsTimezoneOffsetHours() int {
+	offset, err := setting.GetInt(model.SettingKeyStatsTimezoneOffset)
+	if err != nil || offset < -12 || offset > 14 {
+		return 0
+	}
+	return offset
+}
+
+func opsHourlyWindowStart(now time.Time, offsetHours int) time.Time {
+	offset := time.Duration(offsetHours) * time.Hour
+	localNow := now.UTC().Add(offset)
+	localStart := localNow.Add(-23 * time.Hour).Truncate(time.Hour)
+	return localStart.Add(-offset)
 }
 
 func buildOpsProviderPromptCacheSummaryFromLogs(
@@ -314,7 +327,7 @@ func buildOpsProviderPromptCacheSummaryFromLogs(
 		aggregate.EstimatedCostSaved += estimateOpsProviderPromptCacheSaved(relayLog.ActualModelName, usage)
 		providers[relayLog.ChannelId] = aggregate
 
-		bucketIndex := int((time.Unix(relayLog.Time, 0).Truncate(time.Hour).Sub(start)) / time.Hour)
+		bucketIndex := int((time.Unix(relayLog.Time, 0).Sub(start)) / time.Hour)
 		if bucketIndex >= 0 && bucketIndex < bucketCount {
 			summary.Trend[bucketIndex].RequestCount++
 			if isCached {
@@ -394,7 +407,7 @@ func loadOpsProviderPromptCacheLogs(ctx context.Context, since time.Time) []mode
 	relayLogCacheLock.Unlock()
 
 	keepEnabled, err := setting.GetBool(model.SettingKeyRelayLogKeepEnabled)
-	if err != nil || !keepEnabled {
+	if err != nil || !keepEnabled || db.GetDB() == nil {
 		return logs
 	}
 
@@ -851,21 +864,36 @@ func countQuotaMonitors(apiKeys []model.APIKey) int {
 	return count
 }
 
-func TelemetrySummaryGet(ctx context.Context) (*model.OpsTelemetrySummary, error) {
-	summary := &model.OpsTelemetrySummary{}
-	snap := telemetry.Global().Snapshot()
+func buildOpsTelemetryHeroMetrics(snap telemetry.Snapshot, total model.StatsTotal, uptimeSeconds int64) model.OpsTelemetryHeroMetrics {
+	requests := total.RequestSuccess + total.RequestFailed
+	failures := total.RequestFailed
+	waitTime := total.WaitTime
+	if requests <= 0 {
+		requests = snap.TotalRequests
+		failures = snap.TotalFailures
+	}
 
-	// ── Hero ──
-	summary.Hero = model.OpsTelemetryHeroMetrics{
-		UptimeSeconds:     int64(time.Since(processStartTime).Seconds()),
-		TotalRequests:     snap.TotalRequests,
-		AvgLatencyMs:      snap.AvgLatencyMs,
-		ErrorRate:         snap.ErrorRate,
+	avgLatency := snap.AvgLatencyMs
+	if requests > 0 && waitTime > 0 {
+		avgLatency = float64(waitTime) / float64(requests)
+	}
+
+	errorRate := snap.ErrorRate
+	if requests > 0 {
+		errorRate = float64(failures) / float64(requests) * 100
+	}
+
+	return model.OpsTelemetryHeroMetrics{
+		UptimeSeconds:     uptimeSeconds,
+		TotalRequests:     requests,
+		AvgLatencyMs:      avgLatency,
+		ErrorRate:         errorRate,
 		ActiveConnections: snap.ActiveConnections,
 		MemoryUsageMB:     snap.MemoryMB,
 	}
+}
 
-	// ── RuntimeSignals ──
+func buildOpsTelemetryRuntimeSignals(snap telemetry.Snapshot, logs []model.RelayLog, now time.Time) model.OpsTelemetryRuntimeSignals {
 	trends := make([]model.OpsTelemetryTrendPoint, 0, len(snap.TrendSnapshots))
 	for _, tp := range snap.TrendSnapshots {
 		trends = append(trends, model.OpsTelemetryTrendPoint{
@@ -877,12 +905,152 @@ func TelemetrySummaryGet(ctx context.Context) (*model.OpsTelemetrySummary, error
 		})
 	}
 
-	summary.RuntimeSignals = model.OpsTelemetryRuntimeSignals{
-		P95LatencyMs:   snap.P95LatencyMs,
-		ThroughputRPS:  snap.ThroughputRPS,
+	p95 := snap.P95LatencyMs
+	if p95 <= 0 {
+		p95 = opsTelemetryP95FromLogs(logs)
+	}
+
+	throughput := opsTelemetryThroughputFromLogs(logs, now, time.Minute)
+	if throughput <= 0 {
+		throughput = snap.ThroughputRPS
+	}
+
+	if len(logs) > 0 {
+		trends = buildOpsTelemetryTrendFromLogs(logs, now, snap.MemoryMB)
+	}
+
+	return model.OpsTelemetryRuntimeSignals{
+		P95LatencyMs:   p95,
+		ThroughputRPS:  throughput,
 		MemoryMB:       snap.MemoryMB,
 		TrendSnapshots: trends,
 	}
+}
+
+func opsTelemetryP95FromLogs(logs []model.RelayLog) float64 {
+	latencies := make([]int, 0, len(logs))
+	for _, logItem := range logs {
+		if logItem.UseTime <= 0 {
+			continue
+		}
+		latencies = append(latencies, logItem.UseTime)
+	}
+	if len(latencies) == 0 {
+		return 0
+	}
+	sort.Ints(latencies)
+	idx := (95*len(latencies) + 99) / 100
+	if idx < 1 {
+		idx = 1
+	}
+	if idx > len(latencies) {
+		idx = len(latencies)
+	}
+	return float64(latencies[idx-1])
+}
+
+func opsTelemetryThroughputFromLogs(logs []model.RelayLog, now time.Time, window time.Duration) float64 {
+	if window <= 0 {
+		return 0
+	}
+	since := now.Add(-window).Unix()
+	var count int64
+	for _, logItem := range logs {
+		if logItem.Time >= since && logItem.Time <= now.Unix() {
+			count++
+		}
+	}
+	return float64(count) / window.Seconds()
+}
+
+func buildOpsTelemetryTrendFromLogs(logs []model.RelayLog, now time.Time, memoryMB int64) []model.OpsTelemetryTrendPoint {
+	const bucketCount = 12
+	const bucketDuration = 5 * time.Minute
+
+	start := now.Add(-time.Duration(bucketCount-1) * bucketDuration).Truncate(bucketDuration)
+	points := make([]model.OpsTelemetryTrendPoint, bucketCount)
+	for i := 0; i < bucketCount; i++ {
+		points[i] = model.OpsTelemetryTrendPoint{
+			Timestamp: start.Add(time.Duration(i) * bucketDuration).Unix(),
+			MemoryMB:  memoryMB,
+		}
+	}
+
+	waitTimes := make([]int64, bucketCount)
+	for _, logItem := range logs {
+		bucketIndex := int((time.Unix(logItem.Time, 0).Sub(start)) / bucketDuration)
+		if bucketIndex < 0 || bucketIndex >= bucketCount {
+			continue
+		}
+		points[bucketIndex].RequestDelta++
+		if logItem.Error != "" {
+			points[bucketIndex].FailedDelta++
+		}
+		if logItem.UseTime > 0 {
+			waitTimes[bucketIndex] += int64(logItem.UseTime)
+		}
+	}
+	for i := range points {
+		if points[i].RequestDelta > 0 && waitTimes[i] > 0 {
+			points[i].AvgLatencyMs = float64(waitTimes[i]) / float64(points[i].RequestDelta)
+		}
+	}
+	return points
+}
+
+func loadOpsTelemetryLogs(ctx context.Context, since time.Time) []model.RelayLog {
+	logs := make([]model.RelayLog, 0)
+	seen := make(map[int64]struct{})
+
+	cache, lock := relaylog.GetCacheAndLock()
+	lock.Lock()
+	for _, logItem := range cache {
+		if logItem.Time < since.Unix() {
+			continue
+		}
+		logs = append(logs, logItem)
+		if logItem.ID != 0 {
+			seen[logItem.ID] = struct{}{}
+		}
+	}
+	lock.Unlock()
+
+	keepEnabled, err := setting.GetBool(model.SettingKeyRelayLogKeepEnabled)
+	if err != nil || !keepEnabled || db.GetDB() == nil {
+		return logs
+	}
+
+	var dbLogs []model.RelayLog
+	if err := db.GetDB().WithContext(ctx).
+		Select("id", "time", "use_time", "error").
+		Where("time >= ?", since.Unix()).
+		Order("time ASC").
+		Find(&dbLogs).Error; err != nil {
+		return logs
+	}
+	for _, logItem := range dbLogs {
+		if logItem.ID != 0 {
+			if _, ok := seen[logItem.ID]; ok {
+				continue
+			}
+		}
+		logs = append(logs, logItem)
+	}
+	return logs
+}
+
+func TelemetrySummaryGet(ctx context.Context) (*model.OpsTelemetrySummary, error) {
+	summary := &model.OpsTelemetrySummary{}
+	snap := telemetry.Global().Snapshot()
+	now := time.Now()
+	totalStats := stats.TotalGet()
+	telemetryLogs := loadOpsTelemetryLogs(ctx, now.Add(-time.Hour))
+
+	// ── Hero ──
+	summary.Hero = buildOpsTelemetryHeroMetrics(snap, totalStats, int64(time.Since(processStartTime).Seconds()))
+
+	// ── RuntimeSignals ──
+	summary.RuntimeSignals = buildOpsTelemetryRuntimeSignals(snap, telemetryLogs, now)
 
 	// ── DatabaseHealth ──
 	dbOK := pingDatabase(ctx)

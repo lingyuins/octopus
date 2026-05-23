@@ -9,8 +9,7 @@ import {
     Activity,
     TrendingUp,
     Globe,
-    Key,
-    Link2
+    Key
 } from 'lucide-react';
 import {
     useUpdateChannel,
@@ -38,7 +37,7 @@ import {
 import { formatMoney } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { CopyIconButton } from '@/components/common/CopyButton';
+import { CCSwitchProviderLink } from './CCSwitchProviderLink';
 
 export function CardContent({ channel, stats }: { channel: Channel; stats: StatsMetricsFormatted }) {
     const { setIsOpen } = useMorphingDialog();
@@ -78,12 +77,6 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
     const t = useTranslations('channel.detail');
 
     const publicApiBaseUrl = settings?.find((item) => item.key === SettingKey.PublicAPIBaseURL)?.value?.trim() ?? '';
-    const firstBaseUrl = channel.base_urls?.find((item) => item.url.trim())?.url?.trim() ?? '';
-    const firstEnabledKey = channel.keys?.find((item) => item.enabled && item.channel_key.trim())?.channel_key?.trim() ?? '';
-    const hasCcSwitchLink = Boolean(publicApiBaseUrl && firstEnabledKey);
-    const ccSwitchLink = hasCcSwitchLink
-        ? `ccswitch://import?name=${encodeURIComponent(channel.name)}&api_base=${encodeURIComponent(publicApiBaseUrl)}&api_key=${encodeURIComponent(firstEnabledKey)}${firstBaseUrl ? `&upstream=${encodeURIComponent(firstBaseUrl)}` : ''}`
-        : '';
 
     const currentView = isEditing ? 'editing' : 'viewing';
 
@@ -449,50 +442,11 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
                                     </div>
                                 </section>
 
-                                <section className={sectionClassName}>
-                                    <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                                        <Link2 className="size-3.5" />
-                                        {t('sections.ccSwitch')}
-                                    </h4>
-                                    <div className="space-y-3">
-                                        <p className="text-sm text-muted-foreground">{t('ccSwitch.description')}</p>
-                                        {hasCcSwitchLink ? (
-                                            <>
-                                                <div className="flex items-start gap-2 rounded-lg border border-border/25 bg-card p-3 shadow-sm">
-                                                    <code className="min-w-0 flex-1 break-all font-mono text-xs sm:text-sm">{ccSwitchLink}</code>
-                                                    <CopyIconButton
-                                                        text={ccSwitchLink}
-                                                        className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                                                        copyIconClassName="size-4"
-                                                        checkIconClassName="size-4 text-emerald-500"
-                                                    />
-                                                </div>
-                                                <dl className="grid gap-3 sm:grid-cols-3">
-                                                    <div className="rounded-lg border border-border/25 bg-card p-3 shadow-sm">
-                                                        <dt className="mb-1 text-xs text-muted-foreground">{t('ccSwitch.publicApiBase')}</dt>
-                                                        <dd className="break-all font-mono text-xs sm:text-sm">{publicApiBaseUrl}</dd>
-                                                    </div>
-                                                    <div className="rounded-lg border border-border/25 bg-card p-3 shadow-sm">
-                                                        <dt className="mb-1 text-xs text-muted-foreground">{t('ccSwitch.upstreamBase')}</dt>
-                                                        <dd className="break-all font-mono text-xs sm:text-sm">{firstBaseUrl || '-'}</dd>
-                                                    </div>
-                                                    <div className="rounded-lg border border-border/25 bg-card p-3 shadow-sm">
-                                                        <dt className="mb-1 text-xs text-muted-foreground">{t('ccSwitch.apiKey')}</dt>
-                                                        <dd className="break-all font-mono text-xs sm:text-sm">
-                                                            {firstEnabledKey.length > 10
-                                                                ? `${firstEnabledKey.slice(0, 4)}...${firstEnabledKey.slice(-4)}`
-                                                                : firstEnabledKey}
-                                                        </dd>
-                                                    </div>
-                                                </dl>
-                                            </>
-                                        ) : (
-                                            <div className="rounded-lg border border-dashed border-border/30 bg-card p-3 text-sm text-muted-foreground shadow-sm">
-                                                {!publicApiBaseUrl ? t('ccSwitch.missingPublicApiBaseUrl') : t('ccSwitch.missingKey')}
-                                            </div>
-                                        )}
-                                    </div>
-                                </section>
+                                <CCSwitchProviderLink
+                                    channel={channel}
+                                    publicApiBaseUrl={publicApiBaseUrl}
+                                    sectionClassName={sectionClassName}
+                                />
 
                                 <dl className={sectionClassName}>
                                     <dt className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">

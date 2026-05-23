@@ -1,92 +1,107 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { ExternalLink, Link } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { Check, Copy, ExternalLink, Link } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useAPIKeyList } from '@/api/endpoints/apikey';
 import { useGroupList } from '@/api/endpoints/group';
-import { cn } from '@/lib/utils';
+import { SettingKey, useSettingList } from '@/api/endpoints/setting';
+import { CopyIconButton } from '@/components/common/CopyButton';
+import { Button } from '@/components/ui/button';
 import {
     MorphingDialog,
-    MorphingDialogTrigger,
+    MorphingDialogClose,
     MorphingDialogContainer,
     MorphingDialogContent,
-    MorphingDialogTitle,
     MorphingDialogDescription,
-    MorphingDialogClose,
+    MorphingDialogTitle,
+    MorphingDialogTrigger,
 } from '@/components/ui/morphing-dialog';
-
-const CC_APPS = [
-    { value: 'claude', label: 'Claude Code' },
-    { value: 'codex', label: 'Codex' },
-    { value: 'gemini', label: 'Gemini' },
-    { value: 'opencode', label: 'OpenCode' },
-    { value: 'openclaw', label: 'OpenClaw' },
-] as const;
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import {
+    buildCCSwitchProviderLink,
+    CC_SWITCH_APPS,
+    maskCCSwitchSecret,
+    normalizeCCSwitchEndpoint,
+    type CCSwitchApp,
+} from '../channel/ccswitch';
 
 export function CCSwitchLinkButton({ className }: { className?: string }) {
     const t = useTranslations('group');
     const { data: groups = [] } = useGroupList();
+    const { data: apiKeys = [] } = useAPIKeyList();
+    const { data: settings = [] } = useSettingList();
+    const [selectedGroupId, setSelectedGroupId] = useState('');
+    const [selectedApp, setSelectedApp] = useState<CCSwitchApp>('claude');
+    const [selectedApiKeyId, setSelectedApiKeyId] = useState('');
 
-    const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('');
-    const [selectedApp, setSelectedApp] = useState<string>(CC_APPS[0].value);
-    const [apiKey, setApiKey] = useState('');
-    const [generatedLink, setGeneratedLink] = useState('');
-    const [copied, setCopied] = useState(false);
-
-    const selectedGroup = useMemo(
-        () => groups.find((g) => g.id === selectedGroupId),
-        [groups, selectedGroupId]
+    const endpoint = normalizeCCSwitchEndpoint(
+        settings.find((item) => item.key === SettingKey.PublicAPIBaseURL)?.value ?? '',
     );
 
-    const generateLink = useCallback(() => {
-        if (!selectedGroup || !apiKey.trim()) return;
+    const availableApiKeys = useMemo(
+        () => apiKeys.filter((key) => key.enabled && key.api_key.trim()),
+        [apiKeys],
+    );
+    const selectableGroups = useMemo(
+        () => groups.filter((group) => typeof group.id === 'number'),
+        [groups],
+    );
 
-        const params = new URLSearchParams();
-        params.set('resource', 'provider');
-        params.set('app', selectedApp);
-        params.set('name', selectedGroup.name);
-        params.set('apiKey', apiKey.trim());
+    const resolvedGroupId = useMemo(() => {
+        if (selectableGroups.length === 0) return '';
+        if (selectableGroups.some((group) => String(group.id) === selectedGroupId)) return selectedGroupId;
+        return String(selectableGroups[0].id);
+    }, [selectableGroups, selectedGroupId]);
 
-        // Use the Octopus server as the endpoint
-        const baseUrl = typeof window !== 'undefined'
-            ? `${window.location.protocol}//${window.location.host}`
-            : '';
-        params.set('endpoint', `${baseUrl}/v1`);
+    const resolvedApiKeyId = useMemo(() => {
+        if (availableApiKeys.length === 0) return '';
+        if (availableApiKeys.some((key) => String(key.id) === selectedApiKeyId)) return selectedApiKeyId;
+        return String(availableApiKeys[0].id);
+    }, [availableApiKeys, selectedApiKeyId]);
 
-        // Use the group name as the default model
-        params.set('model', selectedGroup.name);
+    const selectedGroup = useMemo(
+        () => selectableGroups.find((group) => String(group.id) === resolvedGroupId),
+        [selectableGroups, resolvedGroupId],
+    );
+    const selectedApiKey = useMemo(
+        () => availableApiKeys.find((key) => String(key.id) === resolvedApiKeyId),
+        [availableApiKeys, resolvedApiKeyId],
+    );
 
-        const notesParts: string[] = [];
-        if (selectedGroup.endpoint_type) {
-            notesParts.push(`endpoint: ${selectedGroup.endpoint_type}`);
-        }
-        if (selectedGroup.items?.length) {
-            notesParts.push(`${selectedGroup.items.length} routes`);
-        }
-        if (notesParts.length > 0) {
-            params.set('notes', `Octopus route: ${notesParts.join(', ')}`);
-        }
+    const generatedLink = useMemo(() => {
+        if (!endpoint || !selectedGroup || !selectedApiKey) return '';
 
-        setGeneratedLink(`ccswitch://v1/import?${params.toString()}`);
-    }, [selectedGroup, selectedApp, apiKey]);
+        const notes = [
+            'Octopus route group',
+            selectedGroup.endpoint_type ? `endpoint: ${selectedGroup.endpoint_type}` : '',
+            selectedGroup.items?.length ? `${selectedGroup.items.length} routes` : '',
+        ].filter(Boolean).join(', ');
 
-    const copyLink = useCallback(async () => {
-        if (!generatedLink) return;
-        try {
-            await navigator.clipboard.writeText(generatedLink);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch {
-            // Fallback: select text
-        }
-    }, [generatedLink]);
+        return buildCCSwitchProviderLink({
+            app: selectedApp,
+            endpoint,
+            apiKey: selectedApiKey.api_key,
+            name: selectedGroup.name,
+            model: selectedGroup.name,
+            notes,
+        });
+    }, [endpoint, selectedApiKey, selectedApp, selectedGroup]);
+
+    const missingReason = !endpoint
+        ? t('ccswitch.missingPublicApiBaseUrl')
+        : selectableGroups.length === 0
+            ? t('ccswitch.missingGroup')
+            : availableApiKeys.length === 0
+                ? t('ccswitch.missingAPIKey')
+                : '';
 
     return (
         <MorphingDialog>
             <MorphingDialogTrigger
                 className={cn(
-                    'inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/20 hover:text-foreground h-11',
+                    'inline-flex h-11 items-center gap-2 rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/20 hover:text-foreground',
                     className,
                 )}
             >
@@ -95,9 +110,9 @@ export function CCSwitchLinkButton({ className }: { className?: string }) {
             </MorphingDialogTrigger>
 
             <MorphingDialogContainer>
-                <MorphingDialogContent className="w-[min(100vw-1rem,28rem)] max-w-full bg-card text-card-foreground px-5 py-5 rounded-xl max-h-[calc(100dvh-1rem)] flex flex-col overflow-hidden">
+                <MorphingDialogContent className="flex max-h-[calc(100dvh-1rem)] w-[min(100vw-1rem,34rem)] max-w-full flex-col overflow-hidden rounded-xl bg-card px-5 py-5 text-card-foreground">
                     <MorphingDialogTitle className="shrink-0">
-                        <h2 className="text-lg font-bold text-card-foreground flex items-center gap-2">
+                        <h2 className="flex items-center gap-2 text-lg font-bold text-card-foreground">
                             <ExternalLink className="size-5" />
                             {t('ccswitch.title')}
                         </h2>
@@ -105,111 +120,108 @@ export function CCSwitchLinkButton({ className }: { className?: string }) {
                             {t('ccswitch.description')}
                         </p>
                     </MorphingDialogTitle>
-                    <MorphingDialogDescription className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1 pt-4">
-                        {/* Group selector */}
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-muted-foreground">
-                                {t('ccswitch.groupLabel')}
-                            </label>
-                            <select
-                                value={selectedGroupId}
-                                onChange={(e) => setSelectedGroupId(e.target.value ? Number(e.target.value) : '')}
-                                className="h-10 w-full rounded-lg border border-border/40 bg-card px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20"
-                            >
-                                <option value="">{t('ccswitch.selectGroup')}</option>
-                                {groups.map((g) => (
-                                    <option key={g.id} value={g.id}>
-                                        {g.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
 
-                        {/* App selector */}
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-muted-foreground">
-                                {t('ccswitch.appLabel')}
-                            </label>
-                            <div className="flex flex-wrap gap-1.5">
-                                {CC_APPS.map((app) => (
-                                    <button
-                                        key={app.value}
-                                        type="button"
-                                        onClick={() => setSelectedApp(app.value)}
-                                        className={cn(
-                                            'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-                                            selectedApp === app.value
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'border border-border/30 bg-card text-muted-foreground hover:text-foreground'
-                                        )}
-                                    >
-                                        {app.label}
-                                    </button>
-                                ))}
+                    <MorphingDialogDescription className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 pt-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">
+                                    {t('ccswitch.appLabel')}
+                                </label>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {CC_SWITCH_APPS.map((app) => (
+                                        <button
+                                            key={app.value}
+                                            type="button"
+                                            onClick={() => setSelectedApp(app.value)}
+                                            className={cn(
+                                                'rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
+                                                selectedApp === app.value
+                                                    ? 'border-primary/30 bg-primary/10 text-primary'
+                                                    : 'border-border/40 bg-card text-muted-foreground hover:text-foreground',
+                                            )}
+                                        >
+                                            {app.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-muted-foreground">
+                                    {t('ccswitch.groupLabel')}
+                                </label>
+                                <Select value={resolvedGroupId} onValueChange={setSelectedGroupId} disabled={selectableGroups.length === 0}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder={t('ccswitch.selectGroup')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {selectableGroups.map((group) => (
+                                            <SelectItem key={group.id} value={String(group.id)}>
+                                                {group.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-1.5 sm:col-span-2">
+                                <label className="text-xs font-medium text-muted-foreground">
+                                    {t('ccswitch.apiKeyLabel')}
+                                </label>
+                                <Select
+                                    value={resolvedApiKeyId}
+                                    onValueChange={setSelectedApiKeyId}
+                                    disabled={availableApiKeys.length === 0}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder={t('ccswitch.selectAPIKey')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableApiKeys.map((key) => (
+                                            <SelectItem key={key.id} value={String(key.id)}>
+                                                {key.name || `Key ${key.id}`} - {maskCCSwitchSecret(key.api_key)}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 
-                        {/* API Key */}
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-muted-foreground">
-                                {t('ccswitch.apiKeyLabel')}
-                            </label>
-                            <input
-                                type="text"
-                                value={apiKey}
-                                onChange={(e) => setApiKey(e.target.value)}
-                                placeholder="sk-octopus-..."
-                                className="h-10 w-full rounded-lg border border-border/40 bg-card px-3 text-sm outline-none font-mono placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20"
-                            />
-                            <p className="text-[11px] text-muted-foreground/70">
-                                {t('ccswitch.apiKeyHint')}
-                            </p>
-                        </div>
+                        <dl className="grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-lg border border-border/25 bg-card p-3 shadow-sm">
+                                <dt className="mb-1 text-xs text-muted-foreground">{t('ccswitch.endpoint')}</dt>
+                                <dd className="break-all font-mono text-xs sm:text-sm">{endpoint || '-'}</dd>
+                            </div>
+                            <div className="rounded-lg border border-border/25 bg-card p-3 shadow-sm">
+                                <dt className="mb-1 text-xs text-muted-foreground">{t('ccswitch.model')}</dt>
+                                <dd className="break-all font-mono text-xs sm:text-sm">{selectedGroup?.name || '-'}</dd>
+                            </div>
+                        </dl>
 
-                        {/* Generate button */}
-                        <Button
-                            type="button"
-                            disabled={!selectedGroup || !apiKey.trim()}
-                            onClick={generateLink}
-                            className="w-full rounded-xl"
-                        >
-                            <ExternalLink className="size-4" />
-                            {t('ccswitch.generate')}
-                        </Button>
-
-                        {/* Generated link */}
-                        {generatedLink && (
+                        {generatedLink ? (
                             <div className="space-y-2 rounded-lg border border-border/30 bg-muted/30 p-3">
                                 <div className="text-xs font-medium text-muted-foreground">
                                     {t('ccswitch.generatedLink')}
                                 </div>
-                                <div className="rounded-md border border-border/30 bg-card p-2.5">
-                                    <p className="text-xs font-mono break-all text-foreground leading-relaxed">
+                                <div className="flex items-start gap-2 rounded-md border border-border/30 bg-card p-2.5">
+                                    <p className="min-w-0 flex-1 break-all font-mono text-xs leading-relaxed text-foreground">
                                         {generatedLink}
                                     </p>
+                                    <CopyIconButton
+                                        text={generatedLink}
+                                        className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                        copyIconClassName="size-4"
+                                        checkIconClassName="size-4 text-emerald-500"
+                                    />
                                 </div>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={copyLink}
-                                    className="w-full rounded-lg"
-                                >
-                                    {copied ? (
-                                        <>
-                                            <Check className="size-3.5" />
-                                            {t('ccswitch.copied')}
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Copy className="size-3.5" />
-                                            {t('ccswitch.copy')}
-                                        </>
-                                    )}
-                                </Button>
+                            </div>
+                        ) : (
+                            <div className="rounded-lg border border-dashed border-border/30 bg-card p-3 text-sm text-muted-foreground shadow-sm">
+                                {missingReason}
                             </div>
                         )}
                     </MorphingDialogDescription>
+
                     <div className="mt-4 shrink-0">
                         <MorphingDialogClose className="w-full">
                             <Button variant="secondary" className="w-full rounded-lg">

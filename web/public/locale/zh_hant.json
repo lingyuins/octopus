@@ -1520,17 +1520,23 @@
       "description": "你可以手動建立分組，或使用自動分組 / AI路由快速生成。"
     },
     "ccswitch": {
-      "title": "生成 CCswitch 連結",
-      "description": "將當前分組路由配置匯出為 CCswitch 深度連結，一鍵匯入到 CCswitch 中使用。",
-      "groupLabel": "選擇分組",
-      "selectGroup": "-- 請選擇分組 --",
+      "title": "生成 CC Switch 連結",
+      "description": "選擇目標應用、路由分組和 Octopus API Key，生成符合 CC Switch v1 協議的供應方匯入連結。",
+      "groupLabel": "路由分組",
+      "selectGroup": "選擇分組",
       "appLabel": "目標應用",
-      "apiKeyLabel": "API 金鑰",
+      "apiKeyLabel": "Octopus API Key",
+      "selectAPIKey": "選擇 API Key",
+      "endpoint": "匯入端點",
+      "model": "預設模型",
       "apiKeyHint": "輸入該分組使用的 Octopus API Key (sk-octopus-...)",
       "generate": "生成連結",
       "generatedLink": "生成的連結",
       "copy": "複製連結",
-      "copied": "已複製"
+      "copied": "已複製",
+      "missingPublicApiBaseUrl": "請先在系統設定中填寫公開 API 基礎位址。",
+      "missingGroup": "請先建立至少一個路由分組。",
+      "missingAPIKey": "請先建立並啟用至少一個 Octopus API Key。"
     }
   },
   "model": {
@@ -1687,12 +1693,20 @@
       "noBaseUrls": "暫無 Base URL",
       "noKeys": "暫無金鑰",
       "ccSwitch": {
-        "description": "根據目前供應源設定生成可匯入到 CC Switch 的深連結。",
+        "description": "生成符合 CC Switch v1 協議的供應方匯入連結，可選擇目標應用、路由分組和 Octopus API Key。",
+        "app": "目標應用",
+        "group": "路由分組",
+        "selectGroup": "選擇分組",
+        "apiKey": "Octopus API Key",
+        "selectAPIKey": "選擇 API Key",
+        "endpoint": "匯入端點",
+        "model": "預設模型",
         "publicApiBase": "公開 API 位址",
         "upstreamBase": "上游位址",
-        "apiKey": "API Key",
         "missingPublicApiBaseUrl": "請先在系統設定中填寫公開 API 基礎位址。",
-        "missingKey": "請先為該供應源設定至少一個已啟用的 API Key。"
+        "missingKey": "請先為該供應源設定至少一個已啟用的 API Key。",
+        "missingGroup": "請先建立至少一個路由分組。",
+        "missingAPIKey": "請先建立並啟用至少一個 Octopus API Key。"
       },
       "metrics": {
         "totalRequests": "總請求",
