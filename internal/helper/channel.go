@@ -46,10 +46,11 @@ func ChannelBaseUrlDelayUpdate(channel *model.Channel, ctx context.Context) {
 		if err != nil {
 			log.Warnf("failed to get url delay (channel=%d): %v", channel.ID, err)
 			continue
-		}
+}
 		newBaseUrls = append(newBaseUrls, model.BaseUrl{
-			URL:   baseUrl.URL,
-			Delay: delay,
+			URL:        baseUrl.URL,
+			Delay:      delay,
+			SuffixMode: baseUrl.SuffixMode,
 		})
 	}
 	if len(newBaseUrls) > 0 {
