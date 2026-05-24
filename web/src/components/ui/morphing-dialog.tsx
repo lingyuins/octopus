@@ -343,7 +343,11 @@ function MorphingDialogContainer({ children }: MorphingDialogContainerProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.2 } }}
           />
-          <div className='fixed inset-0 z-50 flex items-center justify-center' data-slot='morphing-dialog-layer' data-dialog-id={uniqueId}>
+          <div
+            className='fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-2 sm:items-center sm:p-4'
+            data-slot='morphing-dialog-layer'
+            data-dialog-id={uniqueId}
+          >
             {children}
           </div>
         </>
