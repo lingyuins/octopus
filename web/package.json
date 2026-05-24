@@ -1,6 +1,6 @@
 {
   "name": "octopus",
-  "version": "1.9.5",
+  "version": "1.9.6",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,8 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:i18n": "node tests/i18n.test.mjs",
-    "test:unit": "node --no-warnings --experimental-strip-types --test src/components/modules/alert/forms.test.ts src/components/modules/channel/ccswitch.test.ts src/components/modules/group/capabilities.test.ts src/components/modules/group/index.test.ts src/components/modules/home/store.test.ts src/components/modules/log/display.test.ts src/components/modules/model/sort.test.ts src/components/modules/navbar/nav-order.test.ts src/components/modules/navbar/navbar.test.ts src/components/modules/ops/cache-format.test.ts src/components/modules/ops/telemetry-format.test.ts src/components/modules/setting/runtime-settings.test.ts src/components/ui/morphing-dialog-state.test.ts src/lib/clipboard.test.ts src/stores/setting.test.ts src/test-utils/timers.test.ts src/api/endpoints/log.hook.test.ts src/api/endpoints/group-progress.hook.test.ts src/api/endpoints/apikey.test.ts src/lib/time.test.ts"
-  },
+    "test:unit": "node --no-warnings --experimental-strip-types --test src/components/modules/alert/forms.test.ts src/components/modules/channel/ccswitch.test.ts src/components/modules/channel/metric-format.test.ts src/components/modules/group/capabilities.test.ts src/components/modules/group/index.test.ts src/components/modules/home/store.test.ts src/components/modules/log/display.test.ts src/components/modules/model/sort.test.ts src/components/modules/navbar/nav-order.test.ts src/components/modules/navbar/navbar.test.ts src/components/modules/ops/cache-format.test.ts src/components/modules/ops/telemetry-format.test.ts src/components/modules/setting/runtime-settings.test.ts src/components/ui/morphing-dialog-state.test.ts src/lib/clipboard.test.ts src/stores/setting.test.ts src/test-utils/timers.test.ts src/api/endpoints/log.hook.test.ts src/api/endpoints/group-progress.hook.test.ts src/api/endpoints/apikey.test.ts src/lib/time.test.ts"  },
   "dependencies": {
     "@floating-ui/react": "^0.27.16",
     "@hello-pangea/dnd": "^18.0.1",
@@ -57,4 +56,3 @@
     "typescript": "^5.9.3"
   }
 }
-

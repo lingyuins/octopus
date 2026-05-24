@@ -13,6 +13,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/animate-ui
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/common/Toast';
 import { Badge } from '@/components/ui/badge';
+import { getChannelMetricDisplayParts } from './metric-format';
 
 export function Card({ channel, stats, layout = 'grid' }: { channel: Channel; stats: StatsMetricsFormatted; layout?: 'grid' | 'list' }) {
     const t = useTranslations('channel.card');
@@ -34,6 +35,8 @@ export function Card({ channel, stats, layout = 'grid' }: { channel: Channel; st
     ]).size;
     const enabledKeyCount = channel.keys.filter((item) => item.enabled).length;
     const firstBaseUrl = channel.base_urls?.find((item) => item.url.trim())?.url?.trim() ?? '';
+    const successRequests = getChannelMetricDisplayParts(stats.request_success);
+    const failedRequests = getChannelMetricDisplayParts(stats.request_failed);
 
     const handleEnableChange = (checked: boolean) => {
         enableChannel.mutate(
@@ -117,7 +120,12 @@ export function Card({ channel, stats, layout = 'grid' }: { channel: Channel; st
                                             <CheckCircle2 className="size-3.5 text-emerald-500" strokeWidth={1.5} />
                                             {tMetrics('successRequests')}
                                         </dt>
-                                        <dd className="text-base font-semibold">{stats.request_success.formatted.value}</dd>
+                                        <dd className="text-base font-semibold">
+                                            {successRequests.value}
+                                            {successRequests.unit ? (
+                                                <span className="ml-1 text-[0.7rem] text-muted-foreground">{successRequests.unit}</span>
+                                            ) : null}
+                                        </dd>
                                     </div>
                                     <div className="rounded-lg border border-border bg-card p-3">
                                         <dt className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -171,14 +179,24 @@ export function Card({ channel, stats, layout = 'grid' }: { channel: Channel; st
                                             <CheckCircle2 className="size-3.5 text-emerald-500" strokeWidth={1.5} />
                                             {tMetrics('successRequests')}
                                         </dt>
-                                        <dd className="text-base font-semibold">{stats.request_success.formatted.value}</dd>
+                                        <dd className="text-base font-semibold">
+                                            {successRequests.value}
+                                            {successRequests.unit ? (
+                                                <span className="ml-1 text-[0.7rem] text-muted-foreground">{successRequests.unit}</span>
+                                            ) : null}
+                                        </dd>
                                     </div>
                                     <div className="rounded-lg border border-border bg-card p-3">
                                         <dt className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                                             <XCircle className="size-3.5 text-destructive" strokeWidth={1.5} />
                                             {tMetrics('failedRequests')}
                                         </dt>
-                                        <dd className="text-base font-semibold">{stats.request_failed.formatted.value}</dd>
+                                        <dd className="text-base font-semibold">
+                                            {failedRequests.value}
+                                            {failedRequests.unit ? (
+                                                <span className="ml-1 text-[0.7rem] text-muted-foreground">{failedRequests.unit}</span>
+                                            ) : null}
+                                        </dd>
                                     </div>
                                 </dl>
                             )}

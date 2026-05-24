@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.9.6] - 2026-05
+
+### 🚀 Features
+- Align management-side API contracts and tighten backend input boundaries.
+
+### 🐛 Bug Fixes
+- Keep edit and delete actions visible at the bottom of the mobile dialog.
+- Preserve SuffixMode in ChannelBaseUrlDelayUpdate.
+- Fix telemetry cache stats and deep-link generation in the ops center.
+- Fix cache token metric unit loss in the analytics center.
+
+**Full Changelog:** https://github.com/lingyuins/octopus/compare/v1.9.5...v1.9.6
+
+---
 ## [v1.9.5] - 2026-05
 
 ### 🚀 Features
