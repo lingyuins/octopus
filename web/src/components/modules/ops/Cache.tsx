@@ -174,6 +174,8 @@ function ProviderPromptCacheView({
     const maxReadTokens = Math.max(...trend.map((item) => item.cache_read_tokens), 1);
     const readTokens = formatProviderPromptCacheCount(data.cache_read_tokens);
     const writeTokens = formatProviderPromptCacheCount(data.cache_write_tokens);
+    const hasTrendActivity = trend.some((item) => item.request_count > 0 || item.cache_read_tokens > 0 || item.cache_write_tokens > 0);
+    const missingUsageHint = `${t('cache.providerPrompt.providers.empty')} (${data.parsed_log_count}/${data.sampled_log_count})`;
 
     return (
         <div className="space-y-4">
@@ -268,25 +270,35 @@ function ProviderPromptCacheView({
                             </p>
                         </div>
                         <div className="min-w-0 rounded-xl border border-border/60 bg-card p-4">
-                            <div className="max-w-full overflow-x-auto pb-1">
-                                <div className="flex h-40 min-w-max items-end gap-2 pr-2">
-                                    {trend.map((point) => {
-                                        const height = `${Math.max(8, (point.cache_read_tokens / maxReadTokens) * 100)}%`;
-                                        return (
-                                            <div key={point.timestamp} className="flex w-20 flex-none flex-col items-center gap-2">
-                                                <div
-                                                    className="w-full rounded-t-md bg-primary/20"
-                                                    style={{ height }}
-                                                    title={`${formatUnixTime(point.timestamp)} | ${formatCount(point.cache_read_tokens)} read`}
-                                                />
-                                                <div className="w-full whitespace-nowrap text-center text-[10px] text-muted-foreground">
-                                                    {formatUnixTime(point.timestamp)}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                            {!data.usage_signal_available ? (
+                                <div className="rounded-lg border border-dashed border-border/40 px-4 py-6 text-center text-sm text-muted-foreground">
+                                    <p>{missingUsageHint}</p>
                                 </div>
-                            </div>
+                            ) : !hasTrendActivity ? (
+                                <div className="rounded-lg border border-dashed border-border/40 px-4 py-6 text-center text-sm text-muted-foreground">
+                                    {t('cache.providerPrompt.providers.empty')}
+                                </div>
+                            ) : (
+                                <div className="max-w-full overflow-x-auto pb-1">
+                                    <div className="flex h-40 min-w-max items-end gap-2 pr-2">
+                                        {trend.map((point) => {
+                                            const height = `${Math.max(8, (point.cache_read_tokens / maxReadTokens) * 100)}%`;
+                                            return (
+                                                <div key={point.timestamp} className="flex w-20 flex-none flex-col items-center gap-2">
+                                                    <div
+                                                        className="w-full rounded-t-md bg-primary/20"
+                                                        style={{ height }}
+                                                        title={`${formatUnixTime(point.timestamp)} | ${formatCount(point.cache_read_tokens)} read`}
+                                                    />
+                                                    <div className="w-full whitespace-nowrap text-center text-[10px] text-muted-foreground">
+                                                        {formatUnixTime(point.timestamp)}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

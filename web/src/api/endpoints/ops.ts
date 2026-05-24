@@ -48,6 +48,9 @@ export interface OpsProviderPromptCacheSummary {
     cache_read_tokens: number;
     cache_write_tokens: number;
     estimated_cost_saved: number;
+    usage_signal_available: boolean;
+    sampled_log_count: number;
+    parsed_log_count: number;
     providers: OpsProviderPromptCacheProviderItem[];
     trend: OpsProviderPromptCacheTrendPoint[];
 }

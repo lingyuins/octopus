@@ -301,11 +301,14 @@ func buildOpsProviderPromptCacheSummaryFromLogs(
 	providers := make(map[int]opsProviderPromptCacheAggregate)
 	var totalInputTokens int64
 
+	summary.SampledLogCount = int64(len(logs))
+
 	for _, relayLog := range logs {
 		usage, ok := parseOpsProviderPromptCacheUsage(relayLog.ResponseContent)
 		if !ok {
 			continue
 		}
+		summary.ParsedLogCount++
 		if signals, ok := cacheusage.ParseProviderPromptCacheUsageSignals(relayLog.ResponseContent); ok && signals.SemanticCacheHit {
 			continue
 		}
@@ -375,6 +378,7 @@ func buildOpsProviderPromptCacheSummaryFromLogs(
 
 	summary.CacheRate = percent(summary.CachedRequestCount, summary.RequestCount)
 	summary.CacheReuseRatio = percent(summary.CacheReadTokens, totalInputTokens)
+	summary.UsageSignalAvailable = summary.ParsedLogCount > 0
 	for i := range summary.Trend {
 		summary.Trend[i].CacheRate = percent(summary.Trend[i].CachedRequestCount, summary.Trend[i].RequestCount)
 	}

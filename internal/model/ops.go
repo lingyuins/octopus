@@ -15,15 +15,18 @@ type OpsCacheStatus struct {
 }
 
 type OpsProviderPromptCacheSummary struct {
-	RequestCount       int64                                `json:"request_count"`
-	CachedRequestCount int64                                `json:"cached_request_count"`
-	CacheRate          float64                              `json:"cache_rate"`
-	CacheReuseRatio    float64                              `json:"cache_reuse_ratio"`
-	CacheReadTokens    int64                                `json:"cache_read_tokens"`
-	CacheWriteTokens   int64                                `json:"cache_write_tokens"`
-	EstimatedCostSaved float64                              `json:"estimated_cost_saved"`
-	Providers          []OpsProviderPromptCacheProviderItem `json:"providers"`
-	Trend              []OpsProviderPromptCacheTrendPoint   `json:"trend"`
+	RequestCount         int64                                `json:"request_count"`
+	CachedRequestCount   int64                                `json:"cached_request_count"`
+	CacheRate            float64                              `json:"cache_rate"`
+	CacheReuseRatio      float64                              `json:"cache_reuse_ratio"`
+	CacheReadTokens      int64                                `json:"cache_read_tokens"`
+	CacheWriteTokens     int64                                `json:"cache_write_tokens"`
+	EstimatedCostSaved   float64                              `json:"estimated_cost_saved"`
+	UsageSignalAvailable bool                                 `json:"usage_signal_available"`
+	SampledLogCount      int64                                `json:"sampled_log_count"`
+	ParsedLogCount       int64                                `json:"parsed_log_count"`
+	Providers            []OpsProviderPromptCacheProviderItem `json:"providers"`
+	Trend                []OpsProviderPromptCacheTrendPoint   `json:"trend"`
 }
 
 type OpsProviderPromptCacheProviderItem struct {
