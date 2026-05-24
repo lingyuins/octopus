@@ -191,6 +191,7 @@ function DeferredJsonContent({ content, fallbackText }: { content: string | unde
 
 export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameById?: ReadonlyMap<number, string> }) {
     const t = useTranslations('log.card');
+    const tCommon = useTranslations('common');
     const tGroup = useTranslations('group');
     const { detail, isLoading: isDetailLoading, fetchDetail, reset: resetDetail } = useLogDetail();
     const hasError = !!log.error;
@@ -220,6 +221,27 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
 
     const requestContent = detail?.request_content;
     const responseContent = detail?.response_content;
+    const usageKnown = useMemo(() => {
+        if (log.input_tokens > 0 || log.output_tokens > 0 || Number(log.cost) > 0) {
+            return true;
+        }
+        if (log.error) {
+            return true;
+        }
+        if (!responseContent) {
+            return false;
+        }
+        try {
+            const parsed = JSON.parse(responseContent) as { usage?: unknown };
+            return parsed.usage !== undefined;
+        } catch {
+            return false;
+        }
+    }, [log.cost, log.error, log.input_tokens, log.output_tokens, responseContent]);
+
+    const inputTokenDisplay = usageKnown ? effectiveInputTokens.toLocaleString() : tCommon('unknown');
+    const outputTokenDisplay = usageKnown ? log.output_tokens.toLocaleString() : tCommon('unknown');
+    const costDisplay = usageKnown ? Number(log.cost).toFixed(6) : tCommon('unknown');
 
     return (
         <TooltipProvider>
@@ -300,7 +322,7 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <ArrowDownToLine className="size-3.5 shrink-0 text-green-500" />
-                                    <span>{inputLabel} {effectiveInputTokens.toLocaleString()}</span>
+                                    <span>{inputLabel} {inputTokenDisplay}</span>
                                 </div>
                                 {semanticCacheHit && (
                                     <div className="flex items-center gap-1.5">
@@ -316,12 +338,12 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
                                 )}
                                 <div className="flex items-center gap-1.5">
                                     <ArrowUpFromLine className="size-3.5 shrink-0 text-purple-500" />
-                                    <span>{t('output')} {log.output_tokens.toLocaleString()}</span>
+                                    <span>{t('output')} {outputTokenDisplay}</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     <DollarSign className="size-3.5 shrink-0 text-emerald-500" />
                                     <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                                        {t('cost')} {Number(log.cost).toFixed(6)}
+                                        {t('cost')} {costDisplay}
                                     </span>
                                 </div>
                             </div>
@@ -493,7 +515,7 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
                                                 <Send className="size-4 text-green-500" />
                                                 <span className="text-sm font-medium text-card-foreground">{t('requestContent')}</span>
                                                 <Badge variant="secondary" className="ml-auto text-xs">
-                                                    {log.input_tokens.toLocaleString()} {t('tokens')}
+                                                    {usageKnown ? `${log.input_tokens.toLocaleString()} ${t('tokens')}` : tCommon('unknown')}
                                                 </Badge>
                                             </div>
                                             <div className="min-h-0 flex-1 overflow-hidden">
@@ -511,7 +533,7 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
                                                 <MessageSquare className="size-4 text-purple-500" />
                                                 <span className="text-sm font-medium text-card-foreground">{t('responseContent')}</span>
                                                 <Badge variant="secondary" className="ml-auto text-xs">
-                                                    {log.output_tokens.toLocaleString()} {t('tokens')}
+                                                    {usageKnown ? `${log.output_tokens.toLocaleString()} ${t('tokens')}` : tCommon('unknown')}
                                                 </Badge>
                                             </div>
                                             <div className="min-h-0 flex-1 overflow-hidden">
@@ -566,7 +588,7 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
                             <div className="flex items-center gap-1.5">
                                 <DollarSign className="size-3.5 text-emerald-500" />
                                 <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                                    {t('cost')}: {Number(log.cost).toFixed(6)}
+                                    {t('cost')}: {costDisplay}
                                 </span>
                             </div>
                             </div>
@@ -577,3 +599,4 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
         </TooltipProvider>
     );
 }
+
