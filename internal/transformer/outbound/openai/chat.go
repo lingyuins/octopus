@@ -51,11 +51,14 @@ func (o *ChatOutbound) TransformRequest(ctx context.Context, request *model.Inte
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+key)
 
-	parsedUrl, err := url.Parse(strings.TrimSuffix(baseUrl, "/"))
+	upstreamURL, err := buildOpenAIUpstreamURL(baseUrl, "/v1/chat/completions")
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse base url: %w", err)
+		return nil, err
 	}
-	parsedUrl.Path = parsedUrl.Path + "/chat/completions"
+	parsedUrl, err := url.Parse(upstreamURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse built upstream url: %w", err)
+	}
 	req.URL = parsedUrl
 	req.Method = http.MethodPost
 	return req, nil
@@ -345,4 +348,38 @@ func normalizeOpenAICompatUsage(resp *model.InternalLLMResponse) {
 			usage.TotalTokens = minimumTotal
 		}
 	}
+}
+
+func buildOpenAIUpstreamURL(baseURL, endpointPath string) (string, error) {
+	parsed, err := url.Parse(strings.TrimSuffix(baseURL, "/"))
+	if err != nil {
+		return "", fmt.Errorf("failed to parse base url: %w", err)
+	}
+
+	basePath := strings.TrimSuffix(parsed.Path, "/")
+	normalizedPath := endpointPath
+	if strings.HasSuffix(basePath, "/v1") && strings.HasPrefix(normalizedPath, "/v1/") {
+		normalizedPath = strings.TrimPrefix(normalizedPath, "/v1")
+	}
+	if looksLikeExplicitEndpoint(basePath, normalizedPath) {
+		parsed.Path = basePath
+	} else {
+		parsed.Path = basePath + normalizedPath
+	}
+
+	return parsed.String(), nil
+}
+
+func looksLikeExplicitEndpoint(basePath, endpointPath string) bool {
+	if basePath == "" {
+		return false
+	}
+
+	baseSegments := strings.Split(strings.Trim(basePath, "/"), "/")
+	endpointSegments := strings.Split(strings.Trim(endpointPath, "/"), "/")
+	if len(baseSegments) == 0 || len(endpointSegments) == 0 {
+		return false
+	}
+
+	return strings.EqualFold(baseSegments[len(baseSegments)-1], endpointSegments[len(endpointSegments)-1])
 }

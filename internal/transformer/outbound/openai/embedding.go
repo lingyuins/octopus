@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/lingyuins/octopus/internal/transformer/model"
 )
@@ -74,11 +73,14 @@ func (o *EmbeddingOutbound) TransformRequest(ctx context.Context, request *model
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+key)
 
-	parsedUrl, err := url.Parse(strings.TrimSuffix(baseUrl, "/"))
+	upstreamURL, err := buildOpenAIUpstreamURL(baseUrl, "/v1/embeddings")
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse base url: %w", err)
+		return nil, err
 	}
-	parsedUrl.Path = parsedUrl.Path + "/embeddings"
+	parsedUrl, err := url.Parse(upstreamURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse built upstream url: %w", err)
+	}
 	req.URL = parsedUrl
 	req.Method = http.MethodPost
 	return req, nil
