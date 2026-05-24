@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	updateUrl                  = "https://github.com/lingyuins/octopus/releases/latest/download"
-	updateApiUrl               = "https://api.github.com/repos/lingyuins/octopus/releases/latest"
-	maxUpdateAPIResponseBytes  = 2 << 20 // 2 MiB — GitHub API release info JSON is typically < 100 KiB
+	updateUrl                 = "https://github.com/lingyuins/octopus/releases/latest/download"
+	updateApiUrl              = "https://api.github.com/repos/lingyuins/octopus/releases/latest"
+	maxUpdateAPIResponseBytes = 2 << 20 // 2 MiB — GitHub API release info JSON is typically < 100 KiB
 )
 
 type LatestInfo struct {
@@ -35,15 +35,24 @@ var github_pat = os.Getenv(strings.ToUpper(conf.APP_NAME) + "_GITHUB_PAT")
 
 // doRequestWithFallback performs an HTTP GET request, first without proxy, then with proxy if failed.
 func doRequestWithFallback(url string) ([]byte, error) {
-	data, err := doRequest(url, false)
+	data, err := doRequest(url, false, 0, "")
 	if err == nil {
 		return data, nil
 	}
 	log.Warnf("direct request failed, trying with proxy: %v", err)
-	return doRequest(url, true)
+	return doRequest(url, true, 0, "")
 }
 
-func doRequest(url string, useProxy bool) ([]byte, error) {
+func doAPIRequestWithFallback(url string) ([]byte, error) {
+	data, err := doRequest(url, false, maxUpdateAPIResponseBytes, "update API response")
+	if err == nil {
+		return data, nil
+	}
+	log.Warnf("direct request failed, trying with proxy: %v", err)
+	return doRequest(url, true, maxUpdateAPIResponseBytes, "update API response")
+}
+
+func doRequest(url string, useProxy bool, maxBytes int64, responseLabel string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -69,20 +78,27 @@ func doRequest(url string, useProxy bool) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	limitedReader := io.LimitReader(resp.Body, maxUpdateAPIResponseBytes+1)
-	data, err := io.ReadAll(limitedReader)
+	reader := io.Reader(resp.Body)
+	if maxBytes > 0 {
+		reader = io.LimitReader(resp.Body, maxBytes+1)
+	}
+
+	data, err := io.ReadAll(reader)
 	if err != nil {
 		log.Debugf("read body failed: %v", err)
 		return nil, err
 	}
-	if len(data) > maxUpdateAPIResponseBytes {
-		return nil, fmt.Errorf("update API response exceeds %d bytes limit", maxUpdateAPIResponseBytes)
+	if maxBytes > 0 && int64(len(data)) > maxBytes {
+		if responseLabel == "" {
+			responseLabel = "response"
+		}
+		return nil, fmt.Errorf("%s exceeds %d bytes limit", responseLabel, maxBytes)
 	}
 	return data, nil
 }
 
 func GetLatestInfo() (*LatestInfo, error) {
-	body, err := doRequestWithFallback(updateApiUrl)
+	body, err := doAPIRequestWithFallback(updateApiUrl)
 	if err != nil {
 		return nil, err
 	}
