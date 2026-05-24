@@ -7,13 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
 	usr "github.com/lingyuins/octopus/internal/op/user"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
 	"github.com/lingyuins/octopus/internal/server/router"
-	"github.com/gin-gonic/gin"
 )
 
 func init() {
@@ -95,6 +95,10 @@ func updateUserRole(c *gin.Context) {
 		return
 	}
 	if err := usr.UpdateRole(req.ID, req.Role, c.Request.Context()); err != nil {
+		if status, msg, ok := classifyUserMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
 		resp.Error(c, http.StatusBadRequest, "failed to update role")
 		return
 	}
@@ -110,6 +114,10 @@ func deleteUser(c *gin.Context) {
 	}
 	currentUserID := uint(c.GetInt("user_id"))
 	if err := usr.Delete(uint(id), currentUserID, c.Request.Context()); err != nil {
+		if status, msg, ok := classifyUserMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
 		resp.Error(c, http.StatusBadRequest, "failed to delete user")
 		return
 	}
@@ -184,4 +192,24 @@ func status(c *gin.Context) {
 		return
 	}
 	resp.Success(c, "ok")
+}
+
+func classifyUserMutationError(err error) (int, string, bool) {
+	if err == nil {
+		return 0, "", false
+	}
+
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "user not found"):
+		return http.StatusNotFound, "user not found", true
+	case strings.Contains(msg, "invalid role"):
+		return http.StatusBadRequest, err.Error(), true
+	case strings.Contains(msg, "username already exists"):
+		return http.StatusConflict, "username already exists", true
+	case strings.Contains(msg, "cannot delete the active user"):
+		return http.StatusBadRequest, "cannot delete the active user", true
+	default:
+		return 0, "", false
+	}
 }

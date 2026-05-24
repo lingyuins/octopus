@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
@@ -39,12 +40,18 @@ func listAlertRules(c *gin.Context) {
 }
 
 func createAlertRule(c *gin.Context) {
-	var rule model.AlertRule
-	if err := c.ShouldBindJSON(&rule); err != nil {
+	var req alertRulePayload
+	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
+	rule := req.toModel()
+	rule.ID = 0
 	if err := alert.RuleCreate(c.Request.Context(), &rule); err != nil {
+		if status, msg, ok := classifyAlertMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
 		resp.InternalError(c)
 		return
 	}
@@ -52,12 +59,17 @@ func createAlertRule(c *gin.Context) {
 }
 
 func updateAlertRule(c *gin.Context) {
-	var rule model.AlertRule
-	if err := c.ShouldBindJSON(&rule); err != nil {
+	var req alertRulePayload
+	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
+	rule := req.toModel()
 	if err := alert.RuleUpdate(c.Request.Context(), &rule); err != nil {
+		if status, msg, ok := classifyAlertMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
 		resp.InternalError(c)
 		return
 	}
@@ -71,6 +83,10 @@ func deleteAlertRule(c *gin.Context) {
 		return
 	}
 	if err := alert.RuleDelete(c.Request.Context(), id); err != nil {
+		if status, msg, ok := classifyAlertMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
 		resp.InternalError(c)
 		return
 	}
@@ -87,12 +103,18 @@ func listNotifChannels(c *gin.Context) {
 }
 
 func createNotifChannel(c *gin.Context) {
-	var ch model.AlertNotifChannel
-	if err := c.ShouldBindJSON(&ch); err != nil {
+	var req alertNotifChannelPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
+	ch := req.toModel()
+	ch.ID = 0
 	if err := alert.NotifChannelCreate(c.Request.Context(), &ch); err != nil {
+		if status, msg, ok := classifyAlertMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
 		resp.InternalError(c)
 		return
 	}
@@ -100,12 +122,17 @@ func createNotifChannel(c *gin.Context) {
 }
 
 func updateNotifChannel(c *gin.Context) {
-	var ch model.AlertNotifChannel
-	if err := c.ShouldBindJSON(&ch); err != nil {
+	var req alertNotifChannelPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
+	ch := req.toModel()
 	if err := alert.NotifChannelUpdate(c.Request.Context(), &ch); err != nil {
+		if status, msg, ok := classifyAlertMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
 		resp.InternalError(c)
 		return
 	}
@@ -119,6 +146,10 @@ func deleteNotifChannel(c *gin.Context) {
 		return
 	}
 	if err := alert.NotifChannelDelete(c.Request.Context(), id); err != nil {
+		if status, msg, ok := classifyAlertMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
 		resp.InternalError(c)
 		return
 	}
@@ -136,4 +167,74 @@ func listAlertHistory(c *gin.Context) {
 		return
 	}
 	resp.Success(c, history)
+}
+
+type alertRulePayload struct {
+	ID             int                          `json:"id"`
+	Name           string                       `json:"name"`
+	Enabled        bool                         `json:"enabled"`
+	ConditionType  model.AlertRuleConditionType `json:"condition_type"`
+	Threshold      float64                      `json:"threshold"`
+	ConditionJSON  string                       `json:"condition_json,omitempty"`
+	NotifChannelID int                          `json:"notif_channel_id"`
+	CooldownSec    int                          `json:"cooldown_sec"`
+	ScopeChannelID int                          `json:"scope_channel_id,omitempty"`
+	ScopeAPIKeyID  int                          `json:"scope_api_key_id,omitempty"`
+}
+
+func (p alertRulePayload) toModel() model.AlertRule {
+	return model.AlertRule{
+		ID:             p.ID,
+		Name:           p.Name,
+		Enabled:        p.Enabled,
+		ConditionType:  p.ConditionType,
+		Threshold:      p.Threshold,
+		ConditionJSON:  p.ConditionJSON,
+		NotifChannelID: p.NotifChannelID,
+		CooldownSec:    p.CooldownSec,
+		ScopeChannelID: p.ScopeChannelID,
+		ScopeAPIKeyID:  p.ScopeAPIKeyID,
+	}
+}
+
+type alertNotifChannelPayload struct {
+	ID      int    `json:"id"`
+	Name    string `json:"name"`
+	Type    string `json:"type"`
+	URL     string `json:"url"`
+	Secret  string `json:"secret,omitempty"`
+	Headers string `json:"headers,omitempty"`
+	Config  string `json:"config,omitempty"`
+}
+
+func (p alertNotifChannelPayload) toModel() model.AlertNotifChannel {
+	return model.AlertNotifChannel{
+		ID:      p.ID,
+		Name:    p.Name,
+		Type:    p.Type,
+		URL:     p.URL,
+		Secret:  p.Secret,
+		Headers: p.Headers,
+		Config:  p.Config,
+	}
+}
+
+func classifyAlertMutationError(err error) (int, string, bool) {
+	if err == nil {
+		return 0, "", false
+	}
+
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "alert rule not found"):
+		return http.StatusNotFound, "alert rule not found", true
+	case strings.Contains(msg, "alert notification channel not found"):
+		return http.StatusNotFound, "alert notification channel not found", true
+	case strings.Contains(msg, "unique constraint failed") ||
+		strings.Contains(msg, "duplicate entry") ||
+		strings.Contains(msg, "duplicate key"):
+		return http.StatusConflict, "alert resource already exists", true
+	default:
+		return 0, "", false
+	}
 }

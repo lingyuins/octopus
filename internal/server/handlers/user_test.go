@@ -118,3 +118,30 @@ func TestCreateUserThenLoginAsCreatedUser(t *testing.T) {
 		t.Fatalf("created user token id = %d, want %d", userID, createdUser.ID)
 	}
 }
+
+func TestUpdateUserRoleNotFoundReturns404(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.NewReplacer("/", "-", "\\", "-", " ", "-").Replace(t.Name()))
+	if err := db.InitDB("sqlite", dsn, false); err != nil {
+		t.Fatalf("init db: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = db.Close()
+	})
+
+	if err := op.InitCache(); err != nil {
+		t.Fatalf("init cache: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/user/update-role", strings.NewReader(`{"id":404,"role":"viewer"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	updateUserRole(c)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusNotFound, recorder.Body.String())
+	}
+}

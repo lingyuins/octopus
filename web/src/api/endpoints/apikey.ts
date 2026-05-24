@@ -2,8 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../client';
 import { logger } from '@/lib/logger';
 import { useAuthStore } from './user';
-import { StatsAPIKey, StatsAPIKeyFormatted } from './stats';
-import { formatCount, formatMoney, formatTime } from '@/lib/utils';
+import {
+    formatAPIKeyStatsResponse,
+    type APIKeyStatsResponse as APIKeyStatsResponseBase,
+    type APIKeyStatsResponseFormatted as APIKeyStatsResponseFormattedBase,
+} from './apikey-format';
 
 /**
  * API Key 数据
@@ -26,14 +29,12 @@ export interface APIKey {
  * API Key Stats 响应（包含 stats 和 info）
  */
 export interface APIKeyStatsResponse {
-    stats: StatsAPIKey;
+    stats: APIKeyStatsResponseBase<APIKey>['stats'];
     info: APIKey;
 }
 
-export interface APIKeyStatsResponseFormatted {
-    stats: StatsAPIKeyFormatted;
-    info: APIKey;
-}
+export type APIKeyStatsResponseFormatted = APIKeyStatsResponseFormattedBase<APIKey>;
+export { formatAPIKeyStatsResponse };
 
 /**
  * API Key 登录 Hook（仅校验 key 是否有效）
@@ -64,22 +65,7 @@ export function useAPIKeyDashboardStats() {
     return useQuery({
         queryKey: ['apikey', 'dashboard', 'stats'],
         queryFn: () => apiClient.get<APIKeyStatsResponse>('/api/v1/apikey/stats'),
-        select: (data): APIKeyStatsResponseFormatted => ({
-            stats: {
-                api_key_id: data.stats.api_key_id,
-                input_token: formatCount(data.stats.input_token),
-                output_token: formatCount(data.stats.output_token),
-                total_token: formatCount(data.stats.input_token + data.stats.output_token),
-                input_cost: formatMoney(data.stats.input_cost),
-                output_cost: formatMoney(data.stats.output_cost),
-                total_cost: formatMoney(data.stats.input_cost + data.stats.output_cost),
-                wait_time: formatTime(data.stats.wait_time),
-                request_success: formatCount(data.stats.request_success),
-                request_failed: formatCount(data.stats.request_failed),
-                request_count: formatCount(data.stats.request_success + data.stats.request_failed),
-            },
-            info: data.info,
-        }),
+        select: formatAPIKeyStatsResponse,
         enabled: isAPIKeyAuth && isAuthenticated,
         refetchInterval: 30000,
     });
@@ -209,21 +195,9 @@ export function useAPIKeyStats() {
     return useQuery({
         queryKey: ['apikey', 'stats'],
         queryFn: async () => {
-            return apiClient.get<StatsAPIKey>('/api/v1/apikey/stats');
+            return apiClient.get<APIKeyStatsResponse>('/api/v1/apikey/stats');
         },
-        select: (data): StatsAPIKeyFormatted => ({
-            api_key_id: data.api_key_id,
-            input_token: formatCount(data.input_token),
-            output_token: formatCount(data.output_token),
-            total_token: formatCount(data.input_token + data.output_token),
-            input_cost: formatMoney(data.input_cost),
-            output_cost: formatMoney(data.output_cost),
-            total_cost: formatMoney(data.input_cost + data.output_cost),
-            wait_time: formatTime(data.wait_time),
-            request_success: formatCount(data.request_success),
-            request_failed: formatCount(data.request_failed),
-            request_count: formatCount(data.request_success + data.request_failed),
-        }),
+        select: formatAPIKeyStatsResponse,
         refetchInterval: 30000,
         refetchOnMount: 'always',
     });

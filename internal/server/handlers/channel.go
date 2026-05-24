@@ -10,14 +10,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/helper"
 	"github.com/lingyuins/octopus/internal/model"
-	ch "github.com/lingyuins/octopus/internal/op/channel"
 	"github.com/lingyuins/octopus/internal/op"
+	ch "github.com/lingyuins/octopus/internal/op/channel"
 	st "github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
 	"github.com/lingyuins/octopus/internal/server/router"
 	"github.com/lingyuins/octopus/internal/task"
+	"github.com/lingyuins/octopus/internal/transformer/outbound"
 	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
@@ -104,6 +105,7 @@ func listChannel(c *gin.Context) {
 		if !canViewRawKeys {
 			channels[i].Keys = maskChannelKeys(channel.Keys)
 		}
+		normalizeChannelListSlices(&channels[i])
 		stats := st.ChannelGet(channel.ID)
 		channels[i].Stats = &stats
 	}
@@ -111,11 +113,12 @@ func listChannel(c *gin.Context) {
 }
 
 func createChannel(c *gin.Context) {
-	var channel model.Channel
-	if err := c.ShouldBindJSON(&channel); err != nil {
+	var req channelRequestPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
+	channel := req.toChannel()
 	if err := ch.Create(&channel, c.Request.Context()); err != nil {
 		if status, msg, ok := classifyChannelMutationError(err); ok {
 			resp.Error(c, status, msg)
@@ -208,11 +211,12 @@ func deleteChannel(c *gin.Context) {
 	resp.Success(c, nil)
 }
 func fetchModel(c *gin.Context) {
-	var request model.Channel
-	if err := c.ShouldBindJSON(&request); err != nil {
+	var payload channelRequestPayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
+	request := payload.toChannel()
 	models, err := helper.FetchModels(c.Request.Context(), request)
 	if err != nil {
 		resp.InternalError(c)
@@ -222,11 +226,12 @@ func fetchModel(c *gin.Context) {
 }
 
 func testChannel(c *gin.Context) {
-	var request model.Channel
-	if err := c.ShouldBindJSON(&request); err != nil {
+	var payload channelRequestPayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
+	request := payload.toChannel()
 	summary, err := helper.TestChannel(c.Request.Context(), request)
 	if err != nil {
 		resp.Error(c, http.StatusBadRequest, err.Error())
@@ -238,6 +243,67 @@ func testChannel(c *gin.Context) {
 func syncChannel(c *gin.Context) {
 	task.SyncModelsTask()
 	resp.Success(c, nil)
+}
+
+type channelRequestPayload struct {
+	ID             int                         `json:"id"`
+	Name           string                      `json:"name"`
+	GroupID        int                         `json:"group_id"`
+	Type           outbound.OutboundType       `json:"type"`
+	Enabled        bool                        `json:"enabled"`
+	BaseUrls       []model.BaseUrl             `json:"base_urls"`
+	Keys           []channelKeyRequestPayload  `json:"keys"`
+	Model          string                      `json:"model"`
+	CustomModel    string                      `json:"custom_model"`
+	Proxy          bool                        `json:"proxy"`
+	AutoSync       bool                        `json:"auto_sync"`
+	AutoGroup      model.AutoGroupType         `json:"auto_group"`
+	CustomHeader   []model.CustomHeader        `json:"custom_header"`
+	ParamOverride  *string                     `json:"param_override"`
+	ChannelProxy   *string                     `json:"channel_proxy"`
+	RequestRewrite *model.RequestRewriteConfig `json:"request_rewrite"`
+	MatchRegex     *string                     `json:"match_regex"`
+	Stats          *model.StatsChannel         `json:"stats"`
+}
+
+type channelKeyRequestPayload struct {
+	ID               int     `json:"id"`
+	ChannelID        int     `json:"channel_id"`
+	Enabled          bool    `json:"enabled"`
+	ChannelKey       string  `json:"channel_key"`
+	StatusCode       int     `json:"status_code"`
+	LastUseTimeStamp int64   `json:"last_use_time_stamp"`
+	TotalCost        float64 `json:"total_cost"`
+	Remark           string  `json:"remark"`
+}
+
+func (p channelRequestPayload) toChannel() model.Channel {
+	keys := make([]model.ChannelKey, 0, len(p.Keys))
+	for _, key := range p.Keys {
+		keys = append(keys, model.ChannelKey{
+			Enabled:    key.Enabled,
+			ChannelKey: key.ChannelKey,
+			Remark:     key.Remark,
+		})
+	}
+	return model.Channel{
+		Name:           p.Name,
+		GroupID:        p.GroupID,
+		Type:           p.Type,
+		Enabled:        p.Enabled,
+		BaseUrls:       p.BaseUrls,
+		Keys:           keys,
+		Model:          p.Model,
+		CustomModel:    p.CustomModel,
+		Proxy:          p.Proxy,
+		AutoSync:       p.AutoSync,
+		AutoGroup:      p.AutoGroup,
+		CustomHeader:   p.CustomHeader,
+		ParamOverride:  p.ParamOverride,
+		ChannelProxy:   p.ChannelProxy,
+		RequestRewrite: p.RequestRewrite,
+		MatchRegex:     p.MatchRegex,
+	}
 }
 
 func listChannelGroup(c *gin.Context) {
@@ -371,6 +437,10 @@ func maskChannelKeys(keys []model.ChannelKey) []model.ChannelKey {
 }
 
 func maskChannelKeyValue(raw string) string {
+	return maskSecretValue(raw)
+}
+
+func maskSecretValue(raw string) string {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
 		return ""
@@ -379,4 +449,19 @@ func maskChannelKeyValue(raw string) string {
 		return strings.Repeat("*", len(trimmed))
 	}
 	return trimmed[:4] + strings.Repeat("*", len(trimmed)-8) + trimmed[len(trimmed)-4:]
+}
+
+func normalizeChannelListSlices(channel *model.Channel) {
+	if channel == nil {
+		return
+	}
+	if channel.BaseUrls == nil {
+		channel.BaseUrls = make([]model.BaseUrl, 0)
+	}
+	if channel.Keys == nil {
+		channel.Keys = make([]model.ChannelKey, 0)
+	}
+	if channel.CustomHeader == nil {
+		channel.CustomHeader = make([]model.CustomHeader, 0)
+	}
 }

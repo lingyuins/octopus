@@ -131,11 +131,29 @@ func getStatsAPIKey(c *gin.Context) {
 		apiKeyNames[apiKey.ID] = apiKey.Name
 	}
 
-	result := make([]apiKeyStatsResponse, 0, len(stats))
+	statsByAPIKeyID := make(map[int]model.StatsAPIKey, len(stats))
 	for _, item := range stats {
+		statsByAPIKeyID[item.APIKeyID] = item
+	}
+
+	result := make([]apiKeyStatsResponse, 0, len(apiKeys)+len(stats))
+	for _, apiKey := range apiKeys {
+		item, ok := statsByAPIKeyID[apiKey.ID]
+		if !ok {
+			item = model.StatsAPIKey{APIKeyID: apiKey.ID}
+		} else {
+			delete(statsByAPIKeyID, apiKey.ID)
+		}
+		result = append(result, apiKeyStatsResponse{
+			StatsAPIKey: item,
+			Name:        apiKey.Name,
+		})
+	}
+
+	for apiKeyID, item := range statsByAPIKeyID {
 		name, ok := apiKeyNames[item.APIKeyID]
 		if !ok {
-			name = fmt.Sprintf("Key #%d", item.APIKeyID)
+			name = fmt.Sprintf("Key #%d", apiKeyID)
 		}
 		result = append(result, apiKeyStatsResponse{
 			StatsAPIKey: item,

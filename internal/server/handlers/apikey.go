@@ -54,17 +54,19 @@ func init() {
 }
 
 func createAPIKey(c *gin.Context) {
-	var req model.APIKey
+	var req apiKeyRequestPayload
 	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	req.APIKey = auth.GenerateAPIKey()
-	if err := apikey.Create(&req, c.Request.Context()); err != nil {
+	apiKey := req.toModel()
+	apiKey.ID = 0
+	apiKey.APIKey = auth.GenerateAPIKey()
+	if err := apikey.Create(&apiKey, c.Request.Context()); err != nil {
 		resp.InternalError(c)
 		return
 	}
-	resp.Success(c, req)
+	resp.Success(c, apiKey)
 }
 
 func listAPIKey(c *gin.Context) {
@@ -73,20 +75,29 @@ func listAPIKey(c *gin.Context) {
 		resp.InternalError(c)
 		return
 	}
+	if !auth.HasPermission(c.GetString("user_role"), auth.PermAPIKeysWrite) {
+		apiKeys = maskAPIKeys(apiKeys)
+	}
 	resp.Success(c, apiKeys)
 }
 
 func updateAPIKey(c *gin.Context) {
-	var req model.APIKey
+	var req apiKeyRequestPayload
 	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
-	if err := apikey.Update(&req, c.Request.Context()); err != nil {
+	apiKey := req.toModel()
+	if err := apikey.Update(&apiKey, c.Request.Context()); err != nil {
+		if status, msg, ok := classifyAPIKeyMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
 		resp.InternalError(c)
 		return
 	}
-	resp.Success(c, req)
+	apiKey.APIKey = maskAPIKeyValue(apiKey.APIKey)
+	resp.Success(c, apiKey)
 }
 
 func deleteAPIKey(c *gin.Context) {
@@ -97,6 +108,10 @@ func deleteAPIKey(c *gin.Context) {
 		return
 	}
 	if err := apikey.Delete(idNum, c.Request.Context()); err != nil {
+		if status, msg, ok := classifyAPIKeyMutationError(err); ok {
+			resp.Error(c, status, msg)
+			return
+		}
 		resp.InternalError(c)
 		return
 	}
@@ -137,4 +152,67 @@ func getStatsAPIKeyById(c *gin.Context) {
 
 func loginAPIKey(c *gin.Context) {
 	resp.Success(c, nil)
+}
+
+func maskAPIKeys(keys []model.APIKey) []model.APIKey {
+	if len(keys) == 0 {
+		return make([]model.APIKey, 0)
+	}
+
+	masked := make([]model.APIKey, len(keys))
+	for i, key := range keys {
+		key.APIKey = maskAPIKeyValue(key.APIKey)
+		masked[i] = key
+	}
+	return masked
+}
+
+func maskAPIKeyValue(raw string) string {
+	return maskSecretValue(raw)
+}
+
+type apiKeyRequestPayload struct {
+	ID                int     `json:"id"`
+	Name              string  `json:"name"`
+	Enabled           bool    `json:"enabled"`
+	ExpireAt          int64   `json:"expire_at,omitempty"`
+	MaxCost           float64 `json:"max_cost,omitempty"`
+	SupportedModels   string  `json:"supported_models,omitempty"`
+	RateLimitRPM      int     `json:"rate_limit_rpm,omitempty"`
+	RateLimitTPM      int     `json:"rate_limit_tpm,omitempty"`
+	PerModelQuotaJSON string  `json:"per_model_quota_json,omitempty"`
+	AllowedIPs        string  `json:"allowed_ips,omitempty"`
+}
+
+func (p apiKeyRequestPayload) toModel() model.APIKey {
+	return model.APIKey{
+		ID:                p.ID,
+		Name:              p.Name,
+		Enabled:           p.Enabled,
+		ExpireAt:          p.ExpireAt,
+		MaxCost:           p.MaxCost,
+		SupportedModels:   p.SupportedModels,
+		RateLimitRPM:      p.RateLimitRPM,
+		RateLimitTPM:      p.RateLimitTPM,
+		PerModelQuotaJSON: p.PerModelQuotaJSON,
+		AllowedIPs:        p.AllowedIPs,
+	}
+}
+
+func classifyAPIKeyMutationError(err error) (int, string, bool) {
+	if err == nil {
+		return 0, "", false
+	}
+
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "api key not found"):
+		return http.StatusNotFound, "API key not found", true
+	case strings.Contains(msg, "unique constraint failed") ||
+		strings.Contains(msg, "duplicate entry") ||
+		strings.Contains(msg, "duplicate key"):
+		return http.StatusConflict, "API key already exists", true
+	default:
+		return 0, "", false
+	}
 }

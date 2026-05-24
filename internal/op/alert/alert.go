@@ -16,7 +16,7 @@ var stateMu sync.Mutex  // protects read-modify-write in StateSet
 var timeNow = func() int64 { return time.Now().UnixMilli() }
 
 func RuleList(ctx context.Context) ([]model.AlertRule, error) {
-	var rules []model.AlertRule
+	rules := make([]model.AlertRule, 0)
 	if err := db.GetDB().WithContext(ctx).Find(&rules).Error; err != nil {
 		return nil, err
 	}
@@ -28,6 +28,16 @@ func RuleCreate(ctx context.Context, rule *model.AlertRule) error {
 }
 
 func RuleUpdate(ctx context.Context, rule *model.AlertRule) error {
+	if rule == nil || rule.ID == 0 {
+		return fmt.Errorf("alert rule not found")
+	}
+	var count int64
+	if err := db.GetDB().WithContext(ctx).Model(&model.AlertRule{}).Where("id = ?", rule.ID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return fmt.Errorf("alert rule not found")
+	}
 	return db.GetDB().WithContext(ctx).Save(rule).Error
 }
 
@@ -43,7 +53,7 @@ func RuleDelete(ctx context.Context, id int) error {
 }
 
 func NotifChannelList(ctx context.Context) ([]model.AlertNotifChannel, error) {
-	var channels []model.AlertNotifChannel
+	channels := make([]model.AlertNotifChannel, 0)
 	if err := db.GetDB().WithContext(ctx).Find(&channels).Error; err != nil {
 		return nil, err
 	}
@@ -55,11 +65,28 @@ func NotifChannelCreate(ctx context.Context, ch *model.AlertNotifChannel) error 
 }
 
 func NotifChannelUpdate(ctx context.Context, ch *model.AlertNotifChannel) error {
+	if ch == nil || ch.ID == 0 {
+		return fmt.Errorf("alert notification channel not found")
+	}
+	var count int64
+	if err := db.GetDB().WithContext(ctx).Model(&model.AlertNotifChannel{}).Where("id = ?", ch.ID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return fmt.Errorf("alert notification channel not found")
+	}
 	return db.GetDB().WithContext(ctx).Save(ch).Error
 }
 
 func NotifChannelDelete(ctx context.Context, id int) error {
-	return db.GetDB().WithContext(ctx).Delete(&model.AlertNotifChannel{}, id).Error
+	res := db.GetDB().WithContext(ctx).Delete(&model.AlertNotifChannel{}, id)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("alert notification channel not found")
+	}
+	return nil
 }
 
 func StateGet(ruleID int) model.AlertStateRecord {

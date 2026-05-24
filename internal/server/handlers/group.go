@@ -78,7 +78,7 @@ func getGroupList(c *gin.Context) {
 		resp.InternalError(c)
 		return
 	}
-	resp.Success(c, groups)
+	resp.Success(c, normalizeGroupListResponse(groups))
 }
 
 func createGroup(c *gin.Context) {
@@ -304,3 +304,43 @@ func deleteAllGroups(c *gin.Context) {
 // 	}
 // 	resp.Success(c, nil)
 // }
+
+type groupListResponseItem struct {
+	ID                int               `json:"id"`
+	Name              string            `json:"name"`
+	EndpointType      string            `json:"endpoint_type"`
+	EndpointProvider  string            `json:"endpoint_provider,omitempty"`
+	Mode              model.GroupMode   `json:"mode"`
+	MatchRegex        string            `json:"match_regex"`
+	FirstTokenTimeOut int               `json:"first_token_time_out"`
+	SessionKeepTime   int               `json:"session_keep_time"`
+	Condition         string            `json:"condition,omitempty"`
+	Items             []model.GroupItem `json:"items"`
+}
+
+func normalizeGroupListResponse(groups []model.Group) []groupListResponseItem {
+	if len(groups) == 0 {
+		return make([]groupListResponseItem, 0)
+	}
+
+	items := make([]groupListResponseItem, len(groups))
+	for i, group := range groups {
+		groupItems := group.Items
+		if groupItems == nil {
+			groupItems = make([]model.GroupItem, 0)
+		}
+		items[i] = groupListResponseItem{
+			ID:                group.ID,
+			Name:              group.Name,
+			EndpointType:      group.EndpointType,
+			EndpointProvider:  group.EndpointProvider,
+			Mode:              group.Mode,
+			MatchRegex:        group.MatchRegex,
+			FirstTokenTimeOut: group.FirstTokenTimeOut,
+			SessionKeepTime:   group.SessionKeepTime,
+			Condition:         group.Condition,
+			Items:             groupItems,
+		}
+	}
+	return items
+}

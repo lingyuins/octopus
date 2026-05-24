@@ -40,6 +40,14 @@ func TestGetStatsAPIKeyIncludesNamesAndFallbacks(t *testing.T) {
 	if err := op.APIKeyCreate(apiKey, ctx); err != nil {
 		t.Fatalf("create api key: %v", err)
 	}
+	zeroStatsAPIKey := &model.APIKey{
+		Name:    "Zero stats key",
+		APIKey:  "sk-octopus-zero",
+		Enabled: true,
+	}
+	if err := op.APIKeyCreate(zeroStatsAPIKey, ctx); err != nil {
+		t.Fatalf("create zero stats api key: %v", err)
+	}
 
 	if err := op.StatsAPIKeyUpdate(apiKey.ID, model.StatsMetrics{
 		InputToken:     12,
@@ -100,5 +108,16 @@ func TestGetStatsAPIKeyIncludesNamesAndFallbacks(t *testing.T) {
 	}
 	if orphan.RequestFailed != 1 {
 		t.Fatalf("orphan api key stats = %+v, want request_failed=1", orphan)
+	}
+
+	zeroStats, ok := itemsByID[zeroStatsAPIKey.ID]
+	if !ok {
+		t.Fatalf("missing active api key with zero stats in response: %+v", response.Data)
+	}
+	if zeroStats.Name != "Zero stats key" {
+		t.Fatalf("zero stats api key name = %q, want %q", zeroStats.Name, "Zero stats key")
+	}
+	if zeroStats.RequestSuccess != 0 || zeroStats.RequestFailed != 0 || zeroStats.InputToken != 0 {
+		t.Fatalf("zero stats api key stats = %+v, want zero values", zeroStats)
 	}
 }
