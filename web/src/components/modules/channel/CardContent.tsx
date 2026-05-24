@@ -222,8 +222,8 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
             <MorphingDialogDescription className="flex min-h-0 flex-1 flex-col">
                 <Tabs value={currentView} className="flex min-h-0 flex-1 flex-col">
                     <TabsContents className="min-h-0 flex-1">
-                        <TabsContent value="viewing" >
-                            <div className="max-h-[min(46rem,calc(100dvh-13rem))] space-y-4 overflow-y-auto pr-1 sm:space-y-5">
+                        <TabsContent value="viewing" className="flex min-h-0 flex-col">
+                            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 sm:space-y-5">
                                 <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                                     <div className="rounded-lg border border-chart-1/18 bg-linear-to-br from-chart-1/10 via-background/42 to-chart-1/5 p-3.5 shadow-sm sm:p-4">
                                         <dt className="flex items-center gap-2 mb-2 text-xs font-medium text-muted-foreground">
@@ -460,7 +460,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
                                 </dl>
                             </div>
 
-                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            <div className="mt-4 grid shrink-0 gap-3 sm:grid-cols-2">
                                 <Button
                                     onClick={() => (isConfirmingDelete ? setIsConfirmingDelete(false) : setIsEditing(true))}
                                     variant={isConfirmingDelete ? 'secondary' : 'default'}
