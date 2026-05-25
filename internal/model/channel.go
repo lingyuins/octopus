@@ -235,10 +235,10 @@ func normalizeChannelBaseURL(rawURL string, channelType outbound.OutboundType, s
 	}
 
 	switch strings.ToLower(strings.TrimSpace(suffixMode)) {
-	case "", "auto":
+	case "":
 		return appendBaseURLPathByChannel(trimmedURL, channelType)
 	case "custom":
-		return trimmedURL
+		return normalizeCustomBaseURL(trimmedURL, channelType)
 	case "openai_compat", "openai":
 		return appendBaseURLPathIfMissing(trimmedURL, strings.ToLower(trimmedURL), "/v1")
 	case "anthropic":
@@ -250,6 +250,25 @@ func normalizeChannelBaseURL(rawURL string, channelType outbound.OutboundType, s
 	default:
 		return appendBaseURLPathByChannel(trimmedURL, channelType)
 	}
+}
+
+func normalizeCustomBaseURL(rawURL string, channelType outbound.OutboundType) string {
+	switch channelType {
+	case outbound.OutboundTypeOpenAIChat, outbound.OutboundTypeOpenAIResponse, outbound.OutboundTypeOpenAIEmbedding, outbound.OutboundTypeMimo:
+		return trimKnownOpenAIEndpointPath(rawURL)
+	default:
+		return rawURL
+	}
+}
+
+func trimKnownOpenAIEndpointPath(rawURL string) string {
+	lowerURL := strings.ToLower(strings.TrimSpace(rawURL))
+	for _, suffix := range []string{"/v1/chat/completions", "/chat/completions", "/v1/responses", "/responses", "/v1/embeddings", "/embeddings"} {
+		if strings.HasSuffix(lowerURL, suffix) {
+			return strings.TrimRight(rawURL[:len(rawURL)-len(suffix)], "/")
+		}
+	}
+	return rawURL
 }
 
 func appendBaseURLPathByChannel(rawURL string, channelType outbound.OutboundType) string {

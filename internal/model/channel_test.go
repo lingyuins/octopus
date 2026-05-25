@@ -187,11 +187,32 @@ func TestChannelGetNormalizedBaseUrlAddsProviderVersionPath(t *testing.T) {
 			want:        "https://api.xiaomimimo.com/v1",
 		},
 		{
-			name:        "custom suffix mode keeps raw url",
+			name:        "custom non openai channel keeps raw url",
 			channelType: outbound.OutboundTypeGemini,
 			baseURL:     "https://proxy.example.com/custom",
 			suffixMode:  "custom",
 			want:        "https://proxy.example.com/custom",
+		},
+		{
+			name:        "custom openai chat trims explicit endpoint to root",
+			channelType: outbound.OutboundTypeOpenAIChat,
+			baseURL:     "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+			suffixMode:  "custom",
+			want:        "https://open.bigmodel.cn/api/paas/v4",
+		},
+		{
+			name:        "custom openai responses trims explicit endpoint to root",
+			channelType: outbound.OutboundTypeOpenAIResponse,
+			baseURL:     "https://api.example.com/custom/responses",
+			suffixMode:  "custom",
+			want:        "https://api.example.com/custom",
+		},
+		{
+			name:        "custom openai embeddings keeps root without v1",
+			channelType: outbound.OutboundTypeOpenAIEmbedding,
+			baseURL:     "https://api.example.com/embed-root",
+			suffixMode:  "custom",
+			want:        "https://api.example.com/embed-root",
 		},
 		{
 			name:        "openai compatible suffix mode can override channel type",

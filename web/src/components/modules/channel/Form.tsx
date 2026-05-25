@@ -379,7 +379,7 @@ export function ChannelForm({
     // This avoids "empty list" UI and also keeps URL + APIKEY layout consistent.
     useEffect(() => {
         if (!formData.base_urls || formData.base_urls.length === 0) {
-            onFormDataChange({ ...formData, base_urls: [{ url: '', delay: 0, suffix_mode: 'auto' }] });
+            onFormDataChange({ ...formData, base_urls: [{ url: '', delay: 0, suffix_mode: 'openai' }] });
             return;
         }
         if (!formData.keys || formData.keys.length === 0) {
@@ -579,7 +579,7 @@ export function ChannelForm({
     const handleAddBaseUrl = () => {
         onFormDataChange({
             ...formData,
-            base_urls: [...(formData.base_urls ?? []), { url: '', delay: 0, suffix_mode: 'auto' }],
+            base_urls: [...(formData.base_urls ?? []), { url: '', delay: 0, suffix_mode: 'openai' }],
         });
     };
 
@@ -745,14 +745,14 @@ export function ChannelForm({
                                 />
                                 <div className="flex items-center gap-2 sm:shrink-0">
                                     <Select
-                                        value={u.suffix_mode === 'custom' ? 'custom' : 'auto'}
+                                        value={u.suffix_mode === 'custom' ? 'custom' : 'openai'}
                                         onValueChange={(value) => handleUpdateBaseUrl(idx, { suffix_mode: value as Channel['base_urls'][number]['suffix_mode'] })}
                                     >
                                         <SelectTrigger className="h-10 min-w-0 flex-1 rounded-lg sm:w-44 sm:flex-none">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-lg">
-                                            <SelectItem className="rounded-xl" value="auto">{t('baseUrlSuffixAuto')}</SelectItem>
+                                            <SelectItem className="rounded-xl" value="openai">{t('baseUrlSuffixOpenAI')}</SelectItem>
                                             <SelectItem className="rounded-xl" value="custom">{t('baseUrlSuffixCustom')}</SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -769,14 +769,14 @@ export function ChannelForm({
                                     </Button>
                                 </div>
                             </div>
-                            {u.suffix_mode === 'auto' ? (
-                                <p className={cn(
-                                    'px-1 text-xs leading-5',
-                                    hasManualVersionSuffix(u.url) ? 'text-destructive' : 'text-muted-foreground'
-                                )}>
-                                    {hasManualVersionSuffix(u.url) ? t('baseUrlAutoWarning') : t('baseUrlAutoHint')}
-                                </p>
-                            ) : null}
+                            <p className={cn(
+                                'px-1 text-xs leading-5',
+                                u.suffix_mode === 'openai' && hasManualVersionSuffix(u.url) ? 'text-destructive' : 'text-muted-foreground'
+                            )}>
+                                {u.suffix_mode === 'openai'
+                                    ? (hasManualVersionSuffix(u.url) ? t('baseUrlOpenAIWarning') : t('baseUrlOpenAIHint'))
+                                    : t('baseUrlCustomHint')}
+                            </p>
                         </div>
                     ))}
                 </div>
