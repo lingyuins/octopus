@@ -1,6 +1,6 @@
 {
   "name": "octopus",
-  "version": "1.9.7",
+  "version": "1.9.8",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -56,4 +56,5 @@
     "typescript": "^5.9.3"
   }
 }
+
 
