@@ -358,6 +358,13 @@ func buildOpenAIUpstreamURL(baseURL, endpointPath string) (string, error) {
 
 	basePath := strings.TrimSuffix(parsed.Path, "/")
 	normalizedPath := endpointPath
+	if shouldPreserveVersionRoot(basePath, normalizedPath) {
+		trimmed := strings.TrimPrefix(normalizedPath, "/v1")
+		if trimmed == "" {
+			trimmed = "/"
+		}
+		normalizedPath = trimmed
+	}
 	if strings.HasSuffix(basePath, "/v1") && strings.HasPrefix(normalizedPath, "/v1/") {
 		normalizedPath = strings.TrimPrefix(normalizedPath, "/v1")
 	}
@@ -368,6 +375,37 @@ func buildOpenAIUpstreamURL(baseURL, endpointPath string) (string, error) {
 	}
 
 	return parsed.String(), nil
+}
+
+func shouldPreserveVersionRoot(basePath, endpointPath string) bool {
+	if basePath == "" || !strings.HasPrefix(endpointPath, "/v1/") {
+		return false
+	}
+
+	baseSegments := strings.Split(strings.Trim(basePath, "/"), "/")
+	if len(baseSegments) == 0 {
+		return false
+	}
+
+	last := strings.ToLower(strings.TrimSpace(baseSegments[len(baseSegments)-1]))
+	if last == "v1" {
+		return false
+	}
+
+	if len(last) >= 2 && last[0] == 'v' {
+		allDigits := true
+		for _, ch := range last[1:] {
+			if ch < '0' || ch > '9' {
+				allDigits = false
+				break
+			}
+		}
+		if allDigits {
+			return true
+		}
+	}
+
+	return false
 }
 
 func looksLikeExplicitEndpoint(basePath, endpointPath string) bool {

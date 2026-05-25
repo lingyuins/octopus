@@ -17,6 +17,7 @@ func TestBuildOpenAIUpstreamURL(t *testing.T) {
 		{name: "base url already includes v1 chat path", baseURL: "https://api.example.com/v1", endpointPath: "/v1/chat/completions", want: "https://api.example.com/v1/chat/completions"},
 		{name: "nested base path already includes v1 responses path", baseURL: "https://api.example.com/openai/v1/", endpointPath: "/v1/responses", want: "https://api.example.com/openai/v1/responses"},
 		{name: "base url without path keeps endpoint prefix", baseURL: "https://api.example.com", endpointPath: "/v1/embeddings", want: "https://api.example.com/v1/embeddings"},
+		{name: "custom version root preserves provider path", baseURL: "https://open.bigmodel.cn/api/paas/v4", endpointPath: "/v1/chat/completions", want: "https://open.bigmodel.cn/api/paas/v4/chat/completions"},
 		{name: "explicit custom endpoint path is preserved", baseURL: "https://open.bigmodel.cn/api/paas/v4/chat/completions", endpointPath: "/v1/chat/completions", want: "https://open.bigmodel.cn/api/paas/v4/chat/completions"},
 	}
 
