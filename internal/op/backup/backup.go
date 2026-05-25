@@ -124,11 +124,17 @@ func appendStep(res *model.DBImportResult, table, mode string, rows int64, err e
 	res.Progress = append(res.Progress, step)
 }
 
-func (c *importConfig) doNothing(table string, rows []any) error {
+// doNothing inserts rows with ON CONFLICT DO NOTHING.
+// Uses Model(new(T)) instead of Table(name) so GORM properly resolves the schema
+// from the concrete type (Bug 3+4 fix). Omit(clause.Associations) prevents
+// GORM from attempting to create associated records (Bug 6 fix).
+func doNothing[T any](c *importConfig, rows []T) error {
 	if len(rows) == 0 {
 		return nil
 	}
-	result := c.conn.Table(table).Clauses(clause.OnConflict{DoNothing: true}).Create(rows)
+	result := c.conn.Model(new(T)).Omit(clause.Associations).
+		Clauses(clause.OnConflict{DoNothing: true}).Create(&rows)
+	table := c.conn.Statement.Table
 	appendStep(c.res, table, "insert", result.RowsAffected, result.Error)
 	if result.Error != nil {
 		return fmt.Errorf("%s: %w", table, result.Error)
@@ -136,14 +142,18 @@ func (c *importConfig) doNothing(table string, rows []any) error {
 	return nil
 }
 
-func (c *importConfig) upsertAll(table string, rows []any, conflictColumns []clause.Column) error {
+// upsertAll inserts rows with ON CONFLICT (columns) DO UPDATE ALL.
+// Uses Model(new(T)) for proper schema resolution (Bug 3+4 fix).
+// Omit(clause.Associations) prevents association cascade (Bug 6 fix).
+func upsertAll[T any](c *importConfig, rows []T, conflictColumns []clause.Column) error {
 	if len(rows) == 0 {
 		return nil
 	}
-	result := c.conn.Table(table).Clauses(clause.OnConflict{
+	result := c.conn.Model(new(T)).Omit(clause.Associations).Clauses(clause.OnConflict{
 		Columns:   conflictColumns,
 		UpdateAll: true,
-	}).Create(rows)
+	}).Create(&rows)
+	table := c.conn.Statement.Table
 	appendStep(c.res, table, "upsert", result.RowsAffected, result.Error)
 	if result.Error != nil {
 		return fmt.Errorf("%s: %w", table, result.Error)
@@ -151,11 +161,11 @@ func (c *importConfig) upsertAll(table string, rows []any, conflictColumns []cla
 	return nil
 }
 
-func (c *importConfig) upsertSettings(rows []model.Setting) error {
+func upsertSettings(c *importConfig, rows []model.Setting) error {
 	if len(rows) == 0 {
 		return nil
 	}
-	result := c.conn.Table("settings").Clauses(clause.OnConflict{
+	result := c.conn.Model(&model.Setting{}).Omit(clause.Associations).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "key"}},
 		DoUpdates: clause.AssignmentColumns([]string{"value"}),
 	}).Create(&rows)
@@ -202,108 +212,110 @@ func ImportWithMode(ctx context.Context, dump *model.DBDump, mode string) (*mode
 		}
 
 		// Import channels / keys / groups / items — skip existing
-		if err := cfg.doNothing("channels", toAny(dump.Channels)); err != nil {
+		if err := doNothing(cfg, dump.Channels); err != nil {
 			return err
 		}
-		if err := cfg.doNothing("channel_keys", toAny(dump.ChannelKeys)); err != nil {
+		if err := doNothing(cfg, dump.ChannelKeys); err != nil {
 			return err
 		}
-		if err := cfg.doNothing("channel_groups", toAny(dump.ChannelGroups)); err != nil {
+		if err := doNothing(cfg, dump.ChannelGroups); err != nil {
 			return err
 		}
-		if err := cfg.doNothing("groups", toAny(dump.Groups)); err != nil {
+		if err := doNothing(cfg, dump.Groups); err != nil {
 			return err
 		}
-		if err := cfg.doNothing("group_items", toAny(dump.GroupItems)); err != nil {
+		if err := doNothing(cfg, dump.GroupItems); err != nil {
 			return err
 		}
 
 		// LLM prices — upsert by name
-		if err := cfg.upsertAll("llm_infos", toAny(dump.LLMInfos), []clause.Column{{Name: "name"}}); err != nil {
+		if err := upsertAll(cfg, dump.LLMInfos, []clause.Column{{Name: "name"}}); err != nil {
 			return err
 		}
 
 		// API keys — skip existing
-		if err := cfg.doNothing("api_keys", toAny(dump.APIKeys)); err != nil {
+		if err := doNothing(cfg, dump.APIKeys); err != nil {
 			return err
 		}
 
 		// Users — skip existing (backward compat: might be nil in old dumps)
 		if len(dump.Users) > 0 {
-			if err := cfg.doNothing("users", toAny(dump.Users)); err != nil {
+			if err := doNothing(cfg, dump.Users); err != nil {
 				return err
 			}
 		}
 
 		// Settings — upsert by key
-		if err := cfg.upsertSettings(dump.Settings); err != nil {
+		if err := upsertSettings(cfg, dump.Settings); err != nil {
 			return err
 		}
 
 		// Alerts — skip existing
 		if len(dump.AlertRules) > 0 {
-			if err := cfg.doNothing("alert_rules", toAny(dump.AlertRules)); err != nil {
+			if err := doNothing(cfg, dump.AlertRules); err != nil {
 				return err
 			}
 		}
 		if len(dump.AlertNotifChannels) > 0 {
-			if err := cfg.doNothing("alert_notif_channels", toAny(dump.AlertNotifChannels)); err != nil {
+			if err := doNothing(cfg, dump.AlertNotifChannels); err != nil {
 				return err
 			}
 		}
 		if len(dump.AlertStateRecords) > 0 {
-			if err := cfg.doNothing("alert_state_records", toAny(dump.AlertStateRecords)); err != nil {
+			if err := doNothing(cfg, dump.AlertStateRecords); err != nil {
 				return err
 			}
 		}
 		if len(dump.AlertHistory) > 0 {
-			if err := cfg.doNothing("alert_histories", toAny(dump.AlertHistory)); err != nil {
+			if err := doNothing(cfg, dump.AlertHistory); err != nil {
 				return err
 			}
 		}
 
 		// Audit & runtime — skip existing
 		if len(dump.AuditLogs) > 0 {
-			if err := cfg.doNothing("audit_logs", toAny(dump.AuditLogs)); err != nil {
+			if err := doNothing(cfg, dump.AuditLogs); err != nil {
 				return err
 			}
 		}
 		if len(dump.RuntimeStates) > 0 {
-			if err := cfg.doNothing("auto_strategy_states", toAny(dump.RuntimeStates)); err != nil {
+			if err := doNothing(cfg, dump.RuntimeStates); err != nil {
 				return err
 			}
 		}
 		if len(dump.CircuitBreakerStates) > 0 {
-			if err := cfg.doNothing("circuit_breaker_states", toAny(dump.CircuitBreakerStates)); err != nil {
+			if err := doNothing(cfg, dump.CircuitBreakerStates); err != nil {
 				return err
 			}
 		}
 
 		// Stats
 		if dump.IncludeStats {
-			if err := cfg.upsertAll("stats_totals", toAny(dump.StatsTotal), []clause.Column{{Name: "id"}}); err != nil {
+			// Bug 5 fix: StatsHourly has composite PK (hour, date),
+			// both must be in conflict columns
+			if err := upsertAll(cfg, dump.StatsTotal, []clause.Column{{Name: "id"}}); err != nil {
 				return err
 			}
-			if err := cfg.upsertAll("stats_dailies", toAny(dump.StatsDaily), []clause.Column{{Name: "date"}}); err != nil {
+			if err := upsertAll(cfg, dump.StatsDaily, []clause.Column{{Name: "date"}}); err != nil {
 				return err
 			}
-			if err := cfg.upsertAll("stats_hourlies", toAny(dump.StatsHourly), []clause.Column{{Name: "hour"}}); err != nil {
+			if err := upsertAll(cfg, dump.StatsHourly, []clause.Column{{Name: "hour"}, {Name: "date"}}); err != nil {
 				return err
 			}
-			if err := cfg.upsertAll("stats_models", toAny(dump.StatsModel), []clause.Column{{Name: "id"}}); err != nil {
+			if err := upsertAll(cfg, dump.StatsModel, []clause.Column{{Name: "id"}}); err != nil {
 				return err
 			}
-			if err := cfg.upsertAll("stats_channels", toAny(dump.StatsChannel), []clause.Column{{Name: "channel_id"}}); err != nil {
+			if err := upsertAll(cfg, dump.StatsChannel, []clause.Column{{Name: "channel_id"}}); err != nil {
 				return err
 			}
-			if err := cfg.upsertAll("stats_api_keys", toAny(dump.StatsAPIKey), []clause.Column{{Name: "api_key_id"}}); err != nil {
+			if err := upsertAll(cfg, dump.StatsAPIKey, []clause.Column{{Name: "api_key_id"}}); err != nil {
 				return err
 			}
 		}
 
 		// Relay logs
 		if dump.IncludeLogs {
-			if err := cfg.doNothing("relay_logs", toAny(dump.RelayLogs)); err != nil {
+			if err := doNothing(cfg, dump.RelayLogs); err != nil {
 				return err
 			}
 		}
@@ -319,14 +331,6 @@ func ImportWithMode(ctx context.Context, dump *model.DBDump, mode string) (*mode
 		res.RowsAffected[step.Table] += step.RowsAffected
 	}
 	return res, nil
-}
-
-func toAny[T any](slice []T) []any {
-	out := make([]any, len(slice))
-	for i := range slice {
-		out[i] = &slice[i]
-	}
-	return out
 }
 
 // ImportIncremental is the backward-compatible wrapper.

@@ -39,7 +39,7 @@ func TestBackupIncludesCircuitBreakerStates(t *testing.T) {
 	if !strings.Contains(text, `"audit_logs", "auto_strategy_states", "circuit_breaker_states"`) {
 		t.Fatal("full import delete order does not clear runtime or circuit_breaker_states")
 	}
-	if !strings.Contains(text, `cfg.doNothing("circuit_breaker_states", toAny(dump.CircuitBreakerStates))`) {
+	if !strings.Contains(text, `doNothing(cfg, dump.CircuitBreakerStates)`) {
 		t.Fatal("ImportWithMode does not restore circuit_breaker_states")
 	}
 }
