@@ -6,7 +6,7 @@ FROM --platform=$BUILDPLATFORM node:20-alpine AS frontend-builder
 WORKDIR /build
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable
 
 # Copy frontend package files
 COPY web/package.json web/pnpm-lock.yaml ./
