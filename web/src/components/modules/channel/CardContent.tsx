@@ -219,11 +219,11 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
                 </header>
             </MorphingDialogTitle>
 
-            <MorphingDialogDescription className="flex min-h-0 flex-1 flex-col">
-                <Tabs value={currentView} className="flex min-h-0 flex-1 flex-col">
-                    <TabsContents className="min-h-0 flex-1">
-                        <TabsContent value="viewing" className="flex min-h-0 flex-col">
-                            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1 sm:space-y-5">
+            <MorphingDialogDescription className="min-h-0 flex-1 overflow-y-auto px-1">
+                <Tabs value={currentView} className="flex min-h-full flex-col">
+                    <TabsContents>
+                        <TabsContent value="viewing" className="flex flex-col">
+                            <div className="space-y-4 pr-1 sm:space-y-5">
                                 <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                                     <div className="rounded-lg border border-chart-1/18 bg-linear-to-br from-chart-1/10 via-background/42 to-chart-1/5 p-3.5 shadow-sm sm:p-4">
                                         <dt className="flex items-center gap-2 mb-2 text-xs font-medium text-muted-foreground">
@@ -484,7 +484,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
                             </div>
                         </TabsContent>
 
-                        <TabsContent value="editing" className="h-[min(46rem,calc(100dvh-13rem))] min-h-0">
+                        <TabsContent value="editing">
                             <ChannelForm
                                 formData={formData}
                                 onFormDataChange={setFormData}
