@@ -186,12 +186,12 @@ func ImportWithMode(ctx context.Context, dump *model.DBDump, mode string) (*mode
 		if isFull {
 			// Delete in reverse dependency order to avoid FK violations
 			deleteOrder := []string{
-				"relay_logs", "stats_api_key", "stats_channel", "stats_model",
-				"stats_hourly", "stats_daily", "stats_total",
+				"relay_logs", "stats_api_keys", "stats_channels", "stats_models",
+				"stats_hourlies", "stats_dailies", "stats_totals",
 				"group_items", "channel_groups", "groups",
-				"alert_history", "alert_state_records", "alert_rules", "alert_notif_channels",
-				"audit_logs", "runtime_states", "circuit_breaker_states",
-				"api_keys", "users", "channel_keys", "channel_groups", "channels",
+				"alert_histories", "alert_state_records", "alert_rules", "alert_notif_channels",
+				"audit_logs", "auto_strategy_states", "circuit_breaker_states",
+				"api_keys", "users", "channel_keys", "channels",
 				"llm_infos", "settings",
 			}
 			for _, table := range deleteOrder {
@@ -257,7 +257,7 @@ func ImportWithMode(ctx context.Context, dump *model.DBDump, mode string) (*mode
 			}
 		}
 		if len(dump.AlertHistory) > 0 {
-			if err := cfg.doNothing("alert_history", toAny(dump.AlertHistory)); err != nil {
+			if err := cfg.doNothing("alert_histories", toAny(dump.AlertHistory)); err != nil {
 				return err
 			}
 		}
@@ -269,7 +269,7 @@ func ImportWithMode(ctx context.Context, dump *model.DBDump, mode string) (*mode
 			}
 		}
 		if len(dump.RuntimeStates) > 0 {
-			if err := cfg.doNothing("runtime_states", toAny(dump.RuntimeStates)); err != nil {
+			if err := cfg.doNothing("auto_strategy_states", toAny(dump.RuntimeStates)); err != nil {
 				return err
 			}
 		}
@@ -281,22 +281,22 @@ func ImportWithMode(ctx context.Context, dump *model.DBDump, mode string) (*mode
 
 		// Stats
 		if dump.IncludeStats {
-			if err := cfg.upsertAll("stats_total", toAny(dump.StatsTotal), []clause.Column{{Name: "id"}}); err != nil {
+			if err := cfg.upsertAll("stats_totals", toAny(dump.StatsTotal), []clause.Column{{Name: "id"}}); err != nil {
 				return err
 			}
-			if err := cfg.upsertAll("stats_daily", toAny(dump.StatsDaily), []clause.Column{{Name: "date"}}); err != nil {
+			if err := cfg.upsertAll("stats_dailies", toAny(dump.StatsDaily), []clause.Column{{Name: "date"}}); err != nil {
 				return err
 			}
-			if err := cfg.upsertAll("stats_hourly", toAny(dump.StatsHourly), []clause.Column{{Name: "hour"}}); err != nil {
+			if err := cfg.upsertAll("stats_hourlies", toAny(dump.StatsHourly), []clause.Column{{Name: "hour"}}); err != nil {
 				return err
 			}
-			if err := cfg.upsertAll("stats_model", toAny(dump.StatsModel), []clause.Column{{Name: "id"}}); err != nil {
+			if err := cfg.upsertAll("stats_models", toAny(dump.StatsModel), []clause.Column{{Name: "id"}}); err != nil {
 				return err
 			}
-			if err := cfg.upsertAll("stats_channel", toAny(dump.StatsChannel), []clause.Column{{Name: "channel_id"}}); err != nil {
+			if err := cfg.upsertAll("stats_channels", toAny(dump.StatsChannel), []clause.Column{{Name: "channel_id"}}); err != nil {
 				return err
 			}
-			if err := cfg.upsertAll("stats_api_key", toAny(dump.StatsAPIKey), []clause.Column{{Name: "api_key_id"}}); err != nil {
+			if err := cfg.upsertAll("stats_api_keys", toAny(dump.StatsAPIKey), []clause.Column{{Name: "api_key_id"}}); err != nil {
 				return err
 			}
 		}
