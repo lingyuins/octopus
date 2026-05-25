@@ -48,3 +48,16 @@ Thumbs.db
 
 # Worktrees
 worktrees/
+*.exe
+.gocache/
+.gotmp-dev/
+.gotmp-dev2/
+.tmp/
+.uploads/
+.antigravitycli/
+.learnings/
+.playwright-cli/
+.sisyphus/
+.superpowers/
+.workbuddy/
+data/

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.9.7] - 2026-05
+
+### 🐛 Bug Fixes
+- Clarify missing prompt cache trend usage signals.
+- Show unknown usage when upstream usage data is missing.
+- Restore scrolling in morphing dialog overlays.
+- Preserve explicit OpenAI upstream endpoints.
+- Remove update package size limit for release downloads.
+
+**Full Changelog:** https://github.com/lingyuins/octopus/compare/v1.9.6...v1.9.7
+
+---
 ## [v1.9.6] - 2026-05
 
 ### 🚀 Features
@@ -154,3 +166,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Note:** Earlier releases (v1.8.6 and below) are not recorded in this changelog.
 > See the [GitHub Releases](https://github.com/lingyuins/octopus/releases) for the full history.
+
