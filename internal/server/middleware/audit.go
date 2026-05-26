@@ -20,43 +20,45 @@ import (
 const maxAuditTargetBodyBytes = 8 << 10
 
 var auditedManagementWriteRoutes = map[string]struct{}{
-	"POST /api/v1/alert/notif/create":       {},
-	"POST /api/v1/alert/notif/update":       {},
-	"DELETE /api/v1/alert/notif/delete/:id": {},
-	"POST /api/v1/alert/rule/create":        {},
-	"POST /api/v1/alert/rule/update":        {},
-	"DELETE /api/v1/alert/rule/delete/:id":  {},
-	"POST /api/v1/apikey/create":            {},
-	"POST /api/v1/apikey/update":            {},
-	"DELETE /api/v1/apikey/delete/:id":      {},
-	"POST /api/v1/channel/create":            {},
-	"POST /api/v1/channel/enable":            {},
-	"POST /api/v1/channel/fetch-model":       {},
-	"POST /api/v1/channel/sync":              {},
-	"POST /api/v1/channel/update":            {},
-	"DELETE /api/v1/channel/delete/:id":      {},
-	"POST /api/v1/channel/group/create":      {},
-	"POST /api/v1/channel/group/update":      {},
+	"POST /api/v1/alert/notif/create":         {},
+	"POST /api/v1/alert/notif/update":         {},
+	"DELETE /api/v1/alert/notif/delete/:id":   {},
+	"POST /api/v1/alert/rule/create":          {},
+	"POST /api/v1/alert/rule/update":          {},
+	"DELETE /api/v1/alert/rule/delete/:id":    {},
+	"POST /api/v1/apikey/create":              {},
+	"POST /api/v1/apikey/update":              {},
+	"DELETE /api/v1/apikey/delete/:id":        {},
+	"POST /api/v1/channel/create":             {},
+	"POST /api/v1/channel/enable":             {},
+	"POST /api/v1/channel/fetch-model":        {},
+	"POST /api/v1/channel/sync":               {},
+	"POST /api/v1/channel/update":             {},
+	"DELETE /api/v1/channel/delete/:id":       {},
+	"POST /api/v1/channel/group/create":       {},
+	"POST /api/v1/channel/group/update":       {},
 	"DELETE /api/v1/channel/group/delete/:id": {},
-	"POST /api/v1/group/auto-group":         {},
-	"POST /api/v1/group/create":             {},
-	"POST /api/v1/group/update":             {},
-	"DELETE /api/v1/group/delete-all":       {},
-	"DELETE /api/v1/group/delete/:id":       {},
-	"DELETE /api/v1/log/clear":              {},
-	"POST /api/v1/model/create":             {},
-	"POST /api/v1/model/delete":             {},
-	"POST /api/v1/model/update":             {},
-	"POST /api/v1/model/update-price":       {},
-	"POST /api/v1/route/ai-generate":        {},
-	"POST /api/v1/setting/import":           {},
-	"POST /api/v1/setting/set":              {},
-	"POST /api/v1/update":                   {},
-	"POST /api/v1/user/change-password":     {},
-	"POST /api/v1/user/change-username":     {},
-	"POST /api/v1/user/create":              {},
-	"POST /api/v1/user/update-role":         {},
-	"DELETE /api/v1/user/delete/:id":        {},
+	"POST /api/v1/group/auto-group":           {},
+	"POST /api/v1/group/create":               {},
+	"POST /api/v1/group/update":               {},
+	"DELETE /api/v1/group/delete-all":         {},
+	"DELETE /api/v1/group/delete/:id":         {},
+	"DELETE /api/v1/log/clear":                {},
+	"POST /api/v1/model/create":               {},
+	"POST /api/v1/model/delete":               {},
+	"POST /api/v1/model/update":               {},
+	"POST /api/v1/model/update-price":         {},
+	"POST /api/v1/route/ai-generate":          {},
+	"POST /api/v1/setting/database/migrate":   {},
+	"POST /api/v1/setting/database/test":      {},
+	"POST /api/v1/setting/import":             {},
+	"POST /api/v1/setting/set":                {},
+	"POST /api/v1/update":                     {},
+	"POST /api/v1/user/change-password":       {},
+	"POST /api/v1/user/change-username":       {},
+	"POST /api/v1/user/create":                {},
+	"POST /api/v1/user/update-role":           {},
+	"DELETE /api/v1/user/delete/:id":          {},
 }
 
 func AuditManagementWrite() gin.HandlerFunc {
@@ -181,6 +183,10 @@ func buildAuditTarget(c *gin.Context, fullPath string, bodyFields map[string]any
 		return "model-prices"
 	case "/api/v1/setting/import":
 		return "database-import"
+	case "/api/v1/setting/database/migrate":
+		return "database-migration"
+	case "/api/v1/setting/database/test":
+		return "database-test"
 	case "/api/v1/update":
 		return "self-update"
 	case "/api/v1/user/change-password":

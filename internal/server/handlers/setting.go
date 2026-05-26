@@ -15,6 +15,7 @@ import (
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op"
 	"github.com/lingyuins/octopus/internal/op/backup"
+	"github.com/lingyuins/octopus/internal/op/dbmigration"
 	"github.com/lingyuins/octopus/internal/op/ops"
 	stg "github.com/lingyuins/octopus/internal/op/setting"
 	"github.com/lingyuins/octopus/internal/server/auth"
@@ -52,6 +53,18 @@ func init() {
 			router.NewRoute("/import", http.MethodPost).
 				Use(middleware.RequirePermission(auth.PermSettingsWrite)).
 				Handle(importDB),
+		).
+		AddRoute(
+			router.NewRoute("/database/test", http.MethodPost).
+				Use(middleware.RequirePermission(auth.PermSettingsWrite)).
+				Use(middleware.RequireJSON()).
+				Handle(testDatabaseConnection),
+		).
+		AddRoute(
+			router.NewRoute("/database/migrate", http.MethodPost).
+				Use(middleware.RequirePermission(auth.PermSettingsWrite)).
+				Use(middleware.RequireJSON()).
+				Handle(migrateDatabase),
 		)
 }
 
@@ -187,6 +200,33 @@ func importDB(c *gin.Context) {
 		return
 	}
 
+	resp.Success(c, result)
+}
+
+func testDatabaseConnection(c *gin.Context) {
+	var req model.DatabaseMigrationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+	if err := dbmigration.TestConnection(c.Request.Context(), req); err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	resp.Success(c, true)
+}
+
+func migrateDatabase(c *gin.Context) {
+	var req model.DatabaseMigrationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+	result, err := dbmigration.Migrate(c.Request.Context(), req)
+	if err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	resp.Success(c, result)
 }
 

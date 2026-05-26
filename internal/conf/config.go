@@ -86,6 +86,22 @@ func Load(path string) error {
 	return nil
 }
 
+func SaveDatabaseConfig(dbType, path string) error {
+	dbType = strings.TrimSpace(dbType)
+	path = strings.TrimSpace(path)
+	if dbType == "" || path == "" {
+		return fmt.Errorf("database type and path are required")
+	}
+	viper.Set("database.type", dbType)
+	viper.Set("database.path", path)
+	if err := viper.WriteConfig(); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+	AppConfig.Database.Type = dbType
+	AppConfig.Database.Path = path
+	return nil
+}
+
 func setDefaults() {
 	viper.SetDefault("server.host", "0.0.0.0")
 	viper.SetDefault("server.port", 8080)

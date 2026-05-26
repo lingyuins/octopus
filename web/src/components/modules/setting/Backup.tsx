@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/common/Toast';
-import { useExportDB, useImportDB } from '@/api/endpoints/setting';
+import { useExportDB, useImportDB, useMigrateDatabase, useTestDatabaseConnection } from '@/api/endpoints/setting';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
@@ -18,10 +18,16 @@ export function SettingBackup() {
 
     const exportDB = useExportDB();
     const importDB = useImportDB();
+    const testDatabase = useTestDatabaseConnection();
+    const migrateDatabase = useMigrateDatabase();
 
     const [includeLogs, setIncludeLogs] = useState(false);
     const [includeStats, setIncludeStats] = useState(false);
     const [importMode, setImportMode] = useState<ImportMode>('incremental');
+    const [targetType, setTargetType] = useState<'sqlite' | 'mysql' | 'postgres'>('sqlite');
+    const [targetPath, setTargetPath] = useState('data/data-next.db');
+    const [migrateLogs, setMigrateLogs] = useState(false);
+    const [migrateStats, setMigrateStats] = useState(false);
 
     const [file, setFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -30,7 +36,6 @@ export function SettingBackup() {
     const importProgress = importDB.data?.progress ?? [];
     const totalSteps = importProgress.length;
     const completedSteps = importProgress.filter(s => s.ok).length;
-    const failedSteps = importProgress.filter(s => !s.ok).length;
     const progressValue = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * (importDB.isPending ? 50 : 100)) : 0;
 
     const rowsAffectedList = useMemo(() => {
@@ -68,6 +73,42 @@ export function SettingBackup() {
         }
     };
 
+    const migrationPayload = {
+        type: targetType,
+        path: targetPath,
+        include_logs: migrateLogs,
+        include_stats: migrateStats,
+    };
+
+    const onTestDatabase = async () => {
+        if (!targetPath.trim()) {
+            toast.error('Please enter target database path / DSN');
+            return;
+        }
+        try {
+            await testDatabase.mutateAsync(migrationPayload);
+            toast.success('Database connection OK');
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Database connection failed');
+        }
+    };
+
+    const onMigrateDatabase = async () => {
+        if (!targetPath.trim()) {
+            toast.error('Please enter target database path / DSN');
+            return;
+        }
+        if (!window.confirm('Migrate current data to target database and update config? Restart is required after success.')) {
+            return;
+        }
+        try {
+            await migrateDatabase.mutateAsync(migrationPayload);
+            toast.success('Database migrated. Please restart Octopus to use the new database.');
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : 'Database migration failed');
+        }
+    };
+
     return (
         <div className="rounded-xl border-border/35 bg-card p-6 space-y-5 text-card-foreground shadow-md ">
             <h2 className="text-lg font-bold text-card-foreground flex items-center gap-2">
@@ -102,6 +143,69 @@ export function SettingBackup() {
                     <Download className="size-4" />
                     {exportDB.isPending ? t('backup.export.exporting') : t('backup.export.button')}
                 </Button>
+            </div>
+
+            <div className="h-px bg-border/50" />
+
+            <div className="space-y-3 rounded-lg border border-amber-500/20 bg-card p-4 shadow-sm">
+                <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                    <div>
+                        <div className="text-sm font-semibold text-card-foreground">Database migration</div>
+                        <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                            Migrate data to another database and update config. The current process keeps using the old database until restart.
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <select
+                        value={targetType}
+                        onChange={(e) => setTargetType(e.target.value as 'sqlite' | 'mysql' | 'postgres')}
+                        className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
+                    >
+                        <option value="sqlite">SQLite</option>
+                        <option value="mysql">MySQL</option>
+                        <option value="postgres">PostgreSQL</option>
+                    </select>
+                    <Input
+                        className="md:col-span-2 rounded-xl"
+                        value={targetPath}
+                        onChange={(e) => setTargetPath(e.target.value)}
+                        placeholder={targetType === 'sqlite' ? 'data/data-next.db' : 'user:pass@tcp(host:3306)/octopus'}
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="flex items-center justify-between gap-4 rounded-lg border border-border/30 p-3">
+                        <div>
+                            <div className="text-sm text-muted-foreground">Migrate logs</div>
+                            <div className="text-[11px] text-muted-foreground/70">Includes relay logs and audit logs; can be large.</div>
+                        </div>
+                        <Switch checked={migrateLogs} onCheckedChange={setMigrateLogs} />
+                    </div>
+                    <div className="flex items-center justify-between gap-4 rounded-lg border border-border/30 p-3">
+                        <div className="text-sm text-muted-foreground">Migrate stats</div>
+                        <Switch checked={migrateStats} onCheckedChange={setMigrateStats} />
+                    </div>
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button type="button" variant="outline" className="rounded-xl" onClick={onTestDatabase} disabled={testDatabase.isPending || migrateDatabase.isPending}>
+                        {testDatabase.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                        Test connection
+                    </Button>
+                    <Button type="button" variant="destructive" className="rounded-xl" onClick={onMigrateDatabase} disabled={migrateDatabase.isPending || testDatabase.isPending}>
+                        {migrateDatabase.isPending ? <Loader2 className="size-4 animate-spin" /> : <Database className="size-4" />}
+                        {migrateDatabase.isPending ? 'Migrating...' : 'Migrate and switch after restart'}
+                    </Button>
+                </div>
+
+                {migrateDatabase.data ? (
+                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/8 p-3 text-xs text-emerald-700 dark:text-emerald-300">
+                        Migration complete. Restart Octopus to use {migrateDatabase.data.type}: {migrateDatabase.data.path}
+                    </div>
+                ) : null}
             </div>
 
             <div className="h-px bg-border/50" />
@@ -200,5 +304,3 @@ export function SettingBackup() {
         </div>
     );
 }
-
-

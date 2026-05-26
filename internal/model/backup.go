@@ -56,3 +56,19 @@ type DBImportStep struct {
 	OK           bool   `json:"ok"`
 	Error        string `json:"error,omitempty"`
 }
+
+type DatabaseMigrationRequest struct {
+	Type         string `json:"type"`
+	Path         string `json:"path"`
+	IncludeLogs  bool   `json:"include_logs"`
+	IncludeStats bool   `json:"include_stats"`
+}
+
+type DatabaseMigrationResult struct {
+	Type          string         `json:"type"`
+	Path          string         `json:"path"`
+	IncludeLogs   bool           `json:"include_logs"`
+	IncludeStats  bool           `json:"include_stats"`
+	RestartNeeded bool           `json:"restart_needed"`
+	ImportResult  DBImportResult `json:"import_result"`
+}

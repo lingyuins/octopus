@@ -22,37 +22,47 @@ var db *gorm.DB
 
 func InitDB(dbType, dsn string, debug bool) error {
 	var err error
+	db, err = OpenStandalone(dbType, dsn, debug)
+	if err != nil {
+		return err
+	}
+	return Migrate(db)
+}
+
+func OpenStandalone(dbType, dsn string, debug bool) (*gorm.DB, error) {
 	gormConfig := gorm.Config{Logger: logger.Discard}
 	if debug {
 		gormConfig.Logger = logger.Default.LogMode(logger.Info)
 	}
 
+	var conn *gorm.DB
+	var err error
 	switch dbType {
 	case "sqlite":
-		db, err = initSQLite(dsn, &gormConfig)
+		conn, err = initSQLite(dsn, &gormConfig)
 	case "mysql":
-		db, err = initMySQL(dsn, &gormConfig)
+		conn, err = initMySQL(dsn, &gormConfig)
 	case "postgres", "postgresql":
-		db, err = initPostgres(dsn, &gormConfig)
+		conn, err = initPostgres(dsn, &gormConfig)
 	default:
-		return fmt.Errorf("unsupported database type: %s", dbType)
+		return nil, fmt.Errorf("unsupported database type: %s", dbType)
 	}
-
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	sqlDB, err := db.DB()
+	sqlDB, err := conn.DB()
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	configureConnectionPool(sqlDB, dbType)
+	return conn, nil
+}
 
-	if err := migrate.BeforeAutoMigrate(db); err != nil {
+func Migrate(conn *gorm.DB) error {
+	if err := migrate.BeforeAutoMigrate(conn); err != nil {
 		return err
 	}
-	if err := db.AutoMigrate(
+	if err := conn.AutoMigrate(
 		&model.User{},
 		&model.ChannelGroup{},
 		&model.Channel{},
@@ -81,22 +91,22 @@ func InitDB(dbType, dsn string, debug bool) error {
 	); err != nil {
 		return err
 	}
-	if err := migrate.AfterAutoMigrate(db); err != nil {
+	if err := migrate.AfterAutoMigrate(conn); err != nil {
 		return err
 	}
 	// Postgres: schema changes during migrations can invalidate cached prepared plans
 	// (e.g. "cached plan must not change result type"). Clear them.
-	if db.Dialector != nil && db.Dialector.Name() == "postgres" {
-		db.Exec("DEALLOCATE ALL")
-		db.Exec("DISCARD ALL")
+	if conn.Dialector != nil && conn.Dialector.Name() == "postgres" {
+		conn.Exec("DEALLOCATE ALL")
+		conn.Exec("DISCARD ALL")
 	}
 	return nil
 }
 
 func configureConnectionPool(sqlDB *sql.DB, dbType string) {
 	if dbType == "sqlite" {
-		sqlDB.SetMaxIdleConns(1)
-		sqlDB.SetMaxOpenConns(1)
+		sqlDB.SetMaxIdleConns(2)
+		sqlDB.SetMaxOpenConns(4)
 		sqlDB.SetConnMaxLifetime(0)
 		sqlDB.SetConnMaxIdleTime(0)
 		return

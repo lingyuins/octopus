@@ -36,10 +36,37 @@ func TestBackupIncludesCircuitBreakerStates(t *testing.T) {
 	if !strings.Contains(text, `Find(&d.CircuitBreakerStates)`) {
 		t.Fatal("ExportAll does not export circuit_breaker_states")
 	}
-	if !strings.Contains(text, `"audit_logs", "runtime_states", "circuit_breaker_states"`) {
+	if !strings.Contains(text, `"audit_logs", "auto_strategy_states", "circuit_breaker_states"`) {
 		t.Fatal("full import delete order does not clear circuit_breaker_states")
 	}
-	if !strings.Contains(text, `cfg.doNothing("circuit_breaker_states", toAny(dump.CircuitBreakerStates))`) {
+	if !strings.Contains(text, `cfg.doNothing("circuit_breaker_states", &dump.CircuitBreakerStates`) {
 		t.Fatal("ImportWithMode does not restore circuit_breaker_states")
+	}
+}
+
+func TestBackupUsesGormAlertHistoryTableName(t *testing.T) {
+	text := loadBackupSource(t)
+	if strings.Contains(text, `cfg.doNothing("alert_history"`) || strings.Contains(text, `"alert_history",`) {
+		t.Fatal("backup import still references singular alert_history table name")
+	}
+	if !strings.Contains(text, `"alert_histories"`) {
+		t.Fatal("backup import does not reference alert_histories table")
+	}
+}
+
+func TestExportAllOnlyExportsAuditLogsWhenLogsIncluded(t *testing.T) {
+	text := loadBackupSource(t)
+	if !strings.Contains(text, `if includeLogs {`) || !strings.Contains(text, `Find(&d.AuditLogs)`) {
+		t.Fatal("ExportAll should export audit_logs only when includeLogs is true")
+	}
+}
+
+func TestBackupUsesGormStatsTableNames(t *testing.T) {
+	text := loadBackupSource(t)
+	if strings.Contains(text, `"stats_api_key"`) || strings.Contains(text, `"stats_daily"`) {
+		t.Fatal("backup import still references singular stats table names")
+	}
+	if !strings.Contains(text, `"stats_api_keys"`) || !strings.Contains(text, `"stats_dailies"`) {
+		t.Fatal("backup import does not reference GORM stats table names")
 	}
 }

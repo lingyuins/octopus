@@ -122,6 +122,22 @@ export interface DBExportOptions {
     include_stats?: boolean;
 }
 
+export interface DatabaseMigrationRequest {
+    type: 'sqlite' | 'mysql' | 'postgres' | 'postgresql';
+    path: string;
+    include_logs?: boolean;
+    include_stats?: boolean;
+}
+
+export interface DatabaseMigrationResult {
+    type: string;
+    path: string;
+    include_logs: boolean;
+    include_stats: boolean;
+    restart_needed: boolean;
+    import_result: DBImportResult;
+}
+
 type ApiResponse<T> = {
     code?: number;
     message?: string;
@@ -253,3 +269,24 @@ export function useImportDB() {
     });
 }
 
+export function useTestDatabaseConnection() {
+    return useMutation({
+        mutationFn: async (data: DatabaseMigrationRequest) => {
+            return apiClient.post<boolean>('/api/v1/setting/database/test', data);
+        },
+        onError: (error) => {
+            logger.error('测试数据库连接失败:', error);
+        },
+    });
+}
+
+export function useMigrateDatabase() {
+    return useMutation({
+        mutationFn: async (data: DatabaseMigrationRequest) => {
+            return apiClient.post<DatabaseMigrationResult>('/api/v1/setting/database/migrate', data);
+        },
+        onError: (error) => {
+            logger.error('迁移数据库失败:', error);
+        },
+    });
+}
