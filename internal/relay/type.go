@@ -114,6 +114,7 @@ type relayRequest struct {
 	groupEndpointType string
 	iter              *balancer.Iterator
 	streamSession     *relayStreamSession
+	retryCache        *retryRequestCache
 }
 
 // relayAttempt 尝试级上下文
@@ -380,3 +381,5 @@ func isNetworkError(err error) bool {
 		strings.Contains(errStr, "DNS") ||
 		strings.Contains(errStr, "failed to send request")
 }
+
+

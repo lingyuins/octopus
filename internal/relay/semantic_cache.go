@@ -34,6 +34,13 @@ func semanticCacheEndpointFamily(endpointType string, inboundType inbound.Inboun
 	}
 }
 
+func semanticLookupCacheKey(apiKeyID int, endpointFamily string, req *transmodel.InternalLLMRequest) string {
+	if req == nil {
+		return ""
+	}
+	return semantic_cache.BuildNamespace(apiKeyID, endpointFamily, req.Model)
+}
+
 func buildSemanticCacheLookupInput(apiKeyID int, endpointFamily string, req *transmodel.InternalLLMRequest) (string, string, bool) {
 	if req == nil || apiKeyID <= 0 {
 		semantic_cache.RecordBypass()
@@ -57,12 +64,26 @@ func buildSemanticCacheLookupInput(apiKeyID int, endpointFamily string, req *tra
 	return semantic_cache.BuildNamespace(apiKeyID, endpointFamily, req.Model), text, true
 }
 
+func getSemanticCacheLookupInput(req *relayRequest, endpointFamily string) (string, string, bool, bool) {
+	if req == nil || req.internalRequest == nil {
+		return "", "", false, false
+	}
+	cacheKey := semanticLookupCacheKey(req.apiKeyID, endpointFamily, req.internalRequest)
+	if req.retryCache == nil || cacheKey == "" {
+		namespace, text, ok := buildSemanticCacheLookupInput(req.apiKeyID, endpointFamily, req.internalRequest)
+		return namespace, text, ok, false
+	}
+	return req.retryCache.getLookupInput(cacheKey, func() (string, string, bool) {
+		return buildSemanticCacheLookupInput(req.apiKeyID, endpointFamily, req.internalRequest)
+	})
+}
+
 func maybeServeSemanticCacheHit(c *gin.Context, req *relayRequest, endpointFamily string) (bool, []byte, error) {
 	if c == nil || req == nil || req.internalRequest == nil {
 		return false, nil, nil
 	}
 
-	namespace, text, ok := buildSemanticCacheLookupInput(req.apiKeyID, endpointFamily, req.internalRequest)
+	namespace, text, ok, _ := getSemanticCacheLookupInput(req, endpointFamily)
 	if !ok {
 		return false, nil, nil
 	}
@@ -74,7 +95,7 @@ func maybeServeSemanticCacheHit(c *gin.Context, req *relayRequest, endpointFamil
 	}
 	ensureSemanticCacheInitialized(cfg)
 
-	embedding, err := semantic_cache.NewEmbeddingClient(cfg).CreateEmbedding(req.operationCtx, text)
+	embedding, _, err := lookupSemanticEmbeddingWithCache(req.operationCtx, req, cfg, namespace, text)
 	if err != nil {
 		semantic_cache.RecordBypass()
 		log.Warnf("semantic cache lookup bypassed: %v", err)
@@ -154,8 +175,6 @@ func semanticCacheHitPayload(responseJSON []byte, req *transmodel.InternalLLMReq
 		"hit": true,
 	}
 
-	// Cached upstream responses can carry provider usage, but provider prompt cache
-	// stats should not treat semantic-cache replay as a fresh upstream cache hit.
 	if usageValue, ok := payload["usage"].(map[string]any); ok {
 		delete(usageValue, "cached_tokens")
 		delete(usageValue, "prompt_cache_hit_tokens")
@@ -261,16 +280,12 @@ func loadSemanticCacheRuntimeConfig() (semantic_cache.RuntimeConfig, bool) {
 		maxEntries = 1000
 	}
 
-	baseURL, _ := setting.GetString(dbmodel.SettingKeySemanticCacheEmbeddingBaseURL)
-	modelName, _ := setting.GetString(dbmodel.SettingKeySemanticCacheEmbeddingModel)
-	if strings.TrimSpace(baseURL) == "" || strings.TrimSpace(modelName) == "" {
-		return semantic_cache.RuntimeConfig{}, false
-	}
-
-	apiKey, _ := setting.GetString(dbmodel.SettingKeySemanticCacheEmbeddingAPIKey)
+	embeddingBaseURL, _ := setting.GetString(dbmodel.SettingKeySemanticCacheEmbeddingBaseURL)
+	embeddingAPIKey, _ := setting.GetString(dbmodel.SettingKeySemanticCacheEmbeddingAPIKey)
+	embeddingModel, _ := setting.GetString(dbmodel.SettingKeySemanticCacheEmbeddingModel)
 	timeoutSeconds, _ := setting.GetInt(dbmodel.SettingKeySemanticCacheEmbeddingTimeoutSeconds)
 	if timeoutSeconds <= 0 {
-		timeoutSeconds = 10
+		timeoutSeconds = 15
 	}
 
 	return semantic_cache.RuntimeConfig{
@@ -278,16 +293,14 @@ func loadSemanticCacheRuntimeConfig() (semantic_cache.RuntimeConfig, bool) {
 		MaxEntries:       maxEntries,
 		Threshold:        float64(thresholdRaw) / 100.0,
 		TTL:              time.Duration(ttl) * time.Second,
-		EmbeddingBaseURL: strings.TrimSpace(baseURL),
-		EmbeddingAPIKey:  strings.TrimSpace(apiKey),
-		EmbeddingModel:   strings.TrimSpace(modelName),
+		EmbeddingBaseURL: strings.TrimSpace(embeddingBaseURL),
+		EmbeddingAPIKey:  strings.TrimSpace(embeddingAPIKey),
+		EmbeddingModel:   strings.TrimSpace(embeddingModel),
 		EmbeddingTimeout: time.Duration(timeoutSeconds) * time.Second,
 	}, true
 }
 
 func ensureSemanticCacheInitialized(cfg semantic_cache.RuntimeConfig) {
-	if semantic_cache.Enabled() {
-		return
-	}
-	semantic_cache.Init(cfg.MaxEntries, cfg.Threshold, int(cfg.TTL/time.Second))
+	semantic_cache.ApplyRuntimeConfig(cfg)
 }
+
