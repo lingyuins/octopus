@@ -615,13 +615,12 @@ export function GroupCard({ group }: { group: Group }) {
 
     const canRemoveFailedModels = Boolean(availabilitySummary?.fullyMatched && availabilitySummary.unavailableCount > 0 && !isTesting && !updateGroup.isPending);
 
-    const maxVisibleMembers = 6;
+    const maxVisibleMembers = 5;
     const memberRowHeightRem = 3.25;
     const memberRowGapRem = 0.5;
     const memberListPaddingRem = 1.25;
     const memberListEmptyHeightRem = 10;
-    const visibleMemberCount = Math.min(Math.max(members.length, 1), maxVisibleMembers);
-    // Keep the card compact for short groups and turn the list into an inner scroller after 6 rows.
+    const visibleMemberCount = Math.max(maxVisibleMembers, Math.min(Math.max(members.length, 1), maxVisibleMembers));
     const memberListHeightRem = members.length === 0
         ? memberListEmptyHeightRem
         : memberListPaddingRem + (visibleMemberCount * memberRowHeightRem) + ((visibleMemberCount - 1) * memberRowGapRem);

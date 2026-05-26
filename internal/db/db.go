@@ -105,8 +105,12 @@ func Migrate(conn *gorm.DB) error {
 
 func configureConnectionPool(sqlDB *sql.DB, dbType string) {
 	if dbType == "sqlite" {
-		sqlDB.SetMaxIdleConns(2)
-		sqlDB.SetMaxOpenConns(4)
+		// glebarez/sqlite uses a pure-Go SQLite driver. Under concurrent background
+		// tasks, multiple pooled connections can surface nested transaction errors such
+		// as "cannot start a transaction within a transaction". Keep SQLite on a
+		// single shared connection to serialize writes safely.
+		sqlDB.SetMaxIdleConns(1)
+		sqlDB.SetMaxOpenConns(1)
 		sqlDB.SetConnMaxLifetime(0)
 		sqlDB.SetConnMaxIdleTime(0)
 		return

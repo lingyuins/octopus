@@ -687,6 +687,7 @@
       "close": "关闭弹窗"
     },
     "routeNotFound": "未找到路由：{route}",
+    "unknown": "未知",
     "errorState": {
       "title": "加载失败",
       "message": "获取数据时出现了异常。",
@@ -1525,6 +1526,13 @@
       "groupLabel": "路由分组",
       "selectGroup": "选择分组",
       "appLabel": "目标应用",
+      "nameLabel": "名称",
+      "namePlaceholder": "例：octopus_claude_my-group",
+      "selectModel": "选择分组",
+      "haikuModelLabel": "Haiku 模型",
+      "sonnetModelLabel": "Sonnet 模型",
+      "opusModelLabel": "Opus 模型",
+      "import": "导入 CC Switch",
       "apiKeyLabel": "Octopus API Key",
       "selectAPIKey": "选择 API Key",
       "endpoint": "导入端点",

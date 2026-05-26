@@ -8,6 +8,19 @@ export const CC_SWITCH_APPS = [
 
 export type CCSwitchApp = (typeof CC_SWITCH_APPS)[number]['value'];
 
+export interface CCSwitchProviderLinkOptions {
+    app: CCSwitchApp;
+    endpoint: string;
+    apiKey: string;
+    name: string;
+    model?: string;
+    notes?: string;
+    homepage?: string;
+    haikuModel?: string;
+    sonnetModel?: string;
+    opusModel?: string;
+}
+
 export function normalizeCCSwitchEndpoint(baseUrl: string): string {
     const trimmed = baseUrl.trim().replace(/\/+$/, '');
     if (!trimmed) return '';
@@ -27,19 +40,19 @@ export function buildCCSwitchProviderLink({
     name,
     model,
     notes,
-}: {
-    app: CCSwitchApp;
-    endpoint: string;
-    apiKey: string;
-    name: string;
-    model?: string;
-    notes?: string;
-}): string {
+    homepage,
+    haikuModel,
+    sonnetModel,
+    opusModel,
+}: CCSwitchProviderLinkOptions): string {
+    const normalizedEndpoint = endpoint.trim();
+    const normalizedHomepage = homepage?.trim() ?? '';
+
     const params = new URLSearchParams();
     params.set('resource', 'provider');
     params.set('app', app);
     params.set('name', name.trim());
-    params.set('endpoint', endpoint.trim());
+    params.set('endpoint', app === 'codex' && normalizedHomepage ? normalizedEndpoint.replace(/\/+$/, '').replace(/\/v1$/, '') + '/v1' : normalizedEndpoint);
     params.set('apiKey', apiKey.trim());
 
     const normalizedModel = model?.trim();
@@ -50,6 +63,16 @@ export function buildCCSwitchProviderLink({
     const normalizedNotes = notes?.trim();
     if (normalizedNotes) {
         params.set('notes', normalizedNotes);
+    }
+
+    if (normalizedHomepage) {
+        params.set('homepage', normalizedHomepage);
+    }
+
+    if (app === 'claude') {
+        if (haikuModel?.trim()) params.set('haikuModel', haikuModel.trim());
+        if (sonnetModel?.trim()) params.set('sonnetModel', sonnetModel.trim());
+        if (opusModel?.trim()) params.set('opusModel', opusModel.trim());
     }
 
     params.set('enabled', 'true');

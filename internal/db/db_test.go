@@ -21,8 +21,8 @@ func TestConfigureConnectionPoolLimitsSQLiteConnections(t *testing.T) {
 	configureConnectionPool(sqlDB, "sqlite")
 
 	stats := sqlDB.Stats()
-	if stats.MaxOpenConnections != 4 {
-		t.Fatalf("MaxOpenConnections = %d, want 4", stats.MaxOpenConnections)
+	if stats.MaxOpenConnections != 1 {
+		t.Fatalf("MaxOpenConnections = %d, want 1", stats.MaxOpenConnections)
 	}
 }
 
@@ -105,3 +105,4 @@ func TestSQLiteDSNSkipsDirCreationForMemoryFileURI(t *testing.T) {
 		t.Fatalf("expected memory sqlite DSN not to create parent dir, stat error = %v", err)
 	}
 }
+
