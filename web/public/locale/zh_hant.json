@@ -687,6 +687,7 @@
       "close": "關閉視窗"
     },
     "routeNotFound": "找不到路由：{route}",
+    "unknown": "未知",
     "errorState": {
       "title": "載入失敗",
       "message": "取得資料時出現了異常。",
