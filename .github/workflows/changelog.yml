@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to generate changelog for (for example v1.9.8)
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -17,7 +23,9 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: ${{ inputs.tag != '' && inputs.tag || github.ref }}
 
       - run: npx changelogithub
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REF: ${{ inputs.tag != '' && format('refs/tags/{0}', inputs.tag) || github.ref }}
