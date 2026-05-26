@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,21 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+func TestConfigureConnectionPoolLimitsSQLiteToSingleConnection(t *testing.T) {
+	sqlDB, err := sql.Open("sqlite", "file::memory:?cache=shared")
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+	defer sqlDB.Close()
+
+	configureConnectionPool(sqlDB, "sqlite")
+
+	stats := sqlDB.Stats()
+	if stats.MaxOpenConnections != 1 {
+		t.Fatalf("MaxOpenConnections = %d, want 1", stats.MaxOpenConnections)
+	}
+}
 
 func TestInitSQLiteCreatesParentDir(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "nested", "octopus.db")

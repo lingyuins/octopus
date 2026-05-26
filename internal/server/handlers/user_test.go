@@ -119,6 +119,24 @@ func TestCreateUserThenLoginAsCreatedUser(t *testing.T) {
 	}
 }
 
+func TestIsTransientDatabaseErrorClassifiesSQLiteBusy(t *testing.T) {
+	if !isTransientDatabaseError(fmt.Errorf("incorrect username: database is locked (5) (SQLITE_BUSY)")) {
+		t.Fatal("expected SQLITE_BUSY to be classified as transient database error")
+	}
+	if isTransientDatabaseError(fmt.Errorf("incorrect password")) {
+		t.Fatal("expected incorrect password not to be classified as transient database error")
+	}
+}
+
+func TestIsCredentialErrorOnlyClassifiesCredentialFailures(t *testing.T) {
+	if !isCredentialError(fmt.Errorf("incorrect password")) {
+		t.Fatal("expected incorrect password to be classified as credential error")
+	}
+	if isCredentialError(fmt.Errorf("failed to load user: database is locked (5) (SQLITE_BUSY)")) {
+		t.Fatal("expected database errors not to be classified as credential errors")
+	}
+}
+
 func TestUpdateUserRoleNotFoundReturns404(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

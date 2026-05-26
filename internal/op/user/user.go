@@ -276,7 +276,10 @@ func Verify(username, password string) (model.User, error) {
 	}
 	user, err := GetByUsername(strings.TrimSpace(username), context.Background())
 	if err != nil {
-		return model.User{}, fmt.Errorf("incorrect username")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.User{}, fmt.Errorf("incorrect username")
+		}
+		return model.User{}, fmt.Errorf("failed to load user: %w", err)
 	}
 	if err := user.ComparePassword(password); err != nil {
 		return model.User{}, fmt.Errorf("incorrect password")

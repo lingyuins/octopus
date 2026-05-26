@@ -137,6 +137,14 @@ func login(c *gin.Context) {
 			resp.Error(c, http.StatusConflict, err.Error())
 			return
 		}
+		if isTransientDatabaseError(err) {
+			resp.Error(c, http.StatusServiceUnavailable, resp.ErrDatabase)
+			return
+		}
+		if !isCredentialError(err) {
+			resp.Error(c, http.StatusInternalServerError, resp.ErrDatabase)
+			return
+		}
 		middleware.RecordLoginFailure(loginKey, time.Now())
 		resp.Error(c, http.StatusUnauthorized, resp.ErrUnauthorized)
 		return
@@ -148,6 +156,22 @@ func login(c *gin.Context) {
 		return
 	}
 	resp.Success(c, model.UserLoginResponse{Token: token, ExpireAt: expire})
+}
+
+func isTransientDatabaseError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "database is locked") || strings.Contains(msg, "sqlite_busy") || strings.Contains(msg, "sql: database is closed")
+}
+
+func isCredentialError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(msg, "incorrect username") || strings.Contains(msg, "incorrect password")
 }
 
 func changePassword(c *gin.Context) {

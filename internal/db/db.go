@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 	"net/url"
 	"os"
@@ -46,10 +47,7 @@ func InitDB(dbType, dsn string, debug bool) error {
 		return err
 	}
 
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
-	sqlDB.SetConnMaxIdleTime(10 * time.Minute)
+	configureConnectionPool(sqlDB, dbType)
 
 	if err := migrate.BeforeAutoMigrate(db); err != nil {
 		return err
@@ -93,6 +91,21 @@ func InitDB(dbType, dsn string, debug bool) error {
 		db.Exec("DISCARD ALL")
 	}
 	return nil
+}
+
+func configureConnectionPool(sqlDB *sql.DB, dbType string) {
+	if dbType == "sqlite" {
+		sqlDB.SetMaxIdleConns(1)
+		sqlDB.SetMaxOpenConns(1)
+		sqlDB.SetConnMaxLifetime(0)
+		sqlDB.SetConnMaxIdleTime(0)
+		return
+	}
+
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+	sqlDB.SetConnMaxIdleTime(10 * time.Minute)
 }
 
 func initSQLite(path string, config *gorm.Config) (*gorm.DB, error) {

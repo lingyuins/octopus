@@ -12,3 +12,10 @@ export function formatProviderPromptCacheCount(value: number | undefined) {
         text: `${formatted.value}${formatted.unit}`,
     };
 }
+
+export function getProviderPromptCacheTrendTokens(point: {
+    cache_read_tokens?: number;
+    cache_write_tokens?: number;
+}) {
+    return (point.cache_read_tokens ?? 0) + (point.cache_write_tokens ?? 0);
+}

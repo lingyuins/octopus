@@ -9,7 +9,7 @@ import { useNavStore } from '@/components/modules/navbar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MetricCard, QueryState, StatusBadge, formatPercent, formatUnixTime } from '@/components/modules/analytics/shared';
-import { formatProviderPromptCacheCount } from './cache-format';
+import { formatProviderPromptCacheCount, getProviderPromptCacheTrendTokens } from './cache-format';
 
 type CacheView = 'semantic' | 'providerPrompt';
 type CacheTranslations = (key: string) => string;
@@ -171,7 +171,7 @@ function ProviderPromptCacheView({
     t: CacheTranslations;
 }) {
     const trend = data.trend ?? [];
-    const maxReadTokens = Math.max(...trend.map((item) => item.cache_read_tokens), 1);
+    const maxTrendTokens = Math.max(...trend.map(getProviderPromptCacheTrendTokens), 1);
     const readTokens = formatProviderPromptCacheCount(data.cache_read_tokens);
     const writeTokens = formatProviderPromptCacheCount(data.cache_write_tokens);
     const hasTrendActivity = trend.some((item) => item.request_count > 0 || item.cache_read_tokens > 0 || item.cache_write_tokens > 0);
@@ -282,13 +282,14 @@ function ProviderPromptCacheView({
                                 <div className="max-w-full overflow-x-auto pb-1">
                                     <div className="flex h-40 min-w-max items-end gap-2 pr-2">
                                         {trend.map((point) => {
-                                            const height = `${Math.max(8, (point.cache_read_tokens / maxReadTokens) * 100)}%`;
+                                            const trendTokens = getProviderPromptCacheTrendTokens(point);
+                                            const height = `${Math.max(8, (trendTokens / maxTrendTokens) * 100)}%`;
                                             return (
                                                 <div key={point.timestamp} className="flex w-20 flex-none flex-col items-center gap-2">
                                                     <div
                                                         className="w-full rounded-t-md bg-primary/20"
                                                         style={{ height }}
-                                                        title={`${formatUnixTime(point.timestamp)} | ${formatCount(point.cache_read_tokens)} read`}
+                                                        title={`${formatUnixTime(point.timestamp)} | ${formatCount(point.cache_read_tokens)} read / ${formatCount(point.cache_write_tokens)} write`}
                                                     />
                                                     <div className="w-full whitespace-nowrap text-center text-[10px] text-muted-foreground">
                                                         {formatUnixTime(point.timestamp)}
