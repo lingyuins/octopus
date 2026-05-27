@@ -201,6 +201,26 @@ func ImportWithModeToDB(ctx context.Context, target *gorm.DB, dump *model.DBDump
 				"api_keys", "users", "channel_keys", "channel_groups", "channels",
 				"llm_infos", "settings",
 			}
+			for i, table := range deleteOrder {
+				switch table {
+				case "stats_totals":
+					deleteOrder[i] = cfg.conn.NamingStrategy.TableName("stats_total")
+				case "stats_dailies":
+					deleteOrder[i] = cfg.conn.NamingStrategy.TableName("stats_daily")
+				case "stats_hourlies":
+					deleteOrder[i] = cfg.conn.NamingStrategy.TableName("stats_hourly")
+				case "stats_models":
+					deleteOrder[i] = cfg.conn.NamingStrategy.TableName("stats_model")
+				case "stats_channels":
+					deleteOrder[i] = cfg.conn.NamingStrategy.TableName("stats_channel")
+				case "stats_api_keys":
+					deleteOrder[i] = cfg.conn.NamingStrategy.TableName("stats_api_key")
+				case "alert_histories":
+					deleteOrder[i] = cfg.conn.NamingStrategy.TableName("alert_history")
+				case "auto_strategy_states":
+					deleteOrder[i] = "auto_strategy_states"
+				}
+			}
 			for _, table := range deleteOrder {
 				if err := cfg.deleteAll(table); err != nil {
 					return fmt.Errorf("full import: delete %s: %w", table, err)
