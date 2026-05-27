@@ -1032,6 +1032,23 @@
           "full": "Full Restore",
           "fullWarning": "Full restore will clear ALL existing data before importing. This is irreversible. Make sure you have a current backup."
         }
+      },
+      "migration": {
+        "title": "Database migration",
+        "description": "Migrate data to another database and update config. The current process keeps using the old database until restart.",
+        "migrateLogs": "Migrate logs",
+        "migrateStats": "Migrate stats",
+        "targetRequired": "Please enter target database path / DSN",
+        "testSuccess": "Database connection OK",
+        "testFailed": "Database connection failed",
+        "confirm": "Migrate current data to target database and update config? Restart is required after success.",
+        "success": "Database migrated. Please restart Octopus to use the new database.",
+        "failed": "Database migration failed",
+        "migrating": "Migrating...",
+        "button": "Migrate and switch after restart",
+        "migrateLogsHint": "Includes relay logs and audit logs; can be large.",
+        "testButton": "Test connection",
+        "successDetail": "Migration complete. Restart Octopus to use {type}: {path}"
       }
     },
     "routeGroups": {
@@ -1672,7 +1689,19 @@
       "retryDetails": "Retry Details",
       "attempts": "attempts",
       "success": "Success",
-      "failed": "Failed"
+      "failed": "Failed",
+      "requestType": "Request Type",
+      "channelFallback": "Channel #{id}",
+      "requestTypeLabels": {
+        "chat": "Chat",
+        "streamingChat": "Streaming Chat",
+        "mimoChat": "MiMo Chat",
+        "responses": "Responses",
+        "embedding": "Embedding",
+        "anthropicMessages": "Anthropic Messages",
+        "gemini": "Gemini",
+        "volcengine": "Volcengine"
+      }
     }
   },
   "channel": {
@@ -1911,7 +1940,8 @@
       "matchRegex": "Match Regex",
       "matchRegexPlaceholder": "Optional: regex pattern to match request model names",
       "remark": "Remark"
-    }
+    },
+    "typeMiMoChat": "MiMo Chat"
   },
   "errors": {
     "invalidRequestParameters": "Invalid request parameters",

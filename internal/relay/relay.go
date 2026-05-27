@@ -831,7 +831,6 @@ func (ra *relayAttempt) collectResponse() {
 	ra.metrics.SetInternalResponse(internalResponse, ra.internalRequest.Model)
 }
 
-
 func rewriteConversationRequestByProvider(group dbmodel.Group, req *model.InternalLLMRequest) *model.InternalLLMRequest {
 	if req == nil {
 		return req
@@ -881,10 +880,6 @@ func rewriteConversationRequestByProvider(group dbmodel.Group, req *model.Intern
 	}
 	return &cloned
 }
-
-
-
-
 
 func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, maxKeyRetriesPerRoute int, maxRouteRetries int, ratelimitCooldown int, maxTotalAttempts int) (*inflightRelayResult, error) {
 	var allAttempts []dbmodel.ChannelAttempt
@@ -1002,8 +997,8 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 				currentAttempts := append(allAttempts, req.iter.Attempts()...)
 				if result.Success {
 					namespace, requestText, _ := semanticCacheStoreMetadata(req.internalRequest)
-				req.metrics.Save(true, nil, currentAttempts)
-				return &inflightRelayResult{internalResp: cloneInternalResponse(req.metrics.InternalResponse), actualModel: req.internalRequest.Model, namespace: namespace, requestText: requestText}, nil
+					req.metrics.Save(true, nil, currentAttempts)
+					return &inflightRelayResult{internalResp: cloneInternalResponse(req.metrics.InternalResponse), actualModel: req.internalRequest.Model, namespace: namespace, requestText: requestText}, nil
 				}
 
 				recordFailureHint(channel.ID, usedKey.ID, resolvedModelName, result.Decision, result.Err, ratelimitCooldown)
@@ -1044,8 +1039,3 @@ exhausted:
 	resp.Error(req.c, http.StatusBadGateway, "all channels failed")
 	return nil, errors.New("all channels failed")
 }
-
-
-
-
-

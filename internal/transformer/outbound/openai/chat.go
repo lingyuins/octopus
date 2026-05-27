@@ -16,9 +16,9 @@ import (
 type ChatOutbound struct{}
 
 func (o *ChatOutbound) TransformRequest(ctx context.Context, request *model.InternalLLMRequest, baseUrl, key string) (*http.Request, error) {
-	compatRequest := cloneRequestForOpenAICompat(request)
+	compatRequest := CloneRequestForOpenAICompat(request)
 	isMimoChannel := strings.Contains(strings.ToLower(strings.TrimSpace(baseUrl)), "xiaomimimo")
-	sanitizeRequestForOpenAICompat(compatRequest, baseUrl, isMimoChannel)
+	SanitizeRequestForOpenAICompat(compatRequest, baseUrl, isMimoChannel)
 
 	// Convert developer role to system role for compatibility
 	for i := range compatRequest.Messages {
@@ -27,7 +27,7 @@ func (o *ChatOutbound) TransformRequest(ctx context.Context, request *model.Inte
 		}
 	}
 
-	normalizeMessagesForOpenAICompat(compatRequest.Messages)
+	NormalizeMessagesForOpenAICompat(compatRequest.Messages)
 
 	if compatRequest.Stream != nil && *compatRequest.Stream {
 		if compatRequest.StreamOptions == nil {
@@ -50,8 +50,9 @@ func (o *ChatOutbound) TransformRequest(ctx context.Context, request *model.Inte
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+key)
+	req.Header.Set("api-key", key)
 
-	upstreamURL, err := buildOpenAIUpstreamURL(baseUrl, "/v1/chat/completions")
+	upstreamURL, err := BuildOpenAIUpstreamURL(baseUrl, "/v1/chat/completions")
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +65,7 @@ func (o *ChatOutbound) TransformRequest(ctx context.Context, request *model.Inte
 	return req, nil
 }
 
-func cloneRequestForOpenAICompat(request *model.InternalLLMRequest) *model.InternalLLMRequest {
+func CloneRequestForOpenAICompat(request *model.InternalLLMRequest) *model.InternalLLMRequest {
 	if request == nil {
 		return nil
 	}
@@ -81,7 +82,7 @@ func cloneRequestForOpenAICompat(request *model.InternalLLMRequest) *model.Inter
 	return &cloned
 }
 
-func sanitizeRequestForOpenAICompat(request *model.InternalLLMRequest, baseURL string, isMimoChannel bool) {
+func SanitizeRequestForOpenAICompat(request *model.InternalLLMRequest, baseURL string, isMimoChannel bool) {
 	if request == nil {
 		return
 	}
@@ -223,7 +224,7 @@ func shouldKeepDeepSeekReasoningContent(msg *model.Message, preserveDeepSeekReas
 	return true
 }
 
-func normalizeMessagesForOpenAICompat(messages []model.Message) {
+func NormalizeMessagesForOpenAICompat(messages []model.Message) {
 	for i := range messages {
 		normalizeMessageForOpenAICompat(&messages[i])
 	}
@@ -350,7 +351,7 @@ func normalizeOpenAICompatUsage(resp *model.InternalLLMResponse) {
 	}
 }
 
-func buildOpenAIUpstreamURL(baseURL, endpointPath string) (string, error) {
+func BuildOpenAIUpstreamURL(baseURL, endpointPath string) (string, error) {
 	parsed, err := url.Parse(strings.TrimSuffix(baseURL, "/"))
 	if err != nil {
 		return "", fmt.Errorf("failed to parse base url: %w", err)
@@ -420,4 +421,20 @@ func looksLikeExplicitEndpoint(basePath, endpointPath string) bool {
 	}
 
 	return strings.EqualFold(baseSegments[len(baseSegments)-1], endpointSegments[len(endpointSegments)-1])
+}
+
+func cloneRequestForOpenAICompat(request *model.InternalLLMRequest) *model.InternalLLMRequest {
+	return CloneRequestForOpenAICompat(request)
+}
+
+func sanitizeRequestForOpenAICompat(request *model.InternalLLMRequest, baseURL string, isMimoChannel bool) {
+	SanitizeRequestForOpenAICompat(request, baseURL, isMimoChannel)
+}
+
+func normalizeMessagesForOpenAICompat(messages []model.Message) {
+	NormalizeMessagesForOpenAICompat(messages)
+}
+
+func buildOpenAIUpstreamURL(baseURL, endpointPath string) (string, error) {
+	return BuildOpenAIUpstreamURL(baseURL, endpointPath)
 }

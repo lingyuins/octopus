@@ -1032,6 +1032,23 @@
           "full": "完整恢复",
           "fullWarning": "完整恢复会先清空所有现有数据再导入。此操作不可逆，请确保已备份当前数据。"
         }
+      },
+      "migration": {
+        "title": "数据库迁移",
+        "description": "将数据迁移到另一个数据库并更新配置。当前进程在重启前仍会继续使用旧数据库。",
+        "migrateLogs": "迁移日志",
+        "migrateStats": "迁移统计",
+        "targetRequired": "请输入目标数据库路径或 DSN",
+        "testSuccess": "数据库连接正常",
+        "testFailed": "数据库连接失败",
+        "confirm": "将当前数据迁移到目标数据库并更新配置？成功后需要重启。",
+        "success": "数据库迁移完成。请重启 Octopus 以使用新数据库。",
+        "failed": "数据库迁移失败",
+        "migrating": "迁移中...",
+        "button": "迁移并在重启后切换",
+        "migrateLogsHint": "包含中继日志和审计日志，数据量可能较大。",
+        "testButton": "测试连接",
+        "successDetail": "迁移完成。重启 Octopus 后将使用 {type}: {path}"
       }
     },
     "routeGroups": {
@@ -1672,7 +1689,19 @@
       "attempts": "次尝试",
       "success": "成功",
       "failed": "失败",
-      "realInput": "真实输入"
+      "realInput": "真实输入",
+      "requestType": "请求类型",
+      "channelFallback": "渠道 #{id}",
+      "requestTypeLabels": {
+        "chat": "对话",
+        "streamingChat": "流式对话",
+        "mimoChat": "MiMo Chat",
+        "responses": "Responses",
+        "embedding": "Embedding",
+        "anthropicMessages": "Anthropic Messages",
+        "gemini": "Gemini",
+        "volcengine": "Volcengine"
+      }
     }
   },
   "channel": {
@@ -1911,7 +1940,8 @@
       "matchRegex": "匹配正则",
       "matchRegexPlaceholder": "可选：用于匹配请求模型名称的正则表达式",
       "remark": "备注"
-    }
+    },
+    "typeMiMoChat": "MiMo Chat"
   },
   "errors": {
     "invalidRequestParameters": "请求参数无效",

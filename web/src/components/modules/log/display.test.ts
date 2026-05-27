@@ -106,7 +106,7 @@ test('resolveLogDisplayFields falls back to channel id label when no channel nam
 
     const result = resolveLogDisplayFields(log);
     assert.equal(result.channelId, 77);
-    assert.equal(result.channelName, 'Channel #77');
+    assert.equal(result.channelName, 'channel_fallback');
 });
 
 test('resolveLogDisplayFields falls back to chat when only generic chat models exist', () => {
@@ -154,3 +154,42 @@ test('resolveLogDisplayFields exposes semantic cache hit flag from detail or lis
     const fromDetail = resolveLogDisplayFields(log, detail);
     assert.equal(fromDetail.semanticCacheHit, false);
 });
+
+test('resolveLogDisplayFields infers MiMo Chat request type label', () => {
+    const log = buildLog({
+        request_model_name: 'mimo-v2.5-pro',
+        actual_model_name: 'mimo-v2.5-pro',
+    });
+
+    const result = resolveLogDisplayFields(log);
+    assert.equal(result.requestTypeKey, 'mimoChat');
+});
+
+test('resolveLogDisplayFields infers streaming chat request type label from request content', () => {
+    const log = buildLog({
+        request_model_name: 'gpt-4o-mini',
+        actual_model_name: 'gpt-4o-mini',
+    });
+    const detail: RelayLogDetail = {
+        ...log,
+        request_content: '{"stream":true}',
+        response_content: '{}',
+    };
+
+    const result = resolveLogDisplayFields(log, detail);
+    assert.equal(result.requestTypeKey, 'streamingChat');
+});
+
+test('resolveLogDisplayFields infers embedding request type label', () => {
+    const log = buildLog({
+        endpoint_type: 'embeddings',
+        request_model_name: 'text-embedding-3-small',
+        actual_model_name: 'text-embedding-3-small',
+    });
+
+    const result = resolveLogDisplayFields(log);
+    assert.equal(result.requestTypeKey, 'embedding');
+});
+
+
+

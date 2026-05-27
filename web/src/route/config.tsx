@@ -13,7 +13,6 @@ export type RouteId = (typeof ROUTE_IDS)[number];
 
 export interface RouteConfig {
     id: RouteId;
-    label: string;
     icon: LucideIcon;
     component: LazyComponent;
 }
@@ -31,17 +30,17 @@ const Alert_Module = lazyWithPreload(() => import('@/components/modules/alert').
 const Ops_Module = lazyWithPreload(() => import('@/components/modules/ops').then(m => ({ default: m.Ops })));
 
 export const ROUTES: RouteConfig[] = [
-    { id: 'home', label: 'Home', icon: Home, component: Home_Module },
-    { id: 'channel', label: 'Channel', icon: Radio, component: Channel_Module },
-    { id: 'group', label: 'Group', icon: FolderTree, component: Group_Module },
-    { id: 'model', label: 'Model', icon: Sparkles, component: Model_Module },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, component: Analytics_Module },
-    { id: 'log', label: 'Log', icon: Logs, component: Log_Module },
-    { id: 'alert', label: 'Alerts', icon: Bell, component: Alert_Module },
-    { id: 'ops', label: 'Ops', icon: Wrench, component: Ops_Module },
-    { id: 'apikey', label: 'apikey', icon: KeyRound, component: APIKey_Module },
-    { id: 'setting', label: 'Setting', icon: Settings, component: Setting_Module },
-    { id: 'user', label: 'Users', icon: Users, component: User_Module },
+    { id: 'home', icon: Home, component: Home_Module },
+    { id: 'channel', icon: Radio, component: Channel_Module },
+    { id: 'group', icon: FolderTree, component: Group_Module },
+    { id: 'model', icon: Sparkles, component: Model_Module },
+    { id: 'analytics', icon: BarChart3, component: Analytics_Module },
+    { id: 'log', icon: Logs, component: Log_Module },
+    { id: 'alert', icon: Bell, component: Alert_Module },
+    { id: 'ops', icon: Wrench, component: Ops_Module },
+    { id: 'apikey', icon: KeyRound, component: APIKey_Module },
+    { id: 'setting', icon: Settings, component: Setting_Module },
+    { id: 'user', icon: Users, component: User_Module },
 ];
 
 export const CONTENT_MAP = ROUTES.reduce((acc, route) => {

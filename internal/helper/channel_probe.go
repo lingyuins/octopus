@@ -14,13 +14,13 @@ import (
 )
 
 type ChannelTestResult struct {
-	BaseURL     string `json:"base_url"`
-	KeyRemark   string `json:"key_remark,omitempty"`
-	KeyMasked   string `json:"key_masked,omitempty"`
-	StatusCode  int    `json:"status_code"`
-	Passed      bool   `json:"passed"`
-	LatencyMS   int64  `json:"latency_ms"`
-	Message     string `json:"message,omitempty"`
+	BaseURL      string `json:"base_url"`
+	KeyRemark    string `json:"key_remark,omitempty"`
+	KeyMasked    string `json:"key_masked,omitempty"`
+	StatusCode   int    `json:"status_code"`
+	Passed       bool   `json:"passed"`
+	LatencyMS    int64  `json:"latency_ms"`
+	Message      string `json:"message,omitempty"`
 	ResponseBody string `json:"response_body,omitempty"`
 }
 

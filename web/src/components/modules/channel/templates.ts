@@ -168,9 +168,9 @@ export const channelTemplates: ChannelTemplate[] = [
         name: 'Mimo',
         descriptionKey: 'template.descriptions.mimo',
         apply: (current) => createTemplatePatch(current, {
-            name: current.name || 'Mimo',
-            type: ChannelType.Mimo,
-            base_urls: [{ url: 'https://api.xiaomimimo.com', delay: 0, suffix_mode: 'auto' }],
+            name: current.name || 'MiMo Chat',
+            type: ChannelType.MiMoChat,
+            base_urls: [{ url: 'https://api.xiaomimimo.com/v1', delay: 0, suffix_mode: 'auto' }],
             custom_header: [],
             channel_proxy: '',
             param_override: '',

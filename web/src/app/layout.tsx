@@ -106,7 +106,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <div id="initial-loader" role="status" aria-label="Loading">
+        <div id="initial-loader" role="status" aria-label="Loading application">
           <div className="octo-shell">
             <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
               <g className="octo-group">

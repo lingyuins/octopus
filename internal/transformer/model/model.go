@@ -498,7 +498,10 @@ type Message struct {
 
 	// Images is used by some providers (e.g., Gemini via OpenAI compat) for image generation responses.
 	// Images will be merged into Content.MultipleContent during response processing.
-	Images []MessageContentPart `json:"images,omitempty"`
+	Images           []MessageContentPart `json:"images,omitempty"`
+	Annotations      []Annotation         `json:"annotations,omitempty"`
+	ErrorMessage     string               `json:"error_message,omitempty"`
+	FinalTextPreview string               `json:"final_text_preview,omitempty"`
 
 	Audio *struct {
 		Data       string `json:"data,omitempty"`
@@ -613,6 +616,16 @@ type MessageContentPart struct {
 }
 
 // ImageURL represents an image URL with optional detail level.
+type Annotation struct {
+	Type        string `json:"type,omitempty"`
+	URL         string `json:"url,omitempty"`
+	Title       string `json:"title,omitempty"`
+	Summary     string `json:"summary,omitempty"`
+	SiteName    string `json:"site_name,omitempty"`
+	LogoURL     string `json:"logo_url,omitempty"`
+	PublishTime string `json:"publish_time,omitempty"`
+}
+
 type ImageURL struct {
 	// URL is the URL of the image.
 	URL string `json:"url"`
@@ -784,6 +797,7 @@ type Usage struct {
 	TotalTokens             int64                    `json:"total_tokens"`
 	PromptTokensDetails     *PromptTokensDetails     `json:"prompt_tokens_details"`
 	CompletionTokensDetails *CompletionTokensDetails `json:"completion_tokens_details"`
+	WebSearchUsage          *WebSearchUsage          `json:"web_search_usage,omitempty"`
 
 	// Output only. A detailed breakdown of the token count for each modality in the prompt.
 	PromptModalityTokenDetails []ModalityTokenCount `json:"-"`
@@ -822,6 +836,14 @@ type CompletionTokensDetails struct {
 type PromptTokensDetails struct {
 	AudioTokens  int64 `json:"audio_tokens"`
 	CachedTokens int64 `json:"cached_tokens"`
+	ImageTokens  int64 `json:"image_tokens"`
+	VideoTokens  int64 `json:"video_tokens"`
+}
+
+// WebSearchUsage captures MiMo/OpenAI-compatible web search accounting.
+type WebSearchUsage struct {
+	ToolUsage int64 `json:"tool_usage,omitempty"`
+	PageUsage int64 `json:"page_usage,omitempty"`
 }
 
 // ResponseError represents an error response.

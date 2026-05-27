@@ -1032,6 +1032,23 @@
           "full": "完整復原",
           "fullWarning": "完整復原會先清空所有現有資料再匯入。此操作無法逆轉，請確保已備份當前資料。"
         }
+      },
+      "migration": {
+        "title": "資料庫遷移",
+        "description": "將資料遷移到另一個資料庫並更新設定。當前程序在重啟前仍會繼續使用舊資料庫。",
+        "migrateLogs": "遷移日誌",
+        "migrateStats": "遷移統計",
+        "targetRequired": "請輸入目標資料庫路徑或 DSN",
+        "testSuccess": "資料庫連線正常",
+        "testFailed": "資料庫連線失敗",
+        "confirm": "將目前資料遷移到目標資料庫並更新設定？成功後需要重新啟動。",
+        "success": "資料庫遷移完成。請重新啟動 Octopus 以使用新資料庫。",
+        "failed": "資料庫遷移失敗",
+        "migrating": "遷移中...",
+        "button": "遷移並在重啟後切換",
+        "migrateLogsHint": "包含中繼日誌和審計日誌，資料量可能較大。",
+        "testButton": "測試連線",
+        "successDetail": "遷移完成。重新啟動 Octopus 後將使用 {type}: {path}"
       }
     },
     "routeGroups": {
@@ -1064,7 +1081,7 @@
           "label": "速率限制（TPM）",
           "placeholder": "每分鐘 Token 數，0 表示無限制"
         },
-"perModelQuota": {
+        "perModelQuota": {
           "label": "按模型限額（JSON）",
           "placeholder": "{\"gpt-4o\":{\"rpm\":5,\"tpm\":50000}}"
         },
@@ -1672,7 +1689,19 @@
       "attempts": "次嘗試",
       "success": "成功",
       "failed": "失敗",
-      "realInput": "真實輸入"
+      "realInput": "真實輸入",
+      "requestType": "請求類型",
+      "channelFallback": "渠道 #{id}",
+      "requestTypeLabels": {
+        "chat": "對話",
+        "streamingChat": "串流對話",
+        "mimoChat": "MiMo Chat",
+        "responses": "Responses",
+        "embedding": "Embedding",
+        "anthropicMessages": "Anthropic Messages",
+        "gemini": "Gemini",
+        "volcengine": "Volcengine"
+      }
     }
   },
   "channel": {
@@ -1911,7 +1940,8 @@
       "matchRegex": "匹配正規",
       "matchRegexPlaceholder": "可選：用於匹配請求模型名稱的正規表示式",
       "remark": "備註"
-    }
+    },
+    "typeMiMoChat": "MiMo Chat"
   },
   "errors": {
     "invalidRequestParameters": "請求參數無效",

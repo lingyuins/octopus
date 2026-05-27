@@ -72,8 +72,9 @@ func (o *EmbeddingOutbound) TransformRequest(ctx context.Context, request *model
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+key)
+	req.Header.Set("api-key", key)
 
-	upstreamURL, err := buildOpenAIUpstreamURL(baseUrl, "/v1/embeddings")
+	upstreamURL, err := BuildOpenAIUpstreamURL(baseUrl, "/v1/embeddings")
 	if err != nil {
 		return nil, err
 	}

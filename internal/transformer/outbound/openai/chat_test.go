@@ -1245,3 +1245,134 @@ func TestChatOutboundTransformResponse_NormalizesReasoningUsage(t *testing.T) {
 		t.Fatalf("total_tokens = %d, want 306", got.Usage.TotalTokens)
 	}
 }
+
+func TestChatOutboundTransformRequest_MimoPreservesReasoningContentForHistoricalToolCalls(t *testing.T) {
+	outbound := &ChatOutbound{}
+	reasoningContent := "history reasoning for mimo tool call"
+	request := &model.InternalLLMRequest{
+		Model: "mimo-v2.5-pro",
+		Messages: []model.Message{
+			{
+				Role: "assistant",
+				Content: model.MessageContent{},
+				ToolCalls: []model.ToolCall{{
+					ID:   "call_mimo_history_1",
+					Type: "function",
+					Function: model.FunctionCall{
+						Name:      "lookup_weather",
+						Arguments: `{"city":"Beijing"}`,
+					},
+				}},
+				ReasoningContent: &reasoningContent,
+			},
+			{
+				Role: "tool",
+				ToolCallID: loPtr("call_mimo_history_1"),
+				Content: model.MessageContent{Content: loPtr("Sunny 25°C")},
+			},
+			{
+				Role: "user",
+				Content: model.MessageContent{Content: loPtr("How about Shanghai?")},
+			},
+		},
+	}
+
+	httpReq, err := outbound.TransformRequest(context.Background(), request, "https://api.xiaomimimo.com/v1", "sk-test")
+	if err != nil {
+		t.Fatalf("TransformRequest() error = %v", err)
+	}
+
+	body, err := io.ReadAll(httpReq.Body)
+	if err != nil {
+		t.Fatalf("failed to read request body: %v", err)
+	}
+
+	var got struct {
+		Messages []struct {
+			Role             string             `json:"role"`
+			ReasoningContent *string            `json:"reasoning_content,omitempty"`
+			ToolCalls        []model.ToolCall   `json:"tool_calls,omitempty"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("failed to unmarshal outbound body: %v", err)
+	}
+
+	if len(got.Messages) < 1 {
+		t.Fatalf("expected at least one message, got %d", len(got.Messages))
+	}
+	assistant := got.Messages[0]
+	if assistant.Role != "assistant" {
+		t.Fatalf("expected first message role assistant, got %q", assistant.Role)
+	}
+	if len(assistant.ToolCalls) != 1 {
+		t.Fatalf("expected assistant tool_calls to be preserved, got %d", len(assistant.ToolCalls))
+	}
+	if assistant.ReasoningContent == nil || *assistant.ReasoningContent != reasoningContent {
+		t.Fatalf("expected reasoning_content %q to be preserved for mimo historical tool call, got %#v", reasoningContent, assistant.ReasoningContent)
+	}
+}
+
+func TestChatOutboundTransformResponse_ParsesMimoExtendedFields(t *testing.T) {
+	outbound := &ChatOutbound{}
+	response := &http.Response{
+		Body: io.NopCloser(strings.NewReader(`{
+			"id":"chatcmpl-mimo-1",
+			"object":"chat.completion",
+			"created":1,
+			"model":"mimo-v2.5-pro",
+			"choices":[{
+				"index":0,
+				"message":{
+					"role":"assistant",
+					"content":"hello",
+					"reasoning_content":"thinking",
+					"error_message":"",
+					"final_text_preview":"hello preview",
+					"annotations":[{
+						"type":"web_search",
+						"url":"https://example.com",
+						"title":"Example",
+						"summary":"summary",
+						"site_name":"Example Site",
+						"logo_url":"https://example.com/logo.png",
+						"publish_time":"2025-12-16T00:00:00Z"
+					}]
+				},
+				"finish_reason":"stop"
+			}],
+			"usage":{
+				"prompt_tokens":100,
+				"completion_tokens":20,
+				"total_tokens":120,
+				"prompt_tokens_details":{"cached_tokens":5,"audio_tokens":1,"image_tokens":2,"video_tokens":3},
+				"completion_tokens_details":{"reasoning_tokens":7},
+				"web_search_usage":{"tool_usage":2,"page_usage":8}
+			}
+		}`)),
+	}
+
+	got, err := outbound.TransformResponse(context.Background(), response)
+	if err != nil {
+		t.Fatalf("TransformResponse() error = %v", err)
+	}
+	if len(got.Choices) != 1 || got.Choices[0].Message == nil {
+		t.Fatal("expected one parsed choice message")
+	}
+	msg := got.Choices[0].Message
+	if msg.FinalTextPreview != "hello preview" {
+		t.Fatalf("final_text_preview = %q, want %q", msg.FinalTextPreview, "hello preview")
+	}
+	if len(msg.Annotations) != 1 || msg.Annotations[0].URL != "https://example.com" {
+		t.Fatalf("annotations not parsed as expected: %+v", msg.Annotations)
+	}
+	if got.Usage == nil || got.Usage.WebSearchUsage == nil {
+		t.Fatal("expected web_search_usage to be parsed")
+	}
+	if got.Usage.WebSearchUsage.ToolUsage != 2 || got.Usage.WebSearchUsage.PageUsage != 8 {
+		t.Fatalf("web_search_usage = %+v, want tool=2 page=8", got.Usage.WebSearchUsage)
+	}
+	if got.Usage.PromptTokensDetails == nil || got.Usage.PromptTokensDetails.ImageTokens != 2 || got.Usage.PromptTokensDetails.VideoTokens != 3 {
+		t.Fatalf("prompt_tokens_details not parsed as expected: %+v", got.Usage.PromptTokensDetails)
+	}
+}

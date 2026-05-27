@@ -13,7 +13,7 @@ export enum ChannelType {
     Gemini = 3,
     Volcengine = 4,
     OpenAIEmbedding = 5,
-    Mimo = 6,
+    MiMoChat = 6,
 }
 
 /**

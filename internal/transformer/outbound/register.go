@@ -4,6 +4,7 @@ import (
 	"github.com/lingyuins/octopus/internal/transformer/model"
 	"github.com/lingyuins/octopus/internal/transformer/outbound/anthropic"
 	"github.com/lingyuins/octopus/internal/transformer/outbound/gemini"
+	"github.com/lingyuins/octopus/internal/transformer/outbound/mimo"
 	"github.com/lingyuins/octopus/internal/transformer/outbound/openai"
 	"github.com/lingyuins/octopus/internal/transformer/outbound/volcengine"
 )
@@ -52,7 +53,7 @@ var outboundFactories = map[OutboundType]func() model.Outbound{
 	OutboundTypeAnthropic:       func() model.Outbound { return &anthropic.MessageOutbound{} },
 	OutboundTypeGemini:          func() model.Outbound { return &gemini.MessagesOutbound{} },
 	OutboundTypeVolcengine:      func() model.Outbound { return &volcengine.ResponseOutbound{} },
-	OutboundTypeMimo:            func() model.Outbound { return &openai.ChatOutbound{} },
+	OutboundTypeMimo:            func() model.Outbound { return &mimo.ChatOutbound{} },
 }
 
 func Get(outboundType OutboundType) model.Outbound {

@@ -82,14 +82,14 @@ export function SettingBackup() {
 
     const onTestDatabase = async () => {
         if (!targetPath.trim()) {
-            toast.error('Please enter target database path / DSN');
+            toast.error(t('backup.migration.targetRequired')); 
             return;
         }
         try {
             await testDatabase.mutateAsync(migrationPayload);
-            toast.success('Database connection OK');
+            toast.success(t('backup.migration.testSuccess')); 
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : 'Database connection failed');
+            toast.error(e instanceof Error ? e.message : t('backup.migration.testFailed')); 
         }
     };
 
@@ -98,14 +98,14 @@ export function SettingBackup() {
             toast.error('Please enter target database path / DSN');
             return;
         }
-        if (!window.confirm('Migrate current data to target database and update config? Restart is required after success.')) {
+        if (!window.confirm(t('backup.migration.confirm'))) {
             return;
         }
         try {
             await migrateDatabase.mutateAsync(migrationPayload);
-            toast.success('Database migrated. Please restart Octopus to use the new database.');
+            toast.success(t('backup.migration.success')); 
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : 'Database migration failed');
+            toast.error(e instanceof Error ? e.message : t('backup.migration.failed')); 
         }
     };
 
@@ -151,9 +151,9 @@ export function SettingBackup() {
                 <div className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
                     <div>
-                        <div className="text-sm font-semibold text-card-foreground">Database migration</div>
+                        <div className="text-sm font-semibold text-card-foreground">{t('backup.migration.title')}</div>
                         <div className="mt-1 text-xs leading-5 text-muted-foreground">
-                            Migrate data to another database and update config. The current process keeps using the old database until restart.
+                            {t('backup.migration.description')}
                         </div>
                     </div>
                 </div>
@@ -179,13 +179,13 @@ export function SettingBackup() {
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <div className="flex items-center justify-between gap-4 rounded-lg border border-border/30 p-3">
                         <div>
-                            <div className="text-sm text-muted-foreground">Migrate logs</div>
-                            <div className="text-[11px] text-muted-foreground/70">Includes relay logs and audit logs; can be large.</div>
+                            <div className="text-sm text-muted-foreground">{t('backup.migration.migrateLogs')}</div>
+                            <div className="text-[11px] text-muted-foreground/70">{t('backup.migration.migrateLogsHint')}</div>
                         </div>
                         <Switch checked={migrateLogs} onCheckedChange={setMigrateLogs} />
                     </div>
                     <div className="flex items-center justify-between gap-4 rounded-lg border border-border/30 p-3">
-                        <div className="text-sm text-muted-foreground">Migrate stats</div>
+                        <div className="text-sm text-muted-foreground">{t('backup.migration.migrateStats')}</div>
                         <Switch checked={migrateStats} onCheckedChange={setMigrateStats} />
                     </div>
                 </div>
@@ -193,17 +193,17 @@ export function SettingBackup() {
                 <div className="flex flex-col gap-2 sm:flex-row">
                     <Button type="button" variant="outline" className="rounded-xl" onClick={onTestDatabase} disabled={testDatabase.isPending || migrateDatabase.isPending}>
                         {testDatabase.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-                        Test connection
+                        {t('backup.migration.testButton')}
                     </Button>
                     <Button type="button" variant="destructive" className="rounded-xl" onClick={onMigrateDatabase} disabled={migrateDatabase.isPending || testDatabase.isPending}>
                         {migrateDatabase.isPending ? <Loader2 className="size-4 animate-spin" /> : <Database className="size-4" />}
-                        {migrateDatabase.isPending ? 'Migrating...' : 'Migrate and switch after restart'}
+                        {migrateDatabase.isPending ? t('backup.migration.migrating') : t('backup.migration.button')}
                     </Button>
                 </div>
 
                 {migrateDatabase.data ? (
                     <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/8 p-3 text-xs text-emerald-700 dark:text-emerald-300">
-                        Migration complete. Restart Octopus to use {migrateDatabase.data.type}: {migrateDatabase.data.path}
+                        {t('backup.migration.successDetail', { type: migrateDatabase.data.type, path: migrateDatabase.data.path })}
                     </div>
                 ) : null}
             </div>

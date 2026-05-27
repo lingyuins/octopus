@@ -381,5 +381,3 @@ func isNetworkError(err error) bool {
 		strings.Contains(errStr, "DNS") ||
 		strings.Contains(errStr, "failed to send request")
 }
-
-
