@@ -111,4 +111,3 @@ func TestImportWithModeFullClearsExistingRowsUsingActualTableNames(t *testing.T)
 	assertCount(&model.StatsTotal{}, 0, "id = ?", 1)
 	assertCount(&model.StatsTotal{}, 1, "id = ?", 2)
 }
-
