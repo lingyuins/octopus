@@ -1,0 +1,22 @@
+{
+  "name": "octopus-dev-tools",
+  "private": true,
+  "packageManager": "pnpm@10.22.0",
+  "scripts": {
+    "prepare": "husky",
+    "lint": "pnpm lint:go && pnpm lint:web",
+    "lint:go": "go test -run=TestNoSuchTest ./...",
+    "lint:web": "pnpm --dir web lint",
+    "test": "pnpm test:go && pnpm test:web",
+    "test:go": "go test ./...",
+    "test:web": "pnpm --dir web test:i18n && pnpm --dir web test:unit",
+    "check": "pnpm lint && pnpm test",
+    "lint:go:strict": "go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.6.2 run ./..."
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.6"
+  }
+}

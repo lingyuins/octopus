@@ -1,0 +1,8 @@
+{
+  "*.{js,mjs,ts,tsx,mts}": [
+    "pnpm --dir web exec eslint"
+  ],
+  "*.go": [
+    "gofmt -w"
+  ]
+}

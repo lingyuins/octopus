@@ -25,7 +25,9 @@ func GetCache() cache.Cache[int, model.Channel] { return chCache }
 func GetKeyCache() cache.Cache[int, model.ChannelKey] { return keyCache }
 
 // GetKeyCacheNeedUpdate returns the key cache dirty set (for backward compatibility).
-func GetKeyCacheNeedUpdate() (map[int]struct{}, *sync.Mutex) { return keyCacheNeedUpdate, &keyCacheNeedUpdateLock }
+func GetKeyCacheNeedUpdate() (map[int]struct{}, *sync.Mutex) {
+	return keyCacheNeedUpdate, &keyCacheNeedUpdateLock
+}
 
 // GetRuntimeUpdateLock returns the runtime update mutex (for backward compatibility).
 func GetRuntimeUpdateLock() *sync.Mutex { return &runtimeUpdateLock }
@@ -184,6 +186,20 @@ func Update(req *model.ChannelUpdateRequest, ctx context.Context) (*model.Channe
 		return nil, err
 	}
 
+	groupID := 0
+	if req.GroupID != nil {
+		groupID = *req.GroupID
+		if groupID == 0 {
+			defaultGroupID, err := GroupDefaultID(ctx)
+			if err != nil {
+				return nil, err
+			}
+			groupID = defaultGroupID
+		} else if _, err := GroupGet(groupID, ctx); err != nil {
+			return nil, err
+		}
+	}
+
 	tx := db.GetDB().WithContext(ctx).Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -199,18 +215,6 @@ func Update(req *model.ChannelUpdateRequest, ctx context.Context) (*model.Channe
 		updates.Name = *req.Name
 	}
 	if req.GroupID != nil {
-		groupID := *req.GroupID
-		if groupID == 0 {
-			defaultGroupID, err := GroupDefaultID(ctx)
-			if err != nil {
-				tx.Rollback()
-				return nil, err
-			}
-			groupID = defaultGroupID
-		} else if _, err := GroupGet(groupID, ctx); err != nil {
-			tx.Rollback()
-			return nil, err
-		}
 		selectFields = append(selectFields, "group_id")
 		updates.GroupID = groupID
 	}
@@ -501,5 +505,3 @@ var GroupDefaultID = func(ctx context.Context) (int, error) {
 var GroupGet = func(id int, ctx context.Context) (*model.ChannelGroup, error) {
 	return nil, fmt.Errorf("channel: GroupGet not registered")
 }
-
-
