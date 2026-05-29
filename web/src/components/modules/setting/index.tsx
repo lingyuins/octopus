@@ -32,15 +32,15 @@ const SETTING_ITEMS: SettingItem[] = [
     { id: 'appearance',        icon: <Sun className="h-5 w-5" />,              titleKey: 'appearance',           component: <SettingAppearance /> },
     { id: 'ai-route',          icon: <Zap className="h-5 w-5" />,               titleKey: 'aiRoute.title',        component: <SettingAIRoute /> },
     { id: 'auto-strategy',     icon: <Cog className="h-5 w-5" />,               titleKey: 'autoStrategy.title',   component: <SettingAutoStrategy /> },
-    { id: 'account',           icon: <User className="h-5 w-5" />,              titleKey: 'account',              component: <SettingAccount /> },
+    { id: 'account',           icon: <User className="h-5 w-5" />,              titleKey: 'account.title',         component: <SettingAccount /> },
     { id: 'semantic-cache',    icon: <Database className="h-5 w-5" />,          titleKey: 'semanticCache.title',  component: <SettingSemanticCache /> },
     { id: 'retry',             icon: <RotateCcw className="h-5 w-5" />,         titleKey: 'retry.title',          component: <SettingRetry /> },
-    { id: 'log',               icon: <ScrollText className="h-5 w-5" />,        titleKey: 'log',                  component: <SettingLog /> },
+    { id: 'log',               icon: <ScrollText className="h-5 w-5" />,        titleKey: 'log.title',            component: <SettingLog /> },
     { id: 'info',              icon: <AlertTriangle className="h-5 w-5" />,     titleKey: 'info.title',           component: <SettingInfo /> },
     { id: 'system',            icon: <Server className="h-5 w-5" />,             titleKey: 'system',               component: <SettingSystem /> },
     { id: 'llmsync',           icon: <KeyRound className="h-5 w-5" />,          titleKey: 'llmSync.title',        component: <SettingLLMSync /> },
     { id: 'circuit-breaker',   icon: <Shield className="h-5 w-5" />,            titleKey: 'circuitBreaker.title', component: <SettingCircuitBreaker /> },
-    { id: 'backup',            icon: <Database className="h-5 w-5" />,          titleKey: 'backup',               component: <SettingBackup /> },
+    { id: 'backup',            icon: <Database className="h-5 w-5" />,          titleKey: 'backup.title',         component: <SettingBackup /> },
     { id: 'route-group-danger',icon: <AlertTriangle className="h-5 w-5" />,     titleKey: 'routeGroups.title',    component: <SettingRouteGroupDanger /> },
 ];
 
