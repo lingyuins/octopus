@@ -47,10 +47,9 @@ func ExportAll(ctx context.Context, includeLogs, includeStats bool) (*model.DBDu
 	if err := conn.Find(&d.APIKeys).Error; err != nil {
 		return nil, fmt.Errorf("export api_keys: %w", err)
 	}
-	// Users are intentionally NOT exported: User.Password is tagged
-	// json:"-" so it is omitted during JSON serialisation. If users
-	// were exported and later imported, every password would become
-	// an empty string, locking the admin out of the restored instance.
+	if err := conn.Find(&d.Users).Error; err != nil {
+		return nil, fmt.Errorf("export users: %w", err)
+	}
 	if err := conn.Find(&d.Settings).Error; err != nil {
 		return nil, fmt.Errorf("export settings: %w", err)
 	}
@@ -199,7 +198,7 @@ func ImportWithModeToDB(ctx context.Context, target *gorm.DB, dump *model.DBDump
 				"group_items", "channel_groups", "groups",
 				"alert_histories", "alert_state_records", "alert_rules", "alert_notif_channels",
 				"audit_logs", "auto_strategy_states", "circuit_breaker_states",
-				"api_keys", "channel_keys", "channels",
+				"api_keys", "users", "channel_keys", "channels",
 				"llm_infos", "settings",
 			}
 			for i, table := range deleteOrder {
@@ -256,11 +255,12 @@ func ImportWithModeToDB(ctx context.Context, target *gorm.DB, dump *model.DBDump
 			return err
 		}
 
-		// Users are intentionally NOT imported.
-		// Passwords are hashed (json:"-") so they are lost during export.
-		// Importing users would create accounts with empty passwords,
-		// locking the admin out of the restored instance.
-		// Users should be created manually on each instance.
+		// Users — skip existing (backward compat: might be nil in old dumps)
+		if len(dump.Users) > 0 {
+			if err := cfg.doNothing("users", &dump.Users, len(dump.Users)); err != nil {
+				return err
+			}
+		}
 
 		// Settings — upsert by key
 		if err := cfg.upsertSettings(dump.Settings); err != nil {

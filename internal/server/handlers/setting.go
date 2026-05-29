@@ -156,6 +156,11 @@ func exportDB(c *gin.Context) {
 		return
 	}
 
+	// User.Password is tagged json:"-", so passwords are lost during JSON
+	// serialisation. Exclude users from the JSON export to prevent importing
+	// accounts with empty passwords that would lock the admin out.
+	dump.Users = nil
+
 	c.Header("Content-Type", "application/json")
 	c.Header("Content-Disposition", "attachment; filename=\"octopus-export-"+time.Now().Format("20060102150405")+".json\"")
 	c.Status(http.StatusOK)
