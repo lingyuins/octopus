@@ -1922,7 +1922,8 @@
         "pass": "通过",
         "fail": "失败",
         "noRemark": "无备注",
-        "hint": "会批量测试所有已填写的端点与 Key 组合，HTTP 200 和 429 都视为通过。"
+        "hint": "会批量测试所有已填写的端点与 Key 组合，HTTP 200 和 429 都视为通过。",
+        "removeFailedKeys": "移除失败的 Key"
       },
       "typeOpenAIChat": "OpenAI Chat",
       "typeOpenAIResponse": "OpenAI Response",

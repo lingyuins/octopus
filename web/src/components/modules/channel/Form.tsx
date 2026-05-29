@@ -38,7 +38,7 @@ import { toast } from '@/components/common/Toast';
 import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshCw, X, Plus, FlaskConical, CheckCircle2, AlertTriangle, Sparkles, Orbit, Layers3, KeyRound, Cable, Search, Check, ListFilter } from 'lucide-react';
+import { RefreshCw, X, Plus, FlaskConical, CheckCircle2, AlertTriangle, Trash2, Sparkles, Orbit, Layers3, KeyRound, Cable, Search, Check, ListFilter } from 'lucide-react';
 
 export interface ChannelKeyFormItem {
     id?: number;
@@ -499,6 +499,33 @@ export function ChannelForm({
         });
     };
 
+    const maskKey = (secret: string): string => {
+        const trimmed = secret.trim();
+        if (!trimmed) return '';
+        if (trimmed.length <= 8) return trimmed;
+        return trimmed.slice(0, 4) + '...' + trimmed.slice(-4);
+    };
+
+    const handleRemoveFailedKeys = () => {
+        if (!testSummary) return;
+        const failedIds = new Set<string>();
+        for (const result of testSummary.results) {
+            if (!result.passed) {
+                failedIds.add(`${result.key_masked ?? ''}||${result.key_remark ?? ''}`);
+            }
+        }
+        if (failedIds.size === 0) return;
+        const nextKeys = formData.keys.filter((k) => {
+            const id = `${maskKey(k.channel_key)}||${k.remark ?? ''}`;
+            return !failedIds.has(id);
+        });
+        if (nextKeys.length === 0) {
+            nextKeys.push({ enabled: true, channel_key: '' });
+        }
+        onFormDataChange({ ...formData, keys: nextKeys });
+        setTestSummary(null);
+    };
+
     const handleRefreshModels = async () => {
         if (!formData.base_urls?.[0]?.url || !effectiveKey) return;
         setFetchedModels([]);
@@ -792,6 +819,21 @@ export function ChannelForm({
                         type="button"
                         variant="ghost"
                         size="sm"
+                        onClick={handleTestChannel}
+                        disabled={testChannel.isPending || !(formData.base_urls?.some((u) => u.url.trim()) && formData.keys?.some((k) => k.channel_key.trim()))}
+                        className="h-6 px-2 text-xs text-muted-foreground/50 hover:text-muted-foreground hover:bg-transparent"
+                    >
+                        {testChannel.isPending ? (
+                            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                            <FlaskConical className="h-3 w-3 mr-1" />
+                        )}
+                        {t('test.button')}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={handleAddKey}
                         className="h-6 px-2 text-xs text-muted-foreground/70 hover:text-muted-foreground hover:bg-transparent"
                     >
@@ -838,51 +880,8 @@ export function ChannelForm({
                         </div>
                     ))}
                 </div>
-            </section>
 
-            <section className={sectionClassName}>
-                <SectionHeader icon={Layers3} title={t('modelConfig')} />
-                <div className="flex items-center justify-end gap-2">
-                    <div className="flex items-center gap-2">
-                        <MorphingDialog onOpen={handleRefreshModels}>
-                            <MorphingDialogTrigger
-                                disabled={!formData.base_urls?.[0]?.url || !effectiveKey || fetchModel.isPending}
-                                className="inline-flex h-6 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground/50 transition-colors hover:bg-transparent hover:text-muted-foreground"
-                            >
-                                <RefreshCw className={`h-3 w-3 ${fetchModel.isPending ? 'animate-spin' : ''}`} />
-                                {t('modelRefresh')}
-                            </MorphingDialogTrigger>
-                            <MorphingDialogContainer>
-                                <MorphingDialogContent className="h-[calc(100dvh-2rem)] w-[min(100vw-2rem,54rem)] max-w-full rounded-xl border border-border/35 bg-card p-0 md:h-[min(44rem,calc(100dvh-3rem))]">
-                                    <ModelPickerDialogPanel
-                                        models={fetchedModels}
-                                        selectedModels={autoModels}
-                                        isLoading={fetchModel.isPending}
-                                        onApply={applyFetchedModelSelection}
-                                    />
-                                </MorphingDialogContent>
-                            </MorphingDialogContainer>
-                        </MorphingDialog>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleTestChannel}
-                            disabled={testChannel.isPending || !(formData.base_urls?.some((u) => u.url.trim()) && formData.keys?.some((k) => k.channel_key.trim()))}
-                            className="h-6 px-2 text-xs text-muted-foreground/50 hover:text-muted-foreground hover:bg-transparent"
-                        >
-                            {testChannel.isPending ? (
-                                <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                            ) : (
-                                <FlaskConical className="h-3 w-3 mr-1" />
-                            )}
-                            {t('test.button')}
-                        </Button>
-                    </div>
-                </div>
-                <input type="hidden" value={formData.model} required />
-
-                    {testSummary && (
+                {testSummary && (
                     <div className="space-y-2 rounded-lg border border-border/25 bg-card p-3">
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 text-sm font-medium text-card-foreground">
@@ -893,12 +892,26 @@ export function ChannelForm({
                                 )}
                                 <span>{testSummary.passed ? t('test.success') : t('test.partialSuccess')}</span>
                             </div>
-                            <Badge variant="secondary">{testSummary.results.length} {t('test.results')}</Badge>
+                            <div className="flex items-center gap-2">
+                                {testSummary.results.some((r) => !r.passed) && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleRemoveFailedKeys}
+                                        className="h-6 px-2 text-xs text-destructive/70 hover:text-destructive hover:bg-transparent"
+                                    >
+                                        <Trash2 className="h-3 w-3 mr-1" />
+                                        {t('test.removeFailedKeys')}
+                                    </Button>
+                                )}
+                                <Badge variant="secondary">{testSummary.results.length} {t('test.results')}</Badge>
+                            </div>
                         </div>
                         <div className="space-y-2 max-h-48 overflow-y-auto">
                             {testSummary.results.map((result, idx) => (
                                 <div key={`${result.base_url}-${result.key_masked}-${idx}`} className="rounded-lg border border-border/30 bg-card p-2.5 text-xs space-y-1">
-<div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
                                         <span className="font-mono truncate">{result.base_url}</span>
                                         <div className="flex items-center gap-1 shrink-0">
                                             <Badge variant="secondary">{result.key_masked || '-'}</Badge>
@@ -916,6 +929,32 @@ export function ChannelForm({
                         <p className="text-xs text-muted-foreground">{t('test.hint')}</p>
                     </div>
                 )}
+            </section>
+
+            <section className={sectionClassName}>
+                <SectionHeader icon={Layers3} title={t('modelConfig')} />
+                <div className="flex items-center justify-end gap-2">
+                    <MorphingDialog onOpen={handleRefreshModels}>
+                        <MorphingDialogTrigger
+                            disabled={!formData.base_urls?.[0]?.url || !effectiveKey || fetchModel.isPending}
+                            className="inline-flex h-6 items-center justify-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground/50 transition-colors hover:bg-transparent hover:text-muted-foreground"
+                        >
+                            <RefreshCw className={`h-3 w-3 ${fetchModel.isPending ? 'animate-spin' : ''}`} />
+                            {t('modelRefresh')}
+                        </MorphingDialogTrigger>
+                        <MorphingDialogContainer>
+                            <MorphingDialogContent className="h-[calc(100dvh-2rem)] w-[min(100vw-2rem,54rem)] max-w-full rounded-xl border border-border/35 bg-card p-0 md:h-[min(44rem,calc(100dvh-3rem))]">
+                                <ModelPickerDialogPanel
+                                    models={fetchedModels}
+                                    selectedModels={autoModels}
+                                    isLoading={fetchModel.isPending}
+                                    onApply={applyFetchedModelSelection}
+                                />
+                            </MorphingDialogContent>
+                        </MorphingDialogContainer>
+                    </MorphingDialog>
+                </div>
+                <input type="hidden" value={formData.model} required />
 
                 <div className="relative">
                     <Input
