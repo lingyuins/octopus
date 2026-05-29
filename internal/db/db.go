@@ -19,8 +19,14 @@ import (
 )
 
 var db *gorm.DB
+var currentDBType string
+
+func IsSQLite() bool {
+	return currentDBType == "sqlite"
+}
 
 func InitDB(dbType, dsn string, debug bool) error {
+	currentDBType = dbType
 	var err error
 	db, err = OpenStandalone(dbType, dsn, debug)
 	if err != nil {
@@ -128,6 +134,7 @@ func initSQLite(path string, config *gorm.Config) (*gorm.DB, error) {
 		return nil, err
 	}
 	params := []string{
+		"_txlock=immediate",
 		"_journal_mode=WAL",
 		"_synchronous=NORMAL",
 		"_cache_size=10000",

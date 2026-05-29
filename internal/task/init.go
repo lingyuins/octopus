@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op/relaylog"
 	"github.com/lingyuins/octopus/internal/op/setting"
@@ -24,6 +25,10 @@ const (
 )
 
 func Init() {
+	if db.IsSQLite() {
+		db.StartSerialWriter(context.Background())
+	}
+	relaylog.StartFlushWorker(context.Background())
 	priceUpdateIntervalHours, err := setting.GetInt(model.SettingKeyModelInfoUpdateInterval)
 	if err != nil {
 		log.Errorf("failed to get model info update interval: %v", err)
@@ -51,13 +56,34 @@ func Init() {
 		log.Warnf("failed to get stats save interval: %v", err)
 	} else {
 		statsSaveInterval := time.Duration(statsSaveIntervalMinutes) * time.Minute
-		Register(TaskStatsSave, statsSaveInterval, false, stats.SaveDBTask)
-		Register(TaskRuntimeState, statsSaveInterval, false, balancer.RuntimeStateSaveDBTask)
+		if db.IsSQLite() {
+			Register(TaskStatsSave, statsSaveInterval, false, func() {
+				db.EnqueueWrite(db.WriteJob{Name: "stats_save", Fn: func(_ context.Context) error {
+					stats.SaveDBTask()
+					return nil
+				}})
+			})
+			Register(TaskRuntimeState, statsSaveInterval, false, func() {
+				db.EnqueueWrite(db.WriteJob{Name: "runtime_state_save", Fn: func(_ context.Context) error {
+					balancer.RuntimeStateSaveDBTask()
+					return nil
+				}})
+			})
+		} else {
+			Register(TaskStatsSave, statsSaveInterval, false, stats.SaveDBTask)
+			Register(TaskRuntimeState, statsSaveInterval, false, balancer.RuntimeStateSaveDBTask)
+		}
 	}
 
 	Register(TaskRelayLogSave, 10*time.Minute, false, func() {
-		if err := relaylog.RelayLogSaveDBTask(context.Background()); err != nil {
-			log.Warnf("relay log save db task failed: %v", err)
+		if db.IsSQLite() {
+			db.EnqueueWrite(db.WriteJob{Name: "relay_log_save", Fn: func(_ context.Context) error {
+				return relaylog.RelayLogSaveDBTask(context.Background())
+			}})
+		} else {
+			if err := relaylog.RelayLogSaveDBTask(context.Background()); err != nil {
+				log.Warnf("relay log save db task failed: %v", err)
+			}
 		}
 	})
 

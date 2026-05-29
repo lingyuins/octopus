@@ -1940,9 +1940,9 @@
       "autoGroupRegex": "正規比對",
       "matchRegex": "匹配正規",
       "matchRegexPlaceholder": "可選：用於匹配請求模型名稱的正規表示式",
-      "remark": "備註"
-    },
-    "typeMiMoChat": "MiMo Chat"
+      "remark": "備註",
+      "typeMiMoChat": "MiMo Chat"
+    }
   },
   "errors": {
     "invalidRequestParameters": "請求參數無效",

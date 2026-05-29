@@ -1940,9 +1940,9 @@
       "autoGroupRegex": "Regex",
       "matchRegex": "Match Regex",
       "matchRegexPlaceholder": "Optional: regex pattern to match request model names",
-      "remark": "Remark"
-    },
-    "typeMiMoChat": "MiMo Chat"
+      "remark": "Remark",
+      "typeMiMoChat": "MiMo Chat"
+    }
   },
   "errors": {
     "invalidRequestParameters": "Invalid request parameters",

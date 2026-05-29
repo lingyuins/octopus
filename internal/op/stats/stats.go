@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/lingyuins/octopus/internal/db"
@@ -19,6 +20,7 @@ import (
 
 var dailyCache model.StatsDaily
 var dailyCacheLock sync.RWMutex
+var pendingDailyOverride atomic.Pointer[model.StatsDaily]
 
 var totalCache model.StatsTotal
 var totalCacheLock sync.RWMutex
@@ -92,6 +94,12 @@ func SaveDBTask() {
 // intentional eventually-consistent design that avoids holding locks across
 // I/O operations.
 func SaveDB(ctx context.Context) error {
+	if pending := pendingDailyOverride.Swap(nil); pending != nil {
+		if err := saveDBWithDailyOverride(ctx, *pending); err != nil {
+			log.Warnf("failed to persist pending daily override during SaveDB: %v", err)
+		}
+	}
+
 	totalCacheLock.RLock()
 	totalSnap := totalCache
 	totalCacheLock.RUnlock()
@@ -147,28 +155,11 @@ func persistSnapshots(
 	modelIDs []int,
 	apiKeyIDs []int,
 ) error {
-	dbConn := db.GetDB().WithContext(ctx)
-
-	if result := dbConn.Save(&totalSnap); result.Error != nil {
-		return result.Error
-	}
-	if result := dbConn.Save(&dailySnap); result.Error != nil {
-		return result.Error
-	}
-
 	todayDate := today()
 	hourlyStats := make([]model.StatsHourly, 0, 24)
 	for hour := 0; hour < 24; hour++ {
 		if hourlyAll[hour].Date == todayDate {
 			hourlyStats = append(hourlyStats, hourlyAll[hour])
-		}
-	}
-	if len(hourlyStats) > 0 {
-		if result := dbConn.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "hour"}, {Name: "date"}},
-			UpdateAll: true,
-		}).Create(&hourlyStats); result.Error != nil {
-			return result.Error
 		}
 	}
 
@@ -180,9 +171,6 @@ func persistSnapshots(
 		}
 		channelStats = append(channelStats, ch)
 	}
-	if err := upsertChannels(dbConn, channelStats); err != nil {
-		return err
-	}
 
 	modelStats := make([]model.StatsModel, 0, len(modelIDs))
 	for _, id := range modelIDs {
@@ -191,9 +179,6 @@ func persistSnapshots(
 			continue
 		}
 		modelStats = append(modelStats, m)
-	}
-	if err := upsertModels(dbConn, modelStats); err != nil {
-		return err
 	}
 
 	apiKeyStats := make([]model.StatsAPIKey, 0, len(apiKeyIDs))
@@ -204,11 +189,33 @@ func persistSnapshots(
 		}
 		apiKeyStats = append(apiKeyStats, ak)
 	}
-	if err := upsertAPIKeys(dbConn, apiKeyStats); err != nil {
-		return err
-	}
 
-	return nil
+	return db.GetDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if result := tx.Save(&totalSnap); result.Error != nil {
+			return result.Error
+		}
+		if result := tx.Save(&dailySnap); result.Error != nil {
+			return result.Error
+		}
+		if len(hourlyStats) > 0 {
+			if result := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "hour"}, {Name: "date"}},
+				UpdateAll: true,
+			}).Create(&hourlyStats); result.Error != nil {
+				return result.Error
+			}
+		}
+		if err := upsertChannels(tx, channelStats); err != nil {
+			return err
+		}
+		if err := upsertModels(tx, modelStats); err != nil {
+			return err
+		}
+		if err := upsertAPIKeys(tx, apiKeyStats); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func upsertChannels(dbConn *gorm.DB, stats []model.StatsChannel) error {
@@ -346,7 +353,17 @@ func DailyUpdate(ctx context.Context, metrics model.StatsMetrics) error {
 	dailyCache.StatsMetrics.Add(metrics)
 	dailyCacheLock.Unlock()
 
-	return saveDBWithDailyOverride(ctx, prevDaily)
+	pendingDailyOverride.Store(&prevDaily)
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := saveDBWithDailyOverride(bgCtx, prevDaily); err != nil {
+			log.Errorf("async daily boundary persist failed: %v", err)
+			return
+		}
+		pendingDailyOverride.CompareAndSwap(&prevDaily, nil)
+	}()
+	return nil
 }
 
 // TotalUpdate adds metrics to the running total statistics.
@@ -755,4 +772,3 @@ func GetAPIKeyDirtyIDs() []int {
 	}
 	return ids
 }
-

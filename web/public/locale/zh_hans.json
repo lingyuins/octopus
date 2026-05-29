@@ -1940,9 +1940,9 @@
       "autoGroupRegex": "正则匹配",
       "matchRegex": "匹配正则",
       "matchRegexPlaceholder": "可选：用于匹配请求模型名称的正则表达式",
-      "remark": "备注"
-    },
-    "typeMiMoChat": "MiMo Chat"
+      "remark": "备注",
+      "typeMiMoChat": "MiMo Chat"
+    }
   },
   "errors": {
     "invalidRequestParameters": "请求参数无效",

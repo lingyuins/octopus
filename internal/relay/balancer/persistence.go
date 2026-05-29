@@ -12,6 +12,7 @@ import (
 	ch "github.com/lingyuins/octopus/internal/op/channel"
 	"github.com/lingyuins/octopus/internal/utils/log"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func LoadRuntimeState(ctx context.Context) error {
@@ -86,26 +87,40 @@ func SaveRuntimeState(ctx context.Context) error {
 	}
 
 	now := time.Now()
+	generation := now.UnixMilli()
 	autoStates := snapshotAutoStrategyStates(now)
 	circuitStates := snapshotCircuitBreakerStates(now)
 
+	for i := range autoStates {
+		autoStates[i].UpdatedAt = generation
+	}
+	for i := range circuitStates {
+		circuitStates[i].UpdatedAt = generation
+	}
+
 	return dbConn.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.AutoStrategyState{}).Error; err != nil {
-			return err
-		}
 		if len(autoStates) > 0 {
-			if err := tx.Create(&autoStates).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "key"}},
+				UpdateAll: true,
+			}).Create(&autoStates).Error; err != nil {
 				return err
 			}
+		}
+		if err := tx.Where("updated_at < ?", generation).Delete(&model.AutoStrategyState{}).Error; err != nil {
+			return err
 		}
 
-		if err := tx.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&model.CircuitBreakerState{}).Error; err != nil {
-			return err
-		}
 		if len(circuitStates) > 0 {
-			if err := tx.Create(&circuitStates).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "key"}},
+				UpdateAll: true,
+			}).Create(&circuitStates).Error; err != nil {
 				return err
 			}
+		}
+		if err := tx.Where("updated_at < ?", generation).Delete(&model.CircuitBreakerState{}).Error; err != nil {
+			return err
 		}
 
 		return nil

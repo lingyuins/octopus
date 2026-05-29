@@ -28,6 +28,37 @@ func GetCacheAndLock() ([]model.RelayLog, *sync.Mutex) { return relayLogCache, &
 
 var relayLogFlushLock sync.Mutex
 
+var flushCh = make(chan struct{}, 1)
+
+func triggerFlush() {
+	select {
+	case flushCh <- struct{}{}:
+	default:
+	}
+}
+
+func StartFlushWorker(ctx context.Context) {
+	go func() {
+		for {
+			select {
+			case <-flushCh:
+				if db.IsSQLite() {
+					db.EnqueueWrite(db.WriteJob{Name: "relay_log_flush", Fn: func(_ context.Context) error {
+						return relayLogFlushToDB(context.Background())
+					}})
+				} else {
+					if err := relayLogFlushToDB(context.Background()); err != nil {
+						log.Warnf("async relay log flush failed: %v", err)
+					}
+				}
+			case <-ctx.Done():
+				_ = relayLogFlushToDB(context.Background())
+				return
+			}
+		}
+	}()
+}
+
 var relayLogSubscribers = make(map[chan model.RelayLog]struct{})
 var relayLogSubscribersLock sync.RWMutex
 
@@ -170,9 +201,9 @@ func RelayLogAdd(ctx context.Context, relayLog model.RelayLog) error {
 	if len(relayLogCache) >= maxSize {
 		if enabled {
 			relayLogCacheLock.Unlock()
-			return relayLogFlushToDB(ctx)
+			triggerFlush()
+			return nil
 		}
-		// 如果未启用日志保存，移除最旧的日志，保留最新的日志用于实时查询
 		keepSize := maxSize / 2
 		if len(relayLogCache) > keepSize {
 			relayLogCache = relayLogCache[len(relayLogCache)-keepSize:]
