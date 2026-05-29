@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
-    Sun, User, Database, Cog, Shield, RotateCcw, Bell, Route, Zap,
-    ScrollText, Globe, Server, KeyRound, AlertTriangle, ChevronsUpDown,
+    Sun, User, Database, Cog, Shield, RotateCcw, Zap,
+    ScrollText, Monitor, RefreshCw, AlertTriangle, ChevronsUpDown,
+    Info,
 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { SettingAppearance } from './Appearance';
 import { SettingAccount } from './Account';
 import { SettingBackup } from './Backup';
@@ -36,9 +37,9 @@ const SETTING_ITEMS: SettingItem[] = [
     { id: 'semantic-cache',    icon: <Database className="h-5 w-5" />,          titleKey: 'semanticCache.title',  component: <SettingSemanticCache /> },
     { id: 'retry',             icon: <RotateCcw className="h-5 w-5" />,         titleKey: 'retry.title',          component: <SettingRetry /> },
     { id: 'log',               icon: <ScrollText className="h-5 w-5" />,        titleKey: 'log.title',            component: <SettingLog /> },
-    { id: 'info',              icon: <AlertTriangle className="h-5 w-5" />,     titleKey: 'info.title',           component: <SettingInfo /> },
-    { id: 'system',            icon: <Server className="h-5 w-5" />,             titleKey: 'system',               component: <SettingSystem /> },
-    { id: 'llmsync',           icon: <KeyRound className="h-5 w-5" />,          titleKey: 'llmSync.title',        component: <SettingLLMSync /> },
+    { id: 'info',              icon: <Info className="h-5 w-5" />,            titleKey: 'info.title',           component: <SettingInfo /> },
+    { id: 'system',            icon: <Monitor className="h-5 w-5" />,         titleKey: 'system',               component: <SettingSystem /> },
+    { id: 'llmsync',           icon: <RefreshCw className="h-5 w-5" />,      titleKey: 'llmSync.title',        component: <SettingLLMSync /> },
     { id: 'circuit-breaker',   icon: <Shield className="h-5 w-5" />,            titleKey: 'circuitBreaker.title', component: <SettingCircuitBreaker /> },
     { id: 'backup',            icon: <Database className="h-5 w-5" />,          titleKey: 'backup.title',         component: <SettingBackup /> },
     { id: 'route-group-danger',icon: <AlertTriangle className="h-5 w-5" />,     titleKey: 'routeGroups.title',    component: <SettingRouteGroupDanger /> },
@@ -72,19 +73,7 @@ export function Setting() {
 
             <Dialog open={openId !== null} onOpenChange={(open) => { if (!open) setOpenId(null); }}>
                 <DialogContent className="w-[min(95vw,720px)] max-h-[90vh] overflow-y-auto p-0 gap-0 sm:rounded-2xl">
-                    {activeItem && (
-                        <>
-                            <DialogHeader className="px-6 pt-5 pb-3 border-b border-border/30">
-                                <DialogTitle className="flex items-center gap-2 text-base font-bold">
-                                    {activeItem.icon}
-                                    {t(activeItem.titleKey)}
-                                </DialogTitle>
-                            </DialogHeader>
-                            <div className="px-6 py-5">
-                                {activeItem.component}
-                            </div>
-                        </>
-                    )}
+                    {activeItem && activeItem.component}
                 </DialogContent>
             </Dialog>
         </div>
