@@ -1241,6 +1241,12 @@
       "minimumVisibleHint": "最少保留 {count} 個頁面；設定頁面不可隱藏。",
       "minimumVisibleError": "最少需要保留 {count} 個頁面",
       "toggleAriaLabel": "切換頁面顯示狀態：{page}"
+    },
+    "settingOrder": {
+      "title": "設定項排序",
+      "description": "拖曳調整設定頁面各選項的排列順序，放開後立即儲存。",
+      "reset": "恢復預設順序",
+      "resetSuccess": "設定項順序已恢復預設"
     }
   },
   "group": {
