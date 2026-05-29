@@ -11,13 +11,22 @@ import (
 	"time"
 
 	"github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/op/setting"
 )
+
+func notifyHTTPClient() *http.Client {
+	timeout := 10 * time.Second
+	if v, err := setting.GetInt(model.SettingKeyNotifyHTTPTimeoutSeconds); err == nil && v > 0 {
+		timeout = time.Duration(v) * time.Second
+	}
+	return &http.Client{Timeout: timeout}
+}
 
 // AlertWebhookPayload is the JSON body sent to webhook endpoints on alert state changes.
 type AlertWebhookPayload struct {
 	RuleID        int                          `json:"rule_id"`
 	RuleName      string                       `json:"rule_name"`
-	ConditionType model.AlertRuleConditionType  `json:"condition_type"`
+	ConditionType model.AlertRuleConditionType `json:"condition_type"`
 	State         string                       `json:"state"`
 	Message       string                       `json:"message"`
 	Threshold     float64                      `json:"threshold"`
@@ -49,7 +58,7 @@ func SendWebhook(channel *model.AlertNotifChannel, payload AlertWebhookPayload) 
 		}
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := notifyHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("send webhook: %w", err)
@@ -107,7 +116,7 @@ func SendGotify(channel *model.AlertNotifChannel, payload AlertWebhookPayload) e
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := notifyHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("send gotify: %w", err)

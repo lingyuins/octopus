@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { apiClient, API_BASE_URL } from '../client';
+import { REFETCH_INTERVAL_DEFAULT } from '../constants';
 import { logger } from '@/lib/logger';
 import { useAuthStore } from './user';
 
@@ -365,7 +366,7 @@ export function useGroupList() {
         queryFn: async () => {
             return apiClient.get<Group[]>('/api/v1/group/list');
         },
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
         refetchOnMount: 'always',
     });
 }

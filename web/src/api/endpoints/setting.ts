@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient, API_BASE_URL } from '../client';
+import { REFETCH_INTERVAL_DEFAULT } from '../constants';
 import { logger } from '@/lib/logger';
 import { useAuthStore } from './user';
 
@@ -68,7 +69,7 @@ export function useSettingList() {
         queryFn: async () => {
             return apiClient.get<Setting[]>('/api/v1/setting/list');
         },
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
         refetchOnMount: 'always',
     });
 }

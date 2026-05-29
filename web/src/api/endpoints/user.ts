@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { apiClient, setAuthStoreGetter } from '../client';
+import { REFETCH_INTERVAL_DEFAULT } from '../constants';
 import { logger } from '@/lib/logger';
 
 /**
@@ -269,7 +270,7 @@ export function useUserList() {
     return useQuery({
         queryKey: ['users', 'list'],
         queryFn: async () => apiClient.get<UserInfo[]>('/api/v1/user/list'),
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
     });
 }
 

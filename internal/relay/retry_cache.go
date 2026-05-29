@@ -11,16 +11,33 @@ import (
 	"sync"
 	"time"
 
+	dbmodel "github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/op/setting"
 	transmodel "github.com/lingyuins/octopus/internal/transformer/model"
 	"github.com/lingyuins/octopus/internal/utils/semantic_cache"
 	"golang.org/x/sync/singleflight"
 )
 
-const (
-	failureHintTTLUnauthorized = 10 * time.Second
-	failureHintTTLRateLimitCap = 5 * time.Second
-	failureHintTTLNetwork      = 2 * time.Second
-)
+func getFailureHintTTLUnauthorized() time.Duration {
+	if v, err := setting.GetInt(dbmodel.SettingKeyFailureHintTTLUnauthorized); err == nil && v > 0 {
+		return time.Duration(v) * time.Second
+	}
+	return 10 * time.Second
+}
+
+func getFailureHintTTLRateLimitCap() time.Duration {
+	if v, err := setting.GetInt(dbmodel.SettingKeyFailureHintTTLRateLimit); err == nil && v > 0 {
+		return time.Duration(v) * time.Second
+	}
+	return 5 * time.Second
+}
+
+func getFailureHintTTLNetwork() time.Duration {
+	if v, err := setting.GetInt(dbmodel.SettingKeyFailureHintTTLNetwork); err == nil && v > 0 {
+		return time.Duration(v) * time.Second
+	}
+	return 2 * time.Second
+}
 
 type retryLookupInput struct {
 	namespace string
@@ -107,9 +124,9 @@ func failureHintKey(channelID, keyID int, modelName string) string {
 func shouldStoreFailureHint(statusCode int, err error) (time.Duration, bool) {
 	switch statusCode {
 	case http.StatusTooManyRequests:
-		return failureHintTTLRateLimitCap, true
+		return getFailureHintTTLRateLimitCap(), true
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return failureHintTTLUnauthorized, true
+		return getFailureHintTTLUnauthorized(), true
 	case http.StatusBadRequest:
 		return 0, false
 	}
@@ -118,7 +135,7 @@ func shouldStoreFailureHint(statusCode int, err error) (time.Duration, bool) {
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {
-		return failureHintTTLNetwork, true
+		return getFailureHintTTLNetwork(), true
 	}
 	return 0, false
 }
@@ -240,5 +257,3 @@ func lookupSemanticEmbeddingWithCache(ctx context.Context, req *relayRequest, cf
 	})
 	return embedding, fromCache, err
 }
-
-

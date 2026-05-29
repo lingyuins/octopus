@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query';
 import { useState } from 'react';
+import { QUERY_STALE_TIME, QUERY_MAX_RETRIES, QUERY_RETRY_BACKOFF_CAP } from '@/api/constants';
 import { toast } from '@/components/common/Toast';
 
 function getErrorMessage(error: unknown, fallback = 'An error occurred') {
@@ -20,17 +21,16 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
             new QueryClient({
                 defaultOptions: {
                     queries: {
-                        staleTime: 60 * 1000,
+                        staleTime: QUERY_STALE_TIME,
                         refetchOnWindowFocus: false,
                         retry: (failureCount, error) => {
-                            // Only retry on network errors, not 4xx client errors
                             if (error instanceof Error && 'code' in error) {
                                 const code = (error as { code: number }).code;
                                 if (code >= 400 && code < 500) return false;
                             }
-                            return failureCount < 2;
+                            return failureCount < QUERY_MAX_RETRIES;
                         },
-                        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+                        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, QUERY_RETRY_BACKOFF_CAP),
                     },
                     mutations: {
                         retry: false,

@@ -18,7 +18,7 @@ func EnsureDevBootstrapData(ctx context.Context) error {
 	}
 
 	if _, err := APIKeyGetByAPIKey(devMockAPIKeyValue, ctx); err == nil {
-		log.Infof("dev mock api key already exists: %s", devMockAPIKeyValue)
+		log.Infof("dev mock api key already exists: %s...%s", devMockAPIKeyValue[:10], devMockAPIKeyValue[len(devMockAPIKeyValue)-4:])
 		return nil
 	} else if !strings.Contains(strings.ToLower(err.Error()), "api key not found") {
 		return err
@@ -33,6 +33,6 @@ func EnsureDevBootstrapData(ctx context.Context) error {
 		return err
 	}
 
-	log.Warnf("dev mock success mode enabled; seeded relay api key: %s", devMockAPIKeyValue)
+	log.Warnf("dev mock success mode enabled; seeded relay api key: %s...%s", devMockAPIKeyValue[:10], devMockAPIKeyValue[len(devMockAPIKeyValue)-4:])
 	return nil
 }

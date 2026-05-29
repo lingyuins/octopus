@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../client';
+import { REFETCH_INTERVAL_DEFAULT, REFETCH_INTERVAL_FAST, REFETCH_INTERVAL_SLOW } from '../constants';
 import { formatCount, formatMoney, formatTime } from '@/lib/utils';
 
 /**
@@ -86,7 +87,7 @@ export function useStatsToday() {
         queryFn: async () => {
             return apiClient.get<StatsDaily>('/api/v1/stats/today');
         },
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
         refetchOnMount: 'always',
     });
 }
@@ -113,7 +114,7 @@ export function useStatsDaily() {
             request_count: formatCount(item.request_success + item.request_failed),
             date: item.date,
         })),
-        refetchInterval: 3600000, // 1 小时
+        refetchInterval: REFETCH_INTERVAL_SLOW,
         refetchOnMount: 'always',
     });
 }
@@ -140,7 +141,7 @@ export function useStatsHourly() {
             request_failed: formatCount(item.request_failed),
             request_count: formatCount(item.request_success + item.request_failed),
         })),
-        refetchInterval: 10000,// 10 秒
+        refetchInterval: REFETCH_INTERVAL_FAST,
         refetchOnMount: 'always',
     });
 }
@@ -163,7 +164,7 @@ export function useStatsTotal() {
             request_failed: formatCount(data.request_failed),
             request_count: formatCount(data.request_success + data.request_failed),
         }),
-        refetchInterval: 10000,// 10 秒
+        refetchInterval: REFETCH_INTERVAL_FAST,
         refetchOnMount: 'always',
     });
 }
@@ -196,7 +197,7 @@ export function useStatsAPIKey(options?: { enabled?: boolean }) {
             request_count: formatCount(item.request_success + item.request_failed),
         })),
         enabled,
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
         refetchOnMount: 'always',
     });
 }
@@ -225,7 +226,7 @@ export function useStatsChannel(options?: { enabled?: boolean }) {
             request_count: formatCount(item.request_success + item.request_failed),
         })),
         enabled,
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
         refetchOnMount: 'always',
     });
 }

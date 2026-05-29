@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../client';
+import { REFETCH_INTERVAL_SLOW } from '../constants';
 import { logger } from '@/lib/logger';
 
 /**
@@ -29,7 +30,7 @@ export function useLatestInfo() {
         queryFn: async () => {
             return apiClient.get<LatestInfo>('/api/v1/update');
         },
-        refetchInterval: 3600000, // 1 小时
+        refetchInterval: REFETCH_INTERVAL_SLOW,
         refetchOnMount: 'always',
     });
 }
@@ -45,7 +46,7 @@ export function useNowVersion() {
         queryFn: async () => {
             return apiClient.get<string>('/api/v1/update/now-version');
         },
-        refetchInterval: 3600000, // 1 小时
+        refetchInterval: REFETCH_INTERVAL_SLOW,
         refetchOnMount: 'always',
     });
 }

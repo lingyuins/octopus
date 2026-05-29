@@ -5,18 +5,30 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lingyuins/octopus/internal/server/resp"
 	"github.com/gin-gonic/gin"
+	"github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/op/setting"
+	"github.com/lingyuins/octopus/internal/server/resp"
 )
 
-const (
-	loginRateLimitWindow     = 10 * time.Minute
-	loginRateLimitMaxFailed  = 5
-	loginRateLimitCleanupInterval = 10 * time.Minute
-)
+const loginRateLimitCleanupInterval = 10 * time.Minute
+
+func getLoginRateLimitWindow() time.Duration {
+	if v, err := setting.GetInt(model.SettingKeyLoginRateLimitWindow); err == nil && v > 0 {
+		return time.Duration(v) * time.Minute
+	}
+	return 10 * time.Minute
+}
+
+func getLoginRateLimitMaxFailed() int {
+	if v, err := setting.GetInt(model.SettingKeyLoginRateLimitMaxFailed); err == nil && v > 0 {
+		return v
+	}
+	return 5
+}
 
 type loginAttempt struct {
-	FailedCount int
+	FailedCount  int
 	BlockedUntil time.Time
 	LastFailedAt time.Time
 }
@@ -53,15 +65,15 @@ func RecordLoginFailure(key string, now time.Time) {
 	defer loginAttemptCache.Unlock()
 
 	attempt, ok := loginAttemptCache.items[key]
-	if !ok || now.Sub(attempt.LastFailedAt) > loginRateLimitWindow {
+	if !ok || now.Sub(attempt.LastFailedAt) > getLoginRateLimitWindow() {
 		attempt = &loginAttempt{}
 		loginAttemptCache.items[key] = attempt
 	}
 
 	attempt.FailedCount++
 	attempt.LastFailedAt = now
-	if attempt.FailedCount >= loginRateLimitMaxFailed {
-		attempt.BlockedUntil = now.Add(loginRateLimitWindow)
+	if attempt.FailedCount >= getLoginRateLimitMaxFailed() {
+		attempt.BlockedUntil = now.Add(getLoginRateLimitWindow())
 	}
 }
 
@@ -89,7 +101,7 @@ func isLoginBlocked(key string, now time.Time) bool {
 	if !attempt.BlockedUntil.IsZero() && now.Before(attempt.BlockedUntil) {
 		return true
 	}
-	if now.Sub(attempt.LastFailedAt) > loginRateLimitWindow {
+	if now.Sub(attempt.LastFailedAt) > getLoginRateLimitWindow() {
 		delete(loginAttemptCache.items, key)
 		return false
 	}
@@ -110,7 +122,7 @@ func startLoginRateLimitCleanup() {
 			now := time.Now()
 			loginAttemptCache.Lock()
 			for key, attempt := range loginAttemptCache.items {
-				if now.Sub(attempt.LastFailedAt) > loginRateLimitWindow {
+				if now.Sub(attempt.LastFailedAt) > getLoginRateLimitWindow() {
 					delete(loginAttemptCache.items, key)
 				}
 			}

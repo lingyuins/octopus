@@ -10,6 +10,6 @@ services:
     environment:
       # 容器时区；海外部署可改为显式 IANA 时区名，例如 America/Los_Angeles
       TZ: "Asia/Shanghai"
-      OCTOPUS_AUTH_JWT_SECRET: "change-this-to-a-long-random-secret"
+      # OCTOPUS_AUTH_JWT_SECRET: ""  # 请设置一个随机长字符串以保持 JWT 跨重启有效；留空则每次启动自动生成临时密钥
 
 

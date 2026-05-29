@@ -12,15 +12,16 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lingyuins/octopus/internal/conf"
 	dbmodel "github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/transformer/inbound"
 )
 
 func TestParseRequestRejectsOversizeBody(t *testing.T) {
-	originalLimit := maxRelayJSONBodyBytes
-	maxRelayJSONBodyBytes = 32
+	originalLimit := conf.AppConfig.Relay.MaxJSONBodyBytes
+	conf.AppConfig.Relay.MaxJSONBodyBytes = 32
 	defer func() {
-		maxRelayJSONBodyBytes = originalLimit
+		conf.AppConfig.Relay.MaxJSONBodyBytes = originalLimit
 	}()
 
 	recorder := httptest.NewRecorder()
@@ -38,10 +39,10 @@ func TestParseRequestRejectsOversizeBody(t *testing.T) {
 }
 
 func TestExtractModelFromJSONRejectsOversizeBody(t *testing.T) {
-	originalLimit := maxRelayJSONBodyBytes
-	maxRelayJSONBodyBytes = 16
+	originalLimit := conf.AppConfig.Relay.MaxJSONBodyBytes
+	conf.AppConfig.Relay.MaxJSONBodyBytes = 16
 	defer func() {
-		maxRelayJSONBodyBytes = originalLimit
+		conf.AppConfig.Relay.MaxJSONBodyBytes = originalLimit
 	}()
 
 	recorder := httptest.NewRecorder()
@@ -56,10 +57,10 @@ func TestExtractModelFromJSONRejectsOversizeBody(t *testing.T) {
 }
 
 func TestExtractModelFromMultipartRejectsOversizeBody(t *testing.T) {
-	originalLimit := maxRelayMultipartBodyBytes
-	maxRelayMultipartBodyBytes = 64
+	originalLimit := conf.AppConfig.Relay.MaxMultipartBodyBytes
+	conf.AppConfig.Relay.MaxMultipartBodyBytes = 64
 	defer func() {
-		maxRelayMultipartBodyBytes = originalLimit
+		conf.AppConfig.Relay.MaxMultipartBodyBytes = originalLimit
 	}()
 
 	var body bytes.Buffer
@@ -276,7 +277,6 @@ func TestHandleSSEResponseFlushesLines(t *testing.T) {
 		t.Fatalf("body = %q, want original SSE payload", recorder.Body.String())
 	}
 }
-
 
 func TestRewriteMusicRequestByProvider_NewAPI(t *testing.T) {
 	group := dbmodel.Group{EndpointProvider: "newapi"}

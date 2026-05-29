@@ -133,13 +133,13 @@ func TestBuildRelayStreamSessionHash_IgnoresResumeControlFields(t *testing.T) {
 }
 
 func TestRelayStreamSessionSnapshotReportsReplayWindowExpiredWhenTrimmed(t *testing.T) {
-	originalMaxEvents := relayStreamSessionMaxEvents
-	originalMaxBytes := relayStreamSessionMaxBytes
-	relayStreamSessionMaxEvents = 2
-	relayStreamSessionMaxBytes = 0
+	maxEvents := 2
+	maxBytes := 0
+	overrideStreamSessionMaxEvents = &maxEvents
+	overrideStreamSessionMaxBytes = &maxBytes
 	defer func() {
-		relayStreamSessionMaxEvents = originalMaxEvents
-		relayStreamSessionMaxBytes = originalMaxBytes
+		overrideStreamSessionMaxEvents = nil
+		overrideStreamSessionMaxBytes = nil
 	}()
 
 	relayStreamSessions = relayStreamSessionStore{
@@ -170,10 +170,10 @@ func TestRelayStreamSessionSnapshotReportsReplayWindowExpiredWhenTrimmed(t *test
 }
 
 func TestRelayStreamSessionFinishRemovesExpiredSession(t *testing.T) {
-	originalTTL := relayStreamSessionTTL
-	relayStreamSessionTTL = 20 * time.Millisecond
+	ttl := 20 * time.Millisecond
+	overrideStreamSessionTTL = &ttl
 	defer func() {
-		relayStreamSessionTTL = originalTTL
+		overrideStreamSessionTTL = nil
 	}()
 
 	relayStreamSessions = relayStreamSessionStore{

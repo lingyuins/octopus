@@ -18,11 +18,21 @@ import (
 	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
-const (
-	updateUrl                 = "https://github.com/lingyuins/octopus/releases/latest/download"
-	updateApiUrl              = "https://api.github.com/repos/lingyuins/octopus/releases/latest"
-	maxUpdateAPIResponseBytes = 2 << 20 // 2 MiB — GitHub API release info JSON is typically < 100 KiB
-)
+const maxUpdateAPIResponseBytes = 2 << 20 // 2 MiB — GitHub API release info JSON is typically < 100 KiB
+
+func getUpdateURL() string {
+	if u := conf.AppConfig.External.UpdateURL; u != "" {
+		return u
+	}
+	return "https://github.com/lingyuins/octopus/releases/latest/download"
+}
+
+func getUpdateAPIURL() string {
+	if u := conf.AppConfig.External.UpdateAPIURL; u != "" {
+		return u
+	}
+	return "https://api.github.com/repos/lingyuins/octopus/releases/latest"
+}
 
 type LatestInfo struct {
 	TagName     string `json:"tag_name"`
@@ -98,7 +108,7 @@ func doRequest(url string, useProxy bool, maxBytes int64, responseLabel string) 
 }
 
 func GetLatestInfo() (*LatestInfo, error) {
-	body, err := doAPIRequestWithFallback(updateApiUrl)
+	body, err := doAPIRequestWithFallback(getUpdateAPIURL())
 	if err != nil {
 		return nil, err
 	}

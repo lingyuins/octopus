@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lingyuins/octopus/internal/conf"
 	"github.com/lingyuins/octopus/internal/op/relaylog"
 	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
@@ -39,17 +40,9 @@ func init() {
 }
 
 func listLog(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	page, pageSize := parsePagination(c.DefaultQuery("page", "1"), c.DefaultQuery("page_size", "20"))
 	startTimeStr := c.Query("start_time")
 	endTimeStr := c.Query("end_time")
-
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
 
 	var startTime, endTime *int
 	if startTimeStr != "" {
@@ -120,7 +113,7 @@ func streamLog(c *gin.Context) {
 	logChan := relaylog.RelayLogSubscribe()
 	defer relaylog.RelayLogUnsubscribe(logChan)
 
-	heartbeatTicker := time.NewTicker(15 * time.Second)
+	heartbeatTicker := time.NewTicker(conf.SSEHeartbeatInterval)
 	defer heartbeatTicker.Stop()
 
 	if _, err := c.Writer.Write([]byte(": connected\n\n")); err != nil {

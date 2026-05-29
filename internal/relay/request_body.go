@@ -6,14 +6,24 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lingyuins/octopus/internal/conf"
 )
 
-var (
-	maxRelayJSONBodyBytes      int64 = 64 << 20
-	maxRelayMultipartBodyBytes int64 = 64 << 20
+var errRelayRequestBodyTooLarge = errors.New("request body too large")
 
-	errRelayRequestBodyTooLarge = errors.New("request body too large")
-)
+func getMaxRelayJSONBodyBytes() int64 {
+	if v := conf.AppConfig.Relay.MaxJSONBodyBytes; v > 0 {
+		return v
+	}
+	return 64 << 20
+}
+
+func getMaxRelayMultipartBodyBytes() int64 {
+	if v := conf.AppConfig.Relay.MaxMultipartBodyBytes; v > 0 {
+		return v
+	}
+	return 64 << 20
+}
 
 func readLimitedRequestBody(c *gin.Context, limit int64) ([]byte, error) {
 	limitRequestBody(c, limit)

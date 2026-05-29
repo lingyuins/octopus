@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../client';
+import { REFETCH_INTERVAL_DEFAULT } from '../constants';
 import { logger } from '@/lib/logger';
 import { useAuthStore } from './user';
 import {
@@ -67,7 +68,7 @@ export function useAPIKeyDashboardStats() {
         queryFn: () => apiClient.get<APIKeyStatsResponse>('/api/v1/apikey/stats'),
         select: formatAPIKeyStatsResponse,
         enabled: isAPIKeyAuth && isAuthenticated,
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
     });
 }
 
@@ -98,7 +99,7 @@ export function useAPIKeyList() {
         queryFn: async () => {
             return apiClient.get<APIKey[]>('/api/v1/apikey/list');
         },
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
     });
 }
 
@@ -198,7 +199,7 @@ export function useAPIKeyStats() {
             return apiClient.get<APIKeyStatsResponse>('/api/v1/apikey/stats');
         },
         select: formatAPIKeyStatsResponse,
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
         refetchOnMount: 'always',
     });
 }

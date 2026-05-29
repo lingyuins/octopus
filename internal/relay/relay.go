@@ -456,7 +456,7 @@ func (ra *relayAttempt) attempt() attemptResult {
 
 // parseRequest 解析并验证入站请求
 func parseRequest(inboundType inbound.InboundType, c *gin.Context) (*model.InternalLLMRequest, model.Inbound, error) {
-	body, err := readLimitedRequestBody(c, maxRelayJSONBodyBytes)
+	body, err := readLimitedRequestBody(c, getMaxRelayJSONBodyBytes())
 	if err != nil {
 		resp.Error(c, relayRequestBodyErrorStatus(err), err.Error())
 		return nil, nil, err

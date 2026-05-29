@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lingyuins/octopus/internal/conf"
 	"github.com/lingyuins/octopus/internal/helper"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/server/auth"
@@ -154,7 +155,7 @@ func streamGenerateAIRouteProgress(c *gin.Context) {
 	progressChan, unsubscribe := helper.SubscribeGenerateAIRouteProgress(id)
 	defer unsubscribe()
 
-	heartbeatTicker := time.NewTicker(15 * time.Second)
+	heartbeatTicker := time.NewTicker(conf.SSEHeartbeatInterval)
 	defer heartbeatTicker.Stop()
 
 	if err := writeAIRouteProgressEvent(c, "progress", *progress); err != nil {

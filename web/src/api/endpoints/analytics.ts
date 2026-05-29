@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../client';
+import { REFETCH_INTERVAL_DEFAULT } from '../constants';
 import {
     type GenerateAIRouteProgress,
     type GroupTestProgress,
@@ -174,7 +175,7 @@ export function useAnalyticsOverview(range: AnalyticsRange) {
     return useQuery({
         queryKey: ['analytics', 'overview', range],
         queryFn: async () => apiClient.get<AnalyticsOverview>('/api/v1/analytics/overview', { range }),
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
         refetchOnMount: 'always',
     });
 }
@@ -183,7 +184,7 @@ export function useAnalyticsUtilization(range: AnalyticsRange) {
     return useQuery({
         queryKey: ['analytics', 'utilization', range],
         queryFn: async () => apiClient.get<AnalyticsUtilization>('/api/v1/analytics/utilization', { range }),
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
         refetchOnMount: 'always',
     });
 }
@@ -192,7 +193,7 @@ export function useAnalyticsGroupHealth() {
     return useQuery({
         queryKey: ['analytics', 'group-health'],
         queryFn: async () => apiClient.get<AnalyticsGroupHealthItem[]>('/api/v1/analytics/group-health'),
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
         refetchOnMount: 'always',
     });
 }
@@ -201,7 +202,7 @@ export function useAnalyticsEvaluationSummary() {
     return useQuery({
         queryKey: ['analytics', 'evaluation'],
         queryFn: async () => apiClient.get<AnalyticsEvaluationSummary>('/api/v1/analytics/evaluation'),
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
         refetchOnMount: 'always',
     });
 }

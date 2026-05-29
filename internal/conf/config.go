@@ -30,11 +30,24 @@ type Auth struct {
 	JWTSecret string `mapstructure:"jwt_secret"`
 }
 
+type Relay struct {
+	MaxJSONBodyBytes      int64 `mapstructure:"max_json_body_bytes"`
+	MaxMultipartBodyBytes int64 `mapstructure:"max_multipart_body_bytes"`
+}
+
+type External struct {
+	LLMPriceURL  string `mapstructure:"llm_price_url"`
+	UpdateURL    string `mapstructure:"update_url"`
+	UpdateAPIURL string `mapstructure:"update_api_url"`
+}
+
 type Config struct {
 	Server   Server   `mapstructure:"server"`
 	Log      Log      `mapstructure:"log"`
 	Database Database `mapstructure:"database"`
 	Auth     Auth     `mapstructure:"auth"`
+	Relay    Relay    `mapstructure:"relay"`
+	External External `mapstructure:"external"`
 }
 
 var AppConfig Config
@@ -82,6 +95,13 @@ func Load(path string) error {
 		}
 		AppConfig.Auth.JWTSecret = secret
 		log.Warnf("auth.jwt_secret is empty, generated an ephemeral secret for this process; configure OCTOPUS_AUTH_JWT_SECRET or auth.jwt_secret to keep tokens valid across restarts")
+	} else if isKnownPlaceholderJWTSecret(AppConfig.Auth.JWTSecret) {
+		secret, err := generateJWTSecret()
+		if err != nil {
+			return fmt.Errorf("failed to generate JWT secret: %w", err)
+		}
+		AppConfig.Auth.JWTSecret = secret
+		log.Warnf("auth.jwt_secret is a known placeholder value; generated an ephemeral secret instead. Set a unique value to keep tokens valid across restarts")
 	}
 	return nil
 }
@@ -109,6 +129,11 @@ func setDefaults() {
 	viper.SetDefault("database.path", defaultDatabasePath())
 	viper.SetDefault("log.level", "info")
 	viper.SetDefault("auth.jwt_secret", "")
+	viper.SetDefault("relay.max_json_body_bytes", int64(64<<20))
+	viper.SetDefault("relay.max_multipart_body_bytes", int64(64<<20))
+	viper.SetDefault("external.llm_price_url", "https://models.dev/api.json")
+	viper.SetDefault("external.update_url", "https://github.com/lingyuins/octopus/releases/latest/download")
+	viper.SetDefault("external.update_api_url", "https://api.github.com/repos/lingyuins/octopus/releases/latest")
 }
 
 func defaultDataDir() string {
@@ -134,6 +159,19 @@ func wrapConfigPathError(action, path string, err error) error {
 		return fmt.Errorf("%s %q: %w; make sure the target directory is writable by the current process (the official Docker image runs as UID/GID 1000 and needs write access to /app/data)", action, path, err)
 	}
 	return fmt.Errorf("%s %q: %w", action, path, err)
+}
+
+var knownPlaceholderSecrets = []string{
+	"change-this-to-a-long-random-secret",
+}
+
+func isKnownPlaceholderJWTSecret(secret string) bool {
+	for _, p := range knownPlaceholderSecrets {
+		if secret == p {
+			return true
+		}
+	}
+	return false
 }
 
 func generateJWTSecret() (string, error) {

@@ -5,21 +5,23 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/lingyuins/octopus/internal/conf"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/lingyuins/octopus/internal/conf"
+	"github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/op/setting"
 )
 
 type jwtClaims struct {
 	jwt.RegisteredClaims
 	UserID uint   `json:"user_id,omitempty"`
-	Role string `json:"role,omitempty"`
+	Role   string `json:"role,omitempty"`
 }
 
 func GenerateJWTToken(expiresMin int, userID uint, role string) (string, string, error) {
 	now := time.Now()
 	claims := &jwtClaims{
 		UserID: userID,
-		Role: role,
+		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
@@ -27,11 +29,19 @@ func GenerateJWTToken(expiresMin int, userID uint, role string) (string, string,
 		},
 	}
 	if expiresMin == 0 {
-		claims.ExpiresAt = jwt.NewNumericDate(now.Add(time.Duration(15) * time.Minute))
+		defaultExpiry := 15
+		if v, err := setting.GetInt(model.SettingKeyJWTDefaultExpiryMinutes); err == nil && v > 0 {
+			defaultExpiry = v
+		}
+		claims.ExpiresAt = jwt.NewNumericDate(now.Add(time.Duration(defaultExpiry) * time.Minute))
 	} else if expiresMin > 0 {
 		claims.ExpiresAt = jwt.NewNumericDate(now.Add(time.Duration(expiresMin) * time.Minute))
 	} else if expiresMin == -1 {
-		claims.ExpiresAt = jwt.NewNumericDate(now.Add(time.Duration(30) * 24 * time.Hour))
+		rememberDays := 30
+		if v, err := setting.GetInt(model.SettingKeyJWTRememberMeExpiryDays); err == nil && v > 0 {
+			rememberDays = v
+		}
+		claims.ExpiresAt = jwt.NewNumericDate(now.Add(time.Duration(rememberDays) * 24 * time.Hour))
 	}
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(conf.AppConfig.Auth.JWTSecret))
 	if err != nil {

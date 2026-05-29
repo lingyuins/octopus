@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../client';
+import { REFETCH_INTERVAL_DEFAULT } from '../constants';
 import { logger } from '@/lib/logger';
 import { formatCount, formatMoney, formatTime } from '@/lib/utils';
 import { StatsChannel, type StatsMetricsFormatted } from './stats';
@@ -226,7 +227,7 @@ export function useChannelList() {
                 wait_time: formatTime(item.stats.wait_time),
             }
         })) as Array<{ raw: Channel; formatted: StatsMetricsFormatted }>,
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
         refetchOnMount: 'always',
     });
 }
@@ -464,7 +465,7 @@ export function useLastSyncTime() {
         queryFn: async () => {
             return apiClient.get<string>('/api/v1/channel/last-sync-time');
         },
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
     });
 }
 /**

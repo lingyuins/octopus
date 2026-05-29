@@ -21,7 +21,7 @@ func UpdateCore() error {
 		return err
 	}
 
-	downloadUrl := updateUrl + "/" + filename
+	downloadUrl := getUpdateURL() + "/" + filename
 	log.Infof("download url: %s", downloadUrl)
 	data, err := doRequestWithFallback(downloadUrl)
 	if err != nil {

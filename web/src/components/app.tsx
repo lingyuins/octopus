@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/common/Toast';
 import { ENTRANCE_VARIANTS } from '@/lib/animations/fluid-transitions';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { REFETCH_INTERVAL_DEFAULT } from '@/api/constants';
 import { CONTENT_MAP } from '@/route';
 import { parseNavOrder, parseNavVisible } from '@/components/modules/navbar';
 import { apiClient } from '@/api/client';
@@ -99,7 +100,7 @@ export function AppContainer() {
     const { data: settings } = useQuery({
         ...getSettingsListQueryOptions(),
         enabled: isAuthenticated && !isAPIKeyAuth,
-        refetchInterval: 30000,
+        refetchInterval: REFETCH_INTERVAL_DEFAULT,
         refetchOnMount: 'always',
     });
 

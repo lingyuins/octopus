@@ -11,15 +11,20 @@ import (
 	"time"
 
 	"github.com/lingyuins/octopus/internal/client"
+	"github.com/lingyuins/octopus/internal/conf"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op/llm"
 	"github.com/lingyuins/octopus/internal/utils/log"
 )
 
-const (
-	llmPriceUrl           = "https://models.dev/api.json"
-	maxPriceResponseBytes = 10 << 20 // 10 MiB — models.dev API response is typically < 2 MiB
-)
+const maxPriceResponseBytes = 10 << 20 // 10 MiB — models.dev API response is typically < 2 MiB
+
+func getLLMPriceURL() string {
+	if u := conf.AppConfig.External.LLMPriceURL; u != "" {
+		return u
+	}
+	return "https://models.dev/api.json"
+}
 
 var Provider = []string{
 	"openai",     // GPT 系列
@@ -49,7 +54,7 @@ func UpdateLLMPrice(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, llmPriceUrl, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, getLLMPriceURL(), nil)
 	if err != nil {
 		return err
 	}

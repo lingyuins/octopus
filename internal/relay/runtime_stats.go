@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lingyuins/octopus/internal/conf"
 	"github.com/lingyuins/octopus/internal/relay/balancer"
 	"github.com/lingyuins/octopus/internal/utils/telemetry"
 )
@@ -124,7 +125,7 @@ func RecordRequest(latencyMs int64, failed bool) {
 // sessionMetricsWorker periodically pushes session/sticky counts to the shared telemetry store
 // so that ops can read them without an import cycle.
 func sessionMetricsWorker() {
-	ticker := time.NewTicker(15 * time.Second)
+	ticker := time.NewTicker(conf.SSEHeartbeatInterval)
 	defer ticker.Stop()
 	for range ticker.C {
 		telemetry.Global().SetActiveSessions(int64(ActiveSessionCount()))

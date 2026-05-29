@@ -14,17 +14,49 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	dbmodel "github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/op/setting"
 	"github.com/lingyuins/octopus/internal/server/resp"
 )
 
 var (
-	relayStreamSessionTTL       = 30 * time.Minute
-	relayStreamSessionMaxEvents = 4096
-	relayStreamSessionMaxBytes  = 16 << 20
-
 	errRelayConversationBusy    = errors.New("conversation already has an active generation")
 	errRelayReplayWindowExpired = errors.New("relay stream replay window expired")
+
+	overrideStreamSessionTTL       *time.Duration
+	overrideStreamSessionMaxEvents *int
+	overrideStreamSessionMaxBytes  *int
 )
+
+func getStreamSessionTTL() time.Duration {
+	if overrideStreamSessionTTL != nil {
+		return *overrideStreamSessionTTL
+	}
+	if v, err := setting.GetInt(dbmodel.SettingKeyStreamSessionTTLMinutes); err == nil && v > 0 {
+		return time.Duration(v) * time.Minute
+	}
+	return 30 * time.Minute
+}
+
+func getStreamSessionMaxEvents() int {
+	if overrideStreamSessionMaxEvents != nil {
+		return *overrideStreamSessionMaxEvents
+	}
+	if v, err := setting.GetInt(dbmodel.SettingKeyStreamSessionMaxEvents); err == nil && v > 0 {
+		return v
+	}
+	return 4096
+}
+
+func getStreamSessionMaxBytes() int {
+	if overrideStreamSessionMaxBytes != nil {
+		return *overrideStreamSessionMaxBytes
+	}
+	if v, err := setting.GetInt(dbmodel.SettingKeyStreamSessionMaxBytesMB); err == nil && v > 0 {
+		return v << 20
+	}
+	return 16 << 20
+}
 
 type relayStreamEvent struct {
 	Sequence int64
@@ -123,7 +155,7 @@ func (s *relayStreamSessionStore) cleanupLocked(now time.Time) {
 		if !done {
 			continue
 		}
-		if now.Sub(updatedAt) < relayStreamSessionTTL {
+		if now.Sub(updatedAt) < getStreamSessionTTL() {
 			continue
 		}
 
@@ -150,7 +182,7 @@ func (s *relayStreamSessionStore) removeIfExpired(key string, conversationScope 
 	sessionScope := session.conversationScope
 	session.mu.RUnlock()
 
-	if !done || sessionScope != conversationScope || time.Since(updatedAt) < relayStreamSessionTTL {
+	if !done || sessionScope != conversationScope || time.Since(updatedAt) < getStreamSessionTTL() {
 		return
 	}
 
@@ -219,8 +251,8 @@ func (s *relayStreamSession) AddPayload(payload []byte) []relayStreamEvent {
 
 func (s *relayStreamSession) trimEventsLocked() {
 	for len(s.events) > 0 {
-		tooManyEvents := relayStreamSessionMaxEvents > 0 && len(s.events) > relayStreamSessionMaxEvents
-		tooManyBytes := relayStreamSessionMaxBytes > 0 && s.bufferBytes > relayStreamSessionMaxBytes && len(s.events) > 1
+		tooManyEvents := getStreamSessionMaxEvents() > 0 && len(s.events) > getStreamSessionMaxEvents()
+		tooManyBytes := getStreamSessionMaxBytes() > 0 && s.bufferBytes > getStreamSessionMaxBytes() && len(s.events) > 1
 		if !tooManyEvents && !tooManyBytes {
 			return
 		}
@@ -321,8 +353,8 @@ func (s *relayStreamSession) Finish(err error) {
 	}
 	s.store.mu.Unlock()
 
-	if relayStreamSessionTTL > 0 {
-		time.AfterFunc(relayStreamSessionTTL, func() {
+	if getStreamSessionTTL() > 0 {
+		time.AfterFunc(getStreamSessionTTL(), func() {
 			s.store.removeIfExpired(s.key, s.conversationScope)
 		})
 	}

@@ -17,12 +17,20 @@ const (
 	defaultRelayPersistenceTimeout = 10 * time.Second
 )
 
-var relayUpstreamTimeout time.Duration
+var (
+	relayUpstreamTimeout    time.Duration
+	relayPersistenceTimeout = defaultRelayPersistenceTimeout
+)
 
 func init() {
 	if raw := strings.TrimSpace(os.Getenv(strings.ToUpper(conf.APP_NAME) + "_RELAY_UPSTREAM_TIMEOUT_SECONDS")); raw != "" {
 		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
 			relayUpstreamTimeout = time.Duration(v) * time.Second
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv(strings.ToUpper(conf.APP_NAME) + "_RELAY_PERSISTENCE_TIMEOUT_SECONDS")); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			relayPersistenceTimeout = time.Duration(v) * time.Second
 		}
 	}
 }
@@ -35,7 +43,7 @@ func newRelayOperationContext() (context.Context, context.CancelFunc) {
 }
 
 func newRelayPersistenceContext() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), defaultRelayPersistenceTimeout)
+	return context.WithTimeout(context.Background(), relayPersistenceTimeout)
 }
 
 func logRelayErrorfByContext(err error, format string, args ...any) {

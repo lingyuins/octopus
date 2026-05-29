@@ -387,7 +387,7 @@ func extractModelFromRequest(c *gin.Context, cfg mediaEndpointConfig) (string, [
 
 // extractModelFromJSON reads the JSON body and extracts the "model" field.
 func extractModelFromJSON(c *gin.Context) (string, []byte, bool, error) {
-	body, err := readLimitedRequestBody(c, maxRelayJSONBodyBytes)
+	body, err := readLimitedRequestBody(c, getMaxRelayJSONBodyBytes())
 	if err != nil {
 		return "", nil, false, err
 	}
@@ -404,7 +404,7 @@ func extractModelFromJSON(c *gin.Context) (string, []byte, bool, error) {
 
 // extractModelFromMultipart extracts the model from a multipart/form-data request.
 func extractModelFromMultipart(c *gin.Context) (string, []byte, bool, error) {
-	limitRequestBody(c, maxRelayMultipartBodyBytes)
+	limitRequestBody(c, getMaxRelayMultipartBodyBytes())
 
 	// Parse the multipart form
 	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {

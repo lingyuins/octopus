@@ -18,7 +18,7 @@ const (
 	SettingKeyRelayLogKeepEnabled                  SettingKey = "relay_log_keep_enabled"                   // 是否保留历史日志
 	SettingKeyCORSAllowOrigins                     SettingKey = "cors_allow_origins"                       // 跨域白名单(逗号分隔, 如 "example.com,example2.com"). 为空不允许跨域, "*"允许所有
 	SettingKeyRelayRetryCount                      SettingKey = "relay_retry_count"                        // 单个候选渠道内 Key 级最大重试次数
-	SettingKeyRelayRouteRetries                    SettingKey = "relay_route_retries"                       // 路由级最大重试次数（全部渠道遍历一轮算一次）
+	SettingKeyRelayRouteRetries                    SettingKey = "relay_route_retries"                      // 路由级最大重试次数（全部渠道遍历一轮算一次）
 	SettingKeyCircuitBreakerThreshold              SettingKey = "circuit_breaker_threshold"                // 熔断触发阈值（连续失败次数）
 	SettingKeyCircuitBreakerCooldown               SettingKey = "circuit_breaker_cooldown"                 // 熔断基础冷却时间（秒）
 	SettingKeyCircuitBreakerMaxCooldown            SettingKey = "circuit_breaker_max_cooldown"             // 熔断最大冷却时间（秒），指数退避上限
@@ -47,7 +47,18 @@ const (
 	SettingKeyAIRouteTimeoutSeconds                SettingKey = "ai_route_timeout_seconds"                 // AI路由分析单次请求超时（秒）
 	SettingKeyAIRouteParallelism                   SettingKey = "ai_route_parallelism"                     // AI路由分析批次最大并发数
 	SettingKeyAIRouteServices                      SettingKey = "ai_route_services"                        // AI路由分析服务池(JSON)
-	SettingKeyStatsTimezoneOffset                  SettingKey = "stats_timezone_offset"                   // 统计时区偏移（小时），当前为整型偏移；未来计划新增 stats_timezone (IANA) 配置项，此处为定义与校验入口
+	SettingKeyStatsTimezoneOffset                  SettingKey = "stats_timezone_offset"                    // 统计时区偏移（小时），当前为整型偏移；未来计划新增 stats_timezone (IANA) 配置项，此处为定义与校验入口
+	SettingKeyJWTDefaultExpiryMinutes              SettingKey = "jwt_default_expiry_minutes"               // 默认JWT过期时间（分钟）
+	SettingKeyJWTRememberMeExpiryDays              SettingKey = "jwt_remember_me_expiry_days"              // 记住我JWT过期时间（天）
+	SettingKeyLoginRateLimitWindow                 SettingKey = "login_rate_limit_window"                  // 登录限流时间窗口（分钟）
+	SettingKeyLoginRateLimitMaxFailed              SettingKey = "login_rate_limit_max_failed"              // 登录限流最大失败次数
+	SettingKeyStreamSessionTTLMinutes              SettingKey = "stream_session_ttl_minutes"               // 流会话TTL（分钟）
+	SettingKeyStreamSessionMaxEvents               SettingKey = "stream_session_max_events"                // 流会话最大事件数
+	SettingKeyStreamSessionMaxBytesMB              SettingKey = "stream_session_max_bytes_mb"              // 流会话最大字节数（MB）
+	SettingKeyNotifyHTTPTimeoutSeconds             SettingKey = "notify_http_timeout_seconds"              // 通知HTTP请求超时（秒）
+	SettingKeyFailureHintTTLUnauthorized           SettingKey = "failure_hint_ttl_unauthorized"            // 认证失败提示缓存TTL（秒）
+	SettingKeyFailureHintTTLRateLimit              SettingKey = "failure_hint_ttl_rate_limit"              // 限流失败提示缓存TTL（秒）
+	SettingKeyFailureHintTTLNetwork                SettingKey = "failure_hint_ttl_network"                 // 网络失败提示缓存TTL（秒）
 )
 
 type Setting struct {
@@ -65,7 +76,7 @@ func DefaultSettings() []Setting {
 		{Key: SettingKeyRelayLogKeepPeriod, Value: "7"},          // 默认日志保存7天
 		{Key: SettingKeyRelayLogKeepEnabled, Value: "true"},      // 默认保留历史日志
 		{Key: SettingKeyRelayRetryCount, Value: "3"},             // 默认单个渠道内 Key 级重试3次
-		{Key: SettingKeyRelayRouteRetries, Value: "2"},            // 默认路由级重试2次（全部渠道遍历两轮）
+		{Key: SettingKeyRelayRouteRetries, Value: "2"},           // 默认路由级重试2次（全部渠道遍历两轮）
 		{Key: SettingKeyCircuitBreakerThreshold, Value: "5"},     // 默认连续失败5次触发熔断
 		{Key: SettingKeyCircuitBreakerCooldown, Value: "60"},     // 默认基础冷却60秒
 		{Key: SettingKeyCircuitBreakerMaxCooldown, Value: "600"}, // 默认最大冷却600秒（10分钟）
@@ -95,6 +106,17 @@ func DefaultSettings() []Setting {
 		{Key: SettingKeyAIRouteParallelism, Value: "3"},
 		{Key: SettingKeyAIRouteServices, Value: "[]"},
 		{Key: SettingKeyStatsTimezoneOffset, Value: "0"},
+		{Key: SettingKeyJWTDefaultExpiryMinutes, Value: "15"},    // 默认15分钟
+		{Key: SettingKeyJWTRememberMeExpiryDays, Value: "30"},    // 默认30天
+		{Key: SettingKeyLoginRateLimitWindow, Value: "10"},       // 默认10分钟
+		{Key: SettingKeyLoginRateLimitMaxFailed, Value: "5"},     // 默认5次
+		{Key: SettingKeyStreamSessionTTLMinutes, Value: "30"},    // 默认30分钟
+		{Key: SettingKeyStreamSessionMaxEvents, Value: "4096"},   // 默认4096条
+		{Key: SettingKeyStreamSessionMaxBytesMB, Value: "16"},    // 默认16MB
+		{Key: SettingKeyNotifyHTTPTimeoutSeconds, Value: "10"},   // 默认10秒
+		{Key: SettingKeyFailureHintTTLUnauthorized, Value: "10"}, // 默认10秒
+		{Key: SettingKeyFailureHintTTLRateLimit, Value: "5"},     // 默认5秒
+		{Key: SettingKeyFailureHintTTLNetwork, Value: "2"},       // 默认2秒
 	}
 }
 
@@ -108,7 +130,12 @@ func (s *Setting) Validate() error {
 		SettingKeyAutoStrategyMinSamples, SettingKeyAutoStrategyTimeWindow, SettingKeyAutoStrategySampleThreshold,
 		SettingKeyAutoStrategyLatencyWeight,
 		SettingKeyAIRouteGroupID, SettingKeyAIRouteTimeoutSeconds, SettingKeyAIRouteParallelism,
-		SettingKeyStatsTimezoneOffset:
+		SettingKeyStatsTimezoneOffset,
+		SettingKeyJWTDefaultExpiryMinutes, SettingKeyJWTRememberMeExpiryDays,
+		SettingKeyLoginRateLimitWindow, SettingKeyLoginRateLimitMaxFailed,
+		SettingKeyStreamSessionTTLMinutes, SettingKeyStreamSessionMaxEvents, SettingKeyStreamSessionMaxBytesMB,
+		SettingKeyNotifyHTTPTimeoutSeconds,
+		SettingKeyFailureHintTTLUnauthorized, SettingKeyFailureHintTTLRateLimit, SettingKeyFailureHintTTLNetwork:
 		v, err := strconv.Atoi(s.Value)
 		if err != nil {
 			return fmt.Errorf("setting value must be an integer")
@@ -151,6 +178,16 @@ func (s *Setting) Validate() error {
 		}
 		if s.Key == SettingKeyStatsTimezoneOffset && (v < -12 || v > 14) {
 			return fmt.Errorf("stats timezone offset must be between -12 and 14")
+		}
+		switch s.Key {
+		case SettingKeyJWTDefaultExpiryMinutes, SettingKeyJWTRememberMeExpiryDays,
+			SettingKeyLoginRateLimitWindow, SettingKeyLoginRateLimitMaxFailed,
+			SettingKeyStreamSessionTTLMinutes, SettingKeyStreamSessionMaxEvents, SettingKeyStreamSessionMaxBytesMB,
+			SettingKeyNotifyHTTPTimeoutSeconds,
+			SettingKeyFailureHintTTLUnauthorized, SettingKeyFailureHintTTLRateLimit, SettingKeyFailureHintTTLNetwork:
+			if v < 1 {
+				return fmt.Errorf("setting value must be greater than 0")
+			}
 		}
 		return nil
 	case SettingKeyRelayLogKeepEnabled, SettingKeySemanticCacheEnabled:
