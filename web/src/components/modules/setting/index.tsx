@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
-    Sun, User, Database, Cog, Shield, RotateCcw, Zap,
-    ScrollText, Monitor, RefreshCw, AlertTriangle, ChevronsUpDown,
-    Info,
+    Sun, User, Database, Shield, RotateCcw, Zap,
+    ScrollText, Monitor, RefreshCw, ChevronsUpDown,
+    Info, Bot, Sparkles, FolderX,
 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { SettingAppearance } from './Appearance';
@@ -31,18 +31,18 @@ type SettingItem = {
 
 const SETTING_ITEMS: SettingItem[] = [
     { id: 'appearance',        icon: <Sun className="h-5 w-5" />,              titleKey: 'appearance',           component: <SettingAppearance /> },
-    { id: 'ai-route',          icon: <Zap className="h-5 w-5" />,               titleKey: 'aiRoute.title',        component: <SettingAIRoute /> },
-    { id: 'auto-strategy',     icon: <Cog className="h-5 w-5" />,               titleKey: 'autoStrategy.title',   component: <SettingAutoStrategy /> },
+    { id: 'ai-route',          icon: <Bot className="h-5 w-5" />,              titleKey: 'aiRoute.title',        component: <SettingAIRoute /> },
+    { id: 'auto-strategy',     icon: <Sparkles className="h-5 w-5" />,         titleKey: 'autoStrategy.title',   component: <SettingAutoStrategy /> },
     { id: 'account',           icon: <User className="h-5 w-5" />,              titleKey: 'account.title',         component: <SettingAccount /> },
     { id: 'semantic-cache',    icon: <Database className="h-5 w-5" />,          titleKey: 'semanticCache.title',  component: <SettingSemanticCache /> },
     { id: 'retry',             icon: <RotateCcw className="h-5 w-5" />,         titleKey: 'retry.title',          component: <SettingRetry /> },
     { id: 'log',               icon: <ScrollText className="h-5 w-5" />,        titleKey: 'log.title',            component: <SettingLog /> },
-    { id: 'info',              icon: <Info className="h-5 w-5" />,            titleKey: 'info.title',           component: <SettingInfo /> },
-    { id: 'system',            icon: <Monitor className="h-5 w-5" />,         titleKey: 'system',               component: <SettingSystem /> },
-    { id: 'llmsync',           icon: <RefreshCw className="h-5 w-5" />,      titleKey: 'llmSync.title',        component: <SettingLLMSync /> },
-    { id: 'circuit-breaker',   icon: <Shield className="h-5 w-5" />,            titleKey: 'circuitBreaker.title', component: <SettingCircuitBreaker /> },
+    { id: 'info',              icon: <Info className="h-5 w-5" />,              titleKey: 'info.title',           component: <SettingInfo /> },
+    { id: 'system',            icon: <Monitor className="h-5 w-5" />,           titleKey: 'system',               component: <SettingSystem /> },
+    { id: 'llmsync',           icon: <RefreshCw className="h-5 w-5" />,        titleKey: 'llmSync.title',        component: <SettingLLMSync /> },
+    { id: 'circuit-breaker',   icon: <Zap className="h-5 w-5" />,              titleKey: 'circuitBreaker.title', component: <SettingCircuitBreaker /> },
     { id: 'backup',            icon: <Database className="h-5 w-5" />,          titleKey: 'backup.title',         component: <SettingBackup /> },
-    { id: 'route-group-danger',icon: <AlertTriangle className="h-5 w-5" />,     titleKey: 'routeGroups.title',    component: <SettingRouteGroupDanger /> },
+    { id: 'route-group-danger',icon: <FolderX className="h-5 w-5" />,          titleKey: 'routeGroups.title',    component: <SettingRouteGroupDanger /> },
 ];
 
 export function Setting() {
