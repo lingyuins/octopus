@@ -21,15 +21,16 @@ import { SettingAutoStrategy } from './AutoStrategy';
 import { SettingAIRoute } from './AIRoute';
 import { SettingSemanticCache } from './SemanticCache';
 import { SettingRouteGroupDanger } from './RouteGroupDanger';
+import { DEFAULT_SETTING_ORDER } from './SettingOrder';
 
-type SettingItem = {
+type SettingItemDef = {
     id: string;
     icon: React.ReactNode;
     titleKey: string;
     component: React.ReactNode;
 };
 
-const SETTING_ITEMS: SettingItem[] = [
+const SETTING_ITEM_DEFS: SettingItemDef[] = [
     { id: 'appearance',        icon: <Sun className="h-5 w-5" />,              titleKey: 'appearance',           component: <SettingAppearance /> },
     { id: 'ai-route',          icon: <Bot className="h-5 w-5" />,              titleKey: 'aiRoute.title',        component: <SettingAIRoute /> },
     { id: 'auto-strategy',     icon: <Sparkles className="h-5 w-5" />,         titleKey: 'autoStrategy.title',   component: <SettingAutoStrategy /> },
@@ -45,16 +46,56 @@ const SETTING_ITEMS: SettingItem[] = [
     { id: 'route-group-danger',icon: <FolderX className="h-5 w-5" />,          titleKey: 'routeGroups.title',    component: <SettingRouteGroupDanger /> },
 ];
 
+const SETTING_ITEM_MAP = new Map<string, SettingItemDef>(
+    SETTING_ITEM_DEFS.map((def) => [def.id, def])
+);
+
+function getOrderedItems(order: string[]): SettingItemDef[] {
+    const seen = new Set<string>();
+    const result: SettingItemDef[] = [];
+    for (const id of order) {
+        const def = SETTING_ITEM_MAP.get(id);
+        if (def && !seen.has(id)) {
+            seen.add(id);
+            result.push(def);
+        }
+    }
+    // append any missing defaults
+    for (const def of SETTING_ITEM_DEFS) {
+        if (!seen.has(def.id)) {
+            result.push(def);
+        }
+    }
+    return result;
+}
+
+function loadOrder(): string[] {
+    try {
+        const raw = localStorage.getItem('octopus-setting-order');
+        if (!raw) return [...DEFAULT_SETTING_ORDER];
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [...DEFAULT_SETTING_ORDER];
+        const filtered = parsed.filter((id: unknown) =>
+            typeof id === 'string' && SETTING_ITEM_MAP.has(id)
+        );
+        const missing = DEFAULT_SETTING_ORDER.filter((id) => !filtered.includes(id));
+        return [...filtered, ...missing];
+    } catch {
+        return [...DEFAULT_SETTING_ORDER];
+    }
+}
+
 export function Setting() {
     const t = useTranslations('setting');
     const [openId, setOpenId] = useState<string | null>(null);
-    const activeItem = SETTING_ITEMS.find((item) => item.id === openId);
+    const items = getOrderedItems(loadOrder());
+    const activeItem = items.find((item) => item.id === openId);
 
     return (
         <div className="h-full min-h-0 overflow-y-auto overscroll-contain rounded-t-xl">
             <div className="pb-24 md:pb-6 px-4 md:px-6 pt-4">
                 <div className="space-y-2 max-w-2xl mx-auto">
-                    {SETTING_ITEMS.map((item) => (
+                    {items.map((item) => (
                         <button
                             key={item.id}
                             type="button"

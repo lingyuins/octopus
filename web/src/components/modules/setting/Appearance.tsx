@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
+import { SettingOrder } from './SettingOrder';
 import { useTranslations } from 'next-intl';
 import { Bell, Clock3, GripVertical, Languages, ListOrdered, Monitor, Moon, RotateCcw, Sun } from 'lucide-react';
 import {
@@ -375,6 +376,7 @@ export function SettingAppearance() {
                     </div>
 
                     <NavigationPreferences />
+                    <SettingOrder />
                 </div>
             </div>
         </div>

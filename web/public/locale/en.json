@@ -1241,6 +1241,12 @@
       "minimumVisibleHint": "Keep at least {count} pages visible. The Settings page cannot be hidden.",
       "minimumVisibleError": "At least {count} pages must remain visible",
       "toggleAriaLabel": "Toggle page visibility: {page}"
+    },
+    "settingOrder": {
+      "title": "Setting Item Order",
+      "description": "Drag to reorder setting page sections. Changes are saved immediately on drop.",
+      "reset": "Reset to Default",
+      "resetSuccess": "Setting item order has been reset"
     }
   },
   "group": {
