@@ -286,11 +286,13 @@ function ProviderPromptCacheView({
                                             const height = `${Math.max(8, (trendTokens / maxTrendTokens) * 100)}%`;
                                             return (
                                                 <div key={point.timestamp} className="flex w-20 flex-none flex-col items-center gap-2">
-                                                    <div
-                                                        className="w-full rounded-t-md bg-primary/20"
-                                                        style={{ height }}
-                                                        title={`${formatUnixTime(point.timestamp)} | ${formatCount(point.cache_read_tokens)} read / ${formatCount(point.cache_write_tokens)} write`}
-                                                    />
+                                                    <div className="relative w-full h-40">
+                                                        <div
+                                                            className="absolute bottom-0 w-full rounded-t-md bg-primary/20"
+                                                            style={{ height }}
+                                                            title={`${formatUnixTime(point.timestamp)} | ${formatCount(point.cache_read_tokens)} read / ${formatCount(point.cache_write_tokens)} write`}
+                                                        />
+                                                    </div>
                                                     <div className="w-full whitespace-nowrap text-center text-[10px] text-muted-foreground">
                                                         {formatUnixTime(point.timestamp)}
                                                     </div>
