@@ -163,6 +163,36 @@ function ProviderPromptCacheRow({
     );
 }
 
+function TrendBar({ point, maxTrendTokens }: { point: OpsProviderPromptCacheTrendPoint; maxTrendTokens: number }) {
+    const [showTooltip, setShowTooltip] = useState(false);
+    const tooltipText = `${formatUnixTime(point.timestamp)} | ${formatCount(point.cache_read_tokens)} read / ${formatCount(point.cache_write_tokens)} write`;
+    const trendTokens = getProviderPromptCacheTrendTokens(point);
+    const height = `${Math.max(8, (trendTokens / maxTrendTokens) * 100)}%`;
+    return (
+        <div className="flex w-20 flex-none flex-col items-center gap-2">
+            <div className="relative w-full h-40">
+                <div
+                    className="absolute bottom-0 w-full rounded-t-md bg-primary/20 cursor-pointer"
+                    style={{ height }}
+                    title={tooltipText}
+                    onClick={() => setShowTooltip(!showTooltip)}
+                    onMouseEnter={() => setShowTooltip(true)}
+                    onMouseLeave={() => setShowTooltip(false)}
+                >
+                    {showTooltip && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-foreground rounded-md whitespace-nowrap z-50 pointer-events-none">
+                            {tooltipText}
+                        </div>
+                    )}
+                </div>
+            </div>
+            <div className="w-full whitespace-nowrap text-center text-[10px] text-muted-foreground">
+                {formatUnixTime(point.timestamp)}
+            </div>
+        </div>
+    );
+}
+
 function ProviderPromptCacheView({
     data,
     t,
@@ -281,25 +311,9 @@ function ProviderPromptCacheView({
                             ) : (
                                 <div className="max-w-full overflow-x-auto pb-1">
                                     <div className="flex h-40 min-w-max items-end gap-2 pr-2">
-                                        {trend.map((point) => {
-                                            const trendTokens = getProviderPromptCacheTrendTokens(point);
-                                            const height = `${Math.max(8, (trendTokens / maxTrendTokens) * 100)}%`;
-                                            return (
-                                                <div key={point.timestamp} className="flex w-20 flex-none flex-col items-center gap-2">
-                                                    <div className="relative w-full h-40">
-                                                        <div
-                                                            className="absolute bottom-0 w-full rounded-t-md bg-primary/20"
-                                                            style={{ height }}
-                                                            title={`${formatUnixTime(point.timestamp)} | ${formatCount(point.cache_read_tokens)} read / ${formatCount(point.cache_write_tokens)} write`}
-                                                        />
-                                                    </div>
-                                                    <div className="w-full whitespace-nowrap text-center text-[10px] text-muted-foreground">
-                                                        {formatUnixTime(point.timestamp)}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                        {trend.map((point) => (
+                                            <TrendBar key={point.timestamp} point={point} maxTrendTokens={maxTrendTokens} />
+                                        ))}
                                 </div>
                             )}
                         </div>
