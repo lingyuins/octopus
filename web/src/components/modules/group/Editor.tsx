@@ -382,7 +382,7 @@ export function GroupEditor({
         <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col overflow-hidden">
             <div className="flex-1 min-h-0 overflow-y-auto pr-1">
                 <FieldGroup className="flex min-h-full flex-col gap-4 lg:h-full">
-                    <div className="grid min-h-full gap-4 xl:grid-cols-[minmax(21rem,0.9fr)_minmax(0,1.55fr)] xl:items-stretch">
+                    <div className="grid min-h-full gap-4 2xl:grid-cols-[minmax(21rem,0.9fr)_minmax(0,1.55fr)] 2xl:items-stretch">
                         <section className="flex flex-col gap-3 rounded-xl border border-border/30 bg-card p-3 md:gap-4 md:p-5">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div className="space-y-2">
@@ -611,7 +611,7 @@ export function GroupEditor({
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-3 lg:flex-1 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.18fr)] lg:gap-4 lg:min-h-0">
+                            <div className="grid grid-cols-1 gap-3 xl:flex-1 xl:grid-cols-[minmax(18rem,0.92fr)_minmax(20rem,1.18fr)] xl:gap-4 xl:min-h-0">
                                 <ModelPickerSection
                                     modelChannels={modelChannels}
                                     selectedMembers={selectedMembers}

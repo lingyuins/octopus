@@ -28,11 +28,13 @@ export function ModelMarketSummary({
     onRefresh,
     isRefreshing,
     triggerClassName,
+    compact = false,
 }: {
     summary: MarketSummaryValue;
     onRefresh: () => void;
     isRefreshing: boolean;
     triggerClassName?: string;
+    compact?: boolean;
 }) {
     const t = useTranslations('model');
     const lastUpdateLabel = formatLastUpdate(summary.last_update_time, t('summary.neverUpdated'));
@@ -69,7 +71,7 @@ export function ModelMarketSummary({
             <PopoverTrigger asChild>
                 <Button type="button" variant="ghost" size="default" className={triggerClassName}>
                     <Clock3 className="size-4 shrink-0 transition-colors duration-300" />
-                    <span>{t('summary.trigger')}</span>
+                    <span className={compact ? 'sr-only sm:not-sr-only' : undefined}>{t('summary.trigger')}</span>
                 </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-[min(100vw-1rem,40rem)] rounded-xl border border-border/35 bg-card p-2 text-card-foreground shadow-lg sm:w-[min(100vw-2rem,40rem)] sm:p-3 md:p-4">

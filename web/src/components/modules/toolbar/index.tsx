@@ -77,7 +77,7 @@ function CreateDialogContent({ activeItem }: { activeItem: ToolbarPage }) {
 
 function getCreateDialogContentClassName(activeItem: ToolbarPage) {
     if (activeItem === 'group') {
-        return 'h-[calc(100dvh-2rem)] w-[min(100vw-2rem,92rem)] max-w-full rounded-xl border border-border bg-card px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] text-card-foreground shadow-lg flex flex-col overflow-hidden md:h-[calc(100dvh-3rem)] md:w-[min(100vw-3rem,92rem)] md:rounded-xl md:px-4 md:py-4';
+        return 'h-[calc(100dvh-2rem)] w-[min(100vw-1rem,92rem)] max-w-full rounded-xl border border-border bg-card px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] text-card-foreground shadow-lg flex flex-col overflow-hidden md:h-[calc(100dvh-3rem)] md:w-[min(100vw-2rem,92rem)] md:rounded-xl md:px-4 md:py-4';
     }
 
     if (activeItem === 'channel') {
@@ -212,15 +212,15 @@ export function Toolbar() {
                 animate={lightweightMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
                 exit={lightweightMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
                 transition={{ duration: lightweightMotion ? 0.12 : 0.2 }}
-                className="flex max-w-full flex-col items-stretch gap-2 rounded-xl border border-border bg-card p-1.5 sm:flex-row sm:flex-wrap sm:items-center"
+                className="flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-1.5"
             >
                 {/* 搜索按钮/展开框 */}
                 <div
                     className={cn(
-                        'relative h-11 transition-[width] duration-300 ease-out self-end',
+                        'relative h-10 transition-[width] duration-300 ease-out sm:h-11',
                         searchExpanded
-                            ? 'w-full sm:w-72 sm:w-[min(18rem,calc(100vw-3rem))]'
-                            : 'w-11 self-auto'
+                            ? 'w-full sm:w-[min(18rem,calc(100vw-3rem))]'
+                            : 'w-10 sm:w-11'
                     )}
                 >
                     {!searchExpanded ? (
@@ -232,7 +232,8 @@ export function Toolbar() {
                             className={cn(
                                 buttonVariants({ variant: "ghost", size: "icon" }),
                                 "absolute inset-0 rounded-lg transition-none",
-                                COMMAND_ICON_BUTTON_CLASS
+                                COMMAND_ICON_BUTTON_CLASS,
+                                "h-10 w-10 sm:h-11 sm:w-11"
                             )}
                         >
                             <motion.span layout="position"><Search className="size-4 transition-colors duration-300" /></motion.span>
@@ -273,13 +274,14 @@ export function Toolbar() {
                 {toolbarItem === 'group' && (
                     <CCSwitchLinkButton className="hidden sm:inline-flex" />
                 )}
-                <div className="flex min-h-11 items-center gap-1 rounded-xl border border-border bg-muted/30 p-1 sm:h-11">
+                <div className="flex h-10 min-w-0 items-center gap-1 rounded-xl border border-border bg-muted/30 p-0.5 sm:h-11 sm:p-1">
                     {toolbarItem === 'model' && (
                         <ModelMarketSummary
                             summary={modelSummary}
                             onRefresh={() => updateModelPrice.mutate()}
                             isRefreshing={updateModelPrice.isPending}
-                            triggerClassName="min-h-11 sm:h-9 rounded-md border border-transparent bg-transparent px-3 text-muted-foreground shadow-none transition-[color,background-color,border-color] duration-150 hover:border-border hover:bg-muted hover:text-foreground hover:shadow-none"
+                            compact
+                            triggerClassName="h-9 min-h-9 rounded-md border border-transparent bg-transparent px-2 text-muted-foreground shadow-none transition-[color,background-color,border-color] duration-150 hover:border-border hover:bg-muted hover:text-foreground hover:shadow-none sm:px-3"
                         />
                     )}
                     <Popover>
@@ -289,7 +291,7 @@ export function Toolbar() {
                                 aria-label={t('popover.ariaLabel')}
                                 className={cn(
                                     buttonVariants({ variant: 'ghost', size: 'default' }),
-                                    "min-h-11 sm:h-9 rounded-md border border-transparent bg-transparent px-3 text-muted-foreground shadow-none transition-[color,background-color,border-color] duration-150 hover:border-border hover:bg-muted hover:text-foreground hover:shadow-none"
+                                    "h-9 min-h-9 rounded-md border border-transparent bg-transparent px-2 text-muted-foreground shadow-none transition-[color,background-color,border-color] duration-150 hover:border-border hover:bg-muted hover:text-foreground hover:shadow-none sm:px-3"
                                 )}
                             >
                                 <SlidersHorizontal className="size-4 transition-colors duration-300" />
@@ -467,7 +469,7 @@ export function Toolbar() {
                     )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex items-center gap-1.5">
                     {toolbarItem === 'channel' ? (
                         <ChannelGroupManagerDialog className={cn(
                             buttonVariants({ variant: "ghost", size: "default" }),
@@ -482,7 +484,7 @@ export function Toolbar() {
                             className={cn(
                                 buttonVariants({ variant: "ghost", size: "default" }),
                                 COMMAND_TEXT_BUTTON_CLASS,
-                                "bg-primary px-3.5 text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                                "h-10 min-h-10 bg-primary px-3 text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground sm:h-11 sm:min-h-11 sm:px-3.5"
                             )}
                         >
                             <Plus className="size-4 transition-colors duration-300" />
