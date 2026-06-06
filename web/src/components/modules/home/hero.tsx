@@ -83,12 +83,12 @@ export function HomeHero() {
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.88fr)]">
                 <div className="space-y-5">
                     <div className="space-y-3">
-                        <div className="flex items-center gap-4">
-                            <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-card text-primary">
-                                <Waves className="h-6 w-6" strokeWidth={1.5} />
+                        <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="grid h-11 w-11 sm:h-14 sm:w-14 shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-card text-primary">
+                                <Waves className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.5} />
                             </div>
                             <div className="space-y-1">
-                                <h1 className="text-2xl font-semibold tracking-tight md:text-4xl">{t('title')}</h1>
+                                <h1 className="text-2xl font-semibold tracking-tight md:text-3xl lg:text-4xl">{t('title')}</h1>
                                 {t('subtitle') ? (
                                     <p className="text-sm leading-6 text-muted-foreground md:text-base">{t('subtitle')}</p>
                                 ) : null}
@@ -122,7 +122,7 @@ export function HomeHero() {
                     {signals.map((signal, index) => (
                         <article
                             key={signal.key}
-                            className={`group rounded-lg border border-border bg-card p-4 transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-border/80 ${index === 0 ? 'sm:col-span-2 xl:min-h-[11rem]' : ''}`}
+                            className={`group rounded-lg border border-border bg-card p-3 sm:p-4 transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-border/80 ${index === 0 ? 'sm:col-span-2 xl:min-h-[11rem]' : ''}`}
                         >
                             <div className="flex items-start justify-between gap-3">
                                 <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${signal.accent}`}>

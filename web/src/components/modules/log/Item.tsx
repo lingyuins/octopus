@@ -58,7 +58,7 @@ function RetryBadgeWithTooltip({ channelName, brandColor, attempts, channelNameB
             <TooltipTrigger asChild>
                 <Badge
                     variant="secondary"
-                    className="shrink-0 text-xs px-1.5 py-0 cursor-help"
+                    className="shrink-0 text-xs px-1.5 py-0.5 cursor-help font-medium"
                     style={{ backgroundColor: `${brandColor}15`, color: brandColor }}
                 >
                     <RotateCw className="size-3 mr-1 opacity-80" />
@@ -130,7 +130,7 @@ function DeferredJsonContent({ content, fallbackText }: { content: string | unde
 
     if (!content) {
         return (
-            <div className="h-full min-h-0 overflow-auto overscroll-contain">
+            <div className="h-full min-h-0 overflow-auto overscroll-contain overflow-x-auto">
                 <pre className="p-4 text-xs text-muted-foreground whitespace-pre-wrap wrap-break-word leading-relaxed">
                     {fallbackText}
                 </pre>
@@ -158,7 +158,7 @@ function DeferredJsonContent({ content, fallbackText }: { content: string | unde
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="h-full min-h-0 overflow-auto overscroll-contain p-4"
+                    className="h-full min-h-0 overflow-auto overscroll-contain p-4 overflow-x-auto"
                 >
                     <JsonView
                         value={parsed.data as object}
@@ -180,7 +180,7 @@ function DeferredJsonContent({ content, fallbackText }: { content: string | unde
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="h-full min-h-0 overflow-auto overscroll-contain p-4 text-xs text-muted-foreground whitespace-pre-wrap wrap-break-word font-mono leading-relaxed"
+                    className="h-full min-h-0 overflow-auto overscroll-contain p-4 text-xs text-muted-foreground whitespace-pre-wrap wrap-break-word font-mono leading-relaxed overflow-x-auto"
                 >
                     {content}
                 </motion.pre>
@@ -252,8 +252,9 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
                         hasError ? "border-destructive/40" : "border-border",
                     )}
                 >
-                    <div className={cn("p-4 grid grid-cols-[auto_1fr] gap-4", hasError ? "items-start" : "items-center")}>
-                        <ModelAvatar size={40} />
+                    <div className={cn("p-3 sm:p-4 grid grid-cols-[auto_1fr] gap-3 sm:gap-4", hasError ? "items-start" : "items-center")}>
+                        <div className="sm:hidden"><ModelAvatar size={36} /></div>
+                        <div className="hidden sm:block"><ModelAvatar size={40} /></div>
                         <div className="min-w-0 flex flex-col gap-3">
                             <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm md:flex-nowrap">
                                 <span className="min-w-0 max-w-full font-semibold text-card-foreground truncate md:max-w-[32%]" title={displayRequestModelName}>
@@ -293,7 +294,7 @@ export function LogCard({ log, channelNameById }: { log: RelayLog; channelNameBy
                                     <Pin className="size-3.5 shrink-0 text-amber-500" />
                                 )}
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-7 gap-x-4 gap-y-2 text-xs tabular-nums text-muted-foreground">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-x-4 gap-y-2 text-xs tabular-nums text-muted-foreground">
                                 <div className="flex items-center gap-1.5">
                                     <Clock className="size-3.5 shrink-0" style={{ color: brandColor }} />
                                     <span>{formatTime(log.time)}</span>

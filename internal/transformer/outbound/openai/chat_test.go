@@ -972,7 +972,7 @@ func TestChatOutboundTransformRequest_SetsDefaultMimoMaxCompletionTokens(t *test
 	request := &model.InternalLLMRequest{
 		Model: "mimo-v2.5-pro",
 		Messages: []model.Message{{
-			Role: "user",
+			Role:    "user",
 			Content: model.MessageContent{Content: loPtr("hello")},
 		}},
 	}
@@ -995,8 +995,10 @@ func TestChatOutboundTransformRequest_SetsDefaultMimoMaxCompletionTokens(t *test
 		t.Fatalf("failed to unmarshal outbound body: %v", err)
 	}
 
-	if got.MaxCompletionTokens == nil || *got.MaxCompletionTokens != 512 {
-		t.Fatalf("expected max_completion_tokens 512, got %#v", got.MaxCompletionTokens)
+	// When the client does not specify any token limit, Octopus should not
+	// inject a default — let the upstream provider decide.
+	if got.MaxCompletionTokens != nil {
+		t.Fatalf("expected max_completion_tokens to be omitted when client sends none, got %#v", got.MaxCompletionTokens)
 	}
 	if got.MaxTokens != nil {
 		t.Fatalf("expected max_tokens to be omitted, got %#v", got.MaxTokens)
@@ -1010,7 +1012,7 @@ func TestChatOutboundTransformRequest_RaisesSmallMimoMaxTokens(t *testing.T) {
 		Model:     "mimo-v2.5-pro",
 		MaxTokens: &maxTokens,
 		Messages: []model.Message{{
-			Role: "user",
+			Role:    "user",
 			Content: model.MessageContent{Content: loPtr("hello")},
 		}},
 	}
@@ -1033,8 +1035,8 @@ func TestChatOutboundTransformRequest_RaisesSmallMimoMaxTokens(t *testing.T) {
 		t.Fatalf("failed to unmarshal outbound body: %v", err)
 	}
 
-	if got.MaxCompletionTokens == nil || *got.MaxCompletionTokens != 512 {
-		t.Fatalf("expected max_completion_tokens 512, got %#v", got.MaxCompletionTokens)
+	if got.MaxCompletionTokens == nil || *got.MaxCompletionTokens != 10926 {
+		t.Fatalf("expected max_completion_tokens 10926, got %#v", got.MaxCompletionTokens)
 	}
 	if got.MaxTokens != nil {
 		t.Fatalf("expected max_tokens to be omitted after upgrade, got %#v", got.MaxTokens)
@@ -1253,7 +1255,7 @@ func TestChatOutboundTransformRequest_MimoPreservesReasoningContentForHistorical
 		Model: "mimo-v2.5-pro",
 		Messages: []model.Message{
 			{
-				Role: "assistant",
+				Role:    "assistant",
 				Content: model.MessageContent{},
 				ToolCalls: []model.ToolCall{{
 					ID:   "call_mimo_history_1",
@@ -1266,12 +1268,12 @@ func TestChatOutboundTransformRequest_MimoPreservesReasoningContentForHistorical
 				ReasoningContent: &reasoningContent,
 			},
 			{
-				Role: "tool",
+				Role:       "tool",
 				ToolCallID: loPtr("call_mimo_history_1"),
-				Content: model.MessageContent{Content: loPtr("Sunny 25°C")},
+				Content:    model.MessageContent{Content: loPtr("Sunny 25°C")},
 			},
 			{
-				Role: "user",
+				Role:    "user",
 				Content: model.MessageContent{Content: loPtr("How about Shanghai?")},
 			},
 		},
@@ -1289,9 +1291,9 @@ func TestChatOutboundTransformRequest_MimoPreservesReasoningContentForHistorical
 
 	var got struct {
 		Messages []struct {
-			Role             string             `json:"role"`
-			ReasoningContent *string            `json:"reasoning_content,omitempty"`
-			ToolCalls        []model.ToolCall   `json:"tool_calls,omitempty"`
+			Role             string           `json:"role"`
+			ReasoningContent *string          `json:"reasoning_content,omitempty"`
+			ToolCalls        []model.ToolCall `json:"tool_calls,omitempty"`
 		} `json:"messages"`
 	}
 	if err := json.Unmarshal(body, &got); err != nil {

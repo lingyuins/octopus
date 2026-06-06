@@ -428,7 +428,7 @@ function APIKeyFormOverlay({
     return (
         <motion.div
             layoutId={layoutId}
-            className="absolute left-1/2 top-1/2 z-20 w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 bg-card p-5 rounded-3xl border border-border max-h-[80vh] overflow-auto"
+            className="fixed inset-x-3 top-[calc(env(safe-area-inset-top,0px)+0.75rem)] bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] z-50 overflow-y-auto overscroll-contain rounded-3xl border border-border bg-card p-4 shadow-xl sm:absolute sm:left-1/2 sm:right-auto sm:top-1/2 sm:bottom-auto sm:z-20 sm:max-h-[calc(100dvh-2rem)] sm:w-[min(420px,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:p-5"
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
         >
             <APIKeyForm

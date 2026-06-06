@@ -109,7 +109,7 @@ export function Evaluation() {
             description={sectionDescription}
             icon={Radar}
         >
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <EntryCard
                     icon={Activity}
                     title={t('evaluation.availability.title')}
@@ -157,7 +157,7 @@ export function Evaluation() {
                     <p className="mt-1 text-sm leading-6 text-muted-foreground">{t('evaluation.summary.description')}</p>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <article className="rounded-lg border border-border/30 bg-card p-4">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                             <Route className="h-4 w-4" />

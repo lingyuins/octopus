@@ -134,4 +134,22 @@ func Init() {
 			log.Warnf("webdav backup failed: %v", err)
 		}
 	})
+
+	// Site sync task
+	siteSyncIntervalHours, err := setting.GetInt(model.SettingKeySiteSyncInterval)
+	if err != nil {
+		log.Warnf("failed to get site sync interval: %v", err)
+	} else {
+		siteSyncInterval := time.Duration(siteSyncIntervalHours) * time.Hour
+		Register(string(model.SettingKeySiteSyncInterval), siteSyncInterval, true, SiteSyncTask)
+	}
+
+	// Site checkin task
+	siteCheckinIntervalHours, err := setting.GetInt(model.SettingKeySiteCheckinInterval)
+	if err != nil {
+		log.Warnf("failed to get site checkin interval: %v", err)
+	} else {
+		siteCheckinInterval := time.Duration(siteCheckinIntervalHours) * time.Hour
+		Register(string(model.SettingKeySiteCheckinInterval), siteCheckinInterval, true, SiteCheckinTask)
+	}
 }

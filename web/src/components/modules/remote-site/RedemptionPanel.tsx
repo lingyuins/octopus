@@ -147,10 +147,11 @@ export function RedemptionPanel() {
             </Select>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Button
               onClick={handleRedeem}
               disabled={redeemCodes.isPending || redeemAllSites.isPending}
+              className="flex-1 sm:flex-none"
             >
               {redeemCodes.isPending ? (
                 <>
@@ -165,6 +166,7 @@ export function RedemptionPanel() {
               variant="outline"
               onClick={handleRedeemAll}
               disabled={redeemCodes.isPending || redeemAllSites.isPending}
+              className="flex-1 sm:flex-none"
             >
               {redeemAllSites.isPending ? (
                 <>

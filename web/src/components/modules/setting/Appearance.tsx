@@ -277,7 +277,7 @@ export function SettingAppearance() {
     };
 
     return (
-        <div className="relative overflow-visible rounded-xl border-border/35 bg-card p-6 text-card-foreground shadow-none ">
+        <div className="relative overflow-visible rounded-xl border-border/35 bg-card p-4 sm:p-6 text-card-foreground shadow-none ">
             <div className="space-y-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-1.5">
@@ -293,13 +293,24 @@ export function SettingAppearance() {
                 </div>
 
                 <div className="grid gap-4">
-                    <div className="flex flex-col gap-4 rounded-lg border-border/30 bg-card p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+                    <div className="flex flex-col gap-4 rounded-lg border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-4 shadow-sm md:flex-row md:items-center md:justify-between">
                         <div className="flex items-center gap-3">
-                    {theme === 'dark' ? <Moon className="h-5 w-5 text-muted-foreground" /> : <Sun className="h-5 w-5 text-muted-foreground" />}
-                    <span className="text-sm font-medium">{t('theme.label')}</span>
+                            {theme === 'dark' ? (
+                                <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/12">
+                                    <Moon className="h-5 w-5 text-primary" />
+                                </div>
+                            ) : (
+                                <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/12">
+                                    <Sun className="h-5 w-5 text-primary" />
+                                </div>
+                            )}
+                            <div className="space-y-0.5">
+                                <span className="text-sm font-semibold text-card-foreground">{t('theme.label')}</span>
+                                <p className="text-xs text-muted-foreground">{theme === 'dark' ? t('theme.dark') : theme === 'light' ? t('theme.light') : t('theme.system')}</p>
+                            </div>
                         </div>
                         <Select value={theme} onValueChange={setTheme}>
-                            <SelectTrigger className="w-full rounded-lg md:w-40">
+                            <SelectTrigger className="w-full rounded-lg md:w-44">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent className="rounded-lg">

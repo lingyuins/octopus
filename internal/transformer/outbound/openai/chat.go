@@ -117,27 +117,28 @@ func applyReasoningCompatTokenBudget(request *model.InternalLLMRequest, baseURL 
 		return
 	}
 
-	const defaultReasoningMaxCompletionTokens int64 = 512
+	const minReasoningMaxCompletionTokens int64 = 10926
 
 	if request.MaxCompletionTokens != nil {
-		if *request.MaxCompletionTokens < defaultReasoningMaxCompletionTokens {
-			v := defaultReasoningMaxCompletionTokens
+		if *request.MaxCompletionTokens < minReasoningMaxCompletionTokens {
+			v := minReasoningMaxCompletionTokens
 			request.MaxCompletionTokens = &v
 		}
 		return
 	}
 
 	if request.MaxTokens != nil {
-		if *request.MaxTokens < defaultReasoningMaxCompletionTokens {
-			v := defaultReasoningMaxCompletionTokens
+		if *request.MaxTokens < minReasoningMaxCompletionTokens {
+			v := minReasoningMaxCompletionTokens
 			request.MaxCompletionTokens = &v
 			request.MaxTokens = nil
 		}
 		return
 	}
 
-	v := defaultReasoningMaxCompletionTokens
-	request.MaxCompletionTokens = &v
+	// Client did not specify any token limit — do not inject a default.
+	// Let the upstream provider use its own default to avoid truncating
+	// reasoning-heavy outputs (e.g. codeplan models).
 }
 
 func sanitizeMessageForOpenAICompat(msg *model.Message, preserveDeepSeekReasoning bool) {

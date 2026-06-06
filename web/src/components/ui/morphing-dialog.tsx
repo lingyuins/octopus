@@ -27,6 +27,7 @@ export type MorphingDialogContextType = {
   isOpen: boolean;
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   uniqueId: string;
+  disableSharedLayout?: boolean;
   triggerRef: React.RefObject<HTMLDivElement | null>;
   onOpen?: () => void;
   onClose?: () => void;
@@ -48,6 +49,7 @@ function useMorphingDialog() {
 export type MorphingDialogProviderProps = {
   children: React.ReactNode;
   transition?: Transition;
+  disableSharedLayout?: boolean;
   onOpen?: () => void;
   onClose?: () => void;
 };
@@ -55,6 +57,7 @@ export type MorphingDialogProviderProps = {
 function MorphingDialogProvider({
   children,
   transition,
+  disableSharedLayout,
   onOpen,
   onClose,
 }: MorphingDialogProviderProps) {
@@ -84,16 +87,19 @@ function MorphingDialogProvider({
         });
       },
       uniqueId,
+      disableSharedLayout,
       triggerRef,
       onOpen,
       onClose,
     }),
-    [isOpen, uniqueId, onOpen, onClose]
+    [isOpen, uniqueId, disableSharedLayout, onOpen, onClose]
   );
 
   return (
     <MorphingDialogContext.Provider value={contextValue}>
-      <MotionConfig transition={transition}>{children}</MotionConfig>
+      <MotionConfig transition={transition} reducedMotion='user'>
+        {children}
+      </MotionConfig>
     </MorphingDialogContext.Provider>
   );
 }
@@ -101,14 +107,16 @@ function MorphingDialogProvider({
 export type MorphingDialogProps = {
   children: React.ReactNode;
   transition?: Transition;
+  disableSharedLayout?: boolean;
   onOpen?: () => void;
   onClose?: () => void;
 };
 
-function MorphingDialog({ children, transition, onOpen, onClose }: MorphingDialogProps) {
+function MorphingDialog({ children, transition, disableSharedLayout, onOpen, onClose }: MorphingDialogProps) {
   return (
     <MorphingDialogProvider
       transition={transition}
+      disableSharedLayout={disableSharedLayout}
       onOpen={onOpen}
       onClose={onClose}
     >
@@ -135,7 +143,7 @@ function MorphingDialogTrigger({
   disabled,
 }: MorphingDialogTriggerProps) {
   const t = useTranslations('common.dialog');
-  const { setIsOpen, isOpen, uniqueId, triggerRef } = useMorphingDialog();
+  const { setIsOpen, isOpen, uniqueId, disableSharedLayout, triggerRef } = useMorphingDialog();
 
   const handleClick = useCallback(() => {
     if (disabled) return;
@@ -173,7 +181,7 @@ function MorphingDialogTrigger({
   return (
     <motion.div
       ref={triggerRefProp ?? triggerRef}
-      layoutId={`dialog-${uniqueId}`}
+      layoutId={disableSharedLayout ? undefined : `dialog-${uniqueId}`}
       className={cn('relative cursor-pointer', disabled && 'cursor-not-allowed opacity-50', className)}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
@@ -202,7 +210,7 @@ function MorphingDialogContent({
   className,
   style,
 }: MorphingDialogContentProps) {
-  const { setIsOpen, isOpen, uniqueId, triggerRef } = useMorphingDialog();
+  const { setIsOpen, isOpen, uniqueId, disableSharedLayout, triggerRef } = useMorphingDialog();
   const containerRef = useRef<HTMLDivElement>(null!);
   const firstFocusableElementRef = useRef<HTMLElement | null>(null);
   const lastFocusableElementRef = useRef<HTMLElement | null>(null);
@@ -291,9 +299,13 @@ function MorphingDialogContent({
   return (
     <motion.div
       ref={containerRef}
-      layoutId={`dialog-${uniqueId}`}
+      layoutId={disableSharedLayout ? undefined : `dialog-${uniqueId}`}
+      initial={disableSharedLayout ? { opacity: 0, scale: 0.98 } : undefined}
+      animate={disableSharedLayout ? { opacity: 1, scale: 1 } : undefined}
+      exit={disableSharedLayout ? { opacity: 0, scale: 0.98 } : undefined}
+      transition={disableSharedLayout ? { duration: 0.12, ease: 'easeOut' } : undefined}
       className={cn(
-        'relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg max-w-2xl w-[calc(100vw-2rem)] max-h-[90dvh]',
+        'relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85dvh] sm:max-h-[90dvh]',
         className
       )}
       data-slot='morphing-dialog-content'
@@ -336,7 +348,7 @@ function MorphingDialogContainer({ children }: MorphingDialogContainerProps) {
         <>
           <motion.div
             key={`backdrop-${uniqueId}`}
-            className='fixed inset-0 z-50 bg-black/30 '
+            className='fixed inset-0 z-50 bg-black/40 backdrop-blur-sm'
             data-slot='morphing-dialog-layer'
             data-dialog-id={uniqueId}
             initial={{ opacity: 0 }}
@@ -500,7 +512,7 @@ function MorphingDialogClose({
       aria-label={t('close')}
       key={`dialog-close-${uniqueId}`}
       className={cn(
-        'absolute top-4 right-4 rounded-md border border-border bg-card p-1.5 opacity-80 transition-all duration-150 hover:opacity-100 hover:bg-muted',
+        'absolute top-2 right-2 sm:top-4 sm:right-4 flex items-center justify-center rounded-md border border-border bg-card p-2 sm:p-1.5 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 opacity-80 transition-all duration-150 hover:opacity-100 hover:bg-muted',
         className
       )}
       initial='initial'

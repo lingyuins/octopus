@@ -100,7 +100,11 @@ func listChannel(c *gin.Context) {
 		resp.InternalError(c)
 		return
 	}
-	canViewRawKeys := auth.HasPermission(c.GetString("user_role"), auth.PermChannelsWrite)
+	role := c.GetString("user_role")
+	canViewRawKeys := auth.HasPermission(role, auth.PermChannelsWrite)
+	if isViewerRole(role) {
+		redactChannelBaseURLsForViewer(channels)
+	}
 	for i, channel := range channels {
 		if !canViewRawKeys {
 			channels[i].Keys = maskChannelKeys(channel.Keys)

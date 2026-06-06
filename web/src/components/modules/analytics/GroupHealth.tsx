@@ -50,7 +50,7 @@ export function GroupHealth() {
                 empty={!data || data.length === 0}
                 emptyLabel={isLoading ? t('states.loading') : t('routeHealth.empty')}
             >
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {(data ?? []).map((item) => {
                         const StatusIcon = getStatusIcon(item.status);
                         return (

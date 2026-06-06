@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { GroupCard } from './Card';
+import { GroupListItem } from './GroupListItem';
 import { AutoGroupButton } from './AutoGroupButton';
 import { AIRouteButton } from './AIRouteButton';
 import { useGroupList } from '@/api/endpoints/group';
@@ -46,7 +46,7 @@ export function Group() {
 
     if (isLoading) {
         return (
-            <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-t-xl pb-24 md:pb-4">
+            <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-t-xl pb-3 md:pb-4">
                 <section className="relative min-h-0 flex-1">
                     <LoadingState />
                 </section>
@@ -56,7 +56,7 @@ export function Group() {
 
     if (isError) {
         return (
-            <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-t-xl pb-24 md:pb-4">
+            <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-t-xl pb-3 md:pb-4">
                 <section className="relative min-h-0 flex-1">
                     <ErrorState onRetry={() => refetch()} />
                 </section>
@@ -66,7 +66,7 @@ export function Group() {
 
     if (groups && groups.length === 0) {
         return (
-            <div className="overflow-y-auto overscroll-contain rounded-t-xl px-4 py-6 pb-24 md:pb-6">
+            <div className="overflow-y-auto overscroll-contain rounded-t-xl px-3 py-4 pb-3 md:px-4 md:py-6 md:pb-6">
                 <section className="relative w-full max-w-5xl rounded-xl border border-border bg-card p-5 text-card-foreground md:p-7">
                     <div className="relative flex flex-col gap-5 rounded-xl border border-border bg-card p-5 md:p-6">
                         <div className="space-y-3">
@@ -83,11 +83,11 @@ export function Group() {
                             </div>
                         </div>
 
-                        <div className="flex flex-col gap-3">
-                            <AutoGroupButton variant="default" className="h-11 rounded-lg justify-start px-4" />
-                            <AIRouteButton variant="default" className="h-11 rounded-lg justify-start px-4" />
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            <AutoGroupButton variant="default" className="h-11 rounded-lg justify-start px-4 sm:flex-1" />
+                            <AIRouteButton variant="default" className="h-11 rounded-lg justify-start px-4 sm:flex-1" />
                             <MorphingDialog>
-                                <MorphingDialogTrigger className={buttonVariants({ variant: 'outline', className: 'h-11 min-w-36 justify-start rounded-lg border-border bg-card px-4 hover:bg-muted' })}>
+                                <MorphingDialogTrigger className={buttonVariants({ variant: 'outline', className: 'h-11 min-w-0 sm:min-w-36 justify-start rounded-lg border-border bg-card px-4 hover:bg-muted sm:flex-1' })}>
                                     {t('create.submit')}
                                 </MorphingDialogTrigger>
                                 <MorphingDialogContainer>
@@ -104,14 +104,15 @@ export function Group() {
     }
 
     return (
-        <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-t-xl pb-24 md:pb-4">
+        <div className="flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-t-xl pb-3 md:pb-4">
             <section className="relative min-h-0 flex-1">
                 <VirtualizedGrid
                     items={visibleGroups}
                     columns={{ default: 1, sm: 2, md: 2, lg: 3 }}
-                    estimateItemHeight={620}
+                    estimateItemHeight={72}
                     getItemKey={(group, index) => group.id ?? `group-${index}`}
-                    renderItem={(group) => <GroupCard group={group} />}
+                    renderItem={(group) => <GroupListItem group={group} />}
+                    bottomPaddingClassName="pb-3 md:pb-4"
                 />
             </section>
         </div>

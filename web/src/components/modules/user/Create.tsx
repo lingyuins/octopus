@@ -54,7 +54,7 @@ export function CreateDialogContent() {
         <div className="w-screen max-w-full md:max-w-xl">
             <MorphingDialogTitle>
                 <header className="mb-5 flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-card-foreground">{t('create.title')}</h2>
+                    <h2 className="text-xl sm:text-2xl font-bold text-card-foreground">{t('create.title')}</h2>
                     <MorphingDialogClose
                         className="relative right-0 top-0"
                         variants={{
@@ -67,43 +67,43 @@ export function CreateDialogContent() {
             </MorphingDialogTitle>
             <MorphingDialogDescription>
                 <form onSubmit={handleSubmit}>
-                    <FieldGroup className="gap-4">
+                    <FieldGroup className="gap-5 sm:gap-4">
                         <Field>
-                            <FieldLabel htmlFor="user-create-username">{t('create.username')}</FieldLabel>
+                            <FieldLabel htmlFor="user-create-username" className="text-sm sm:text-base">{t('create.username')}</FieldLabel>
                             <Input
                                 id="user-create-username"
                                 value={formData.username}
                                 onChange={(e) => setFormData((prev) => ({ ...prev, username: e.target.value }))}
                                 placeholder={t('create.usernamePlaceholder')}
-                                className="rounded-xl"
+                                className="rounded-xl h-11 sm:h-10"
                             />
                         </Field>
 
                         <Field>
-                            <FieldLabel htmlFor="user-create-password">{t('create.password')}</FieldLabel>
+                            <FieldLabel htmlFor="user-create-password" className="text-sm sm:text-base">{t('create.password')}</FieldLabel>
                             <Input
                                 id="user-create-password"
                                 type="password"
                                 value={formData.password}
                                 onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
                                 placeholder={t('create.passwordPlaceholder')}
-                                className="rounded-xl"
+                                className="rounded-xl h-11 sm:h-10"
                             />
-                            <p className="text-xs text-muted-foreground">{t('create.passwordHint')}</p>
+                            <p className="text-xs text-muted-foreground mt-1.5">{t('create.passwordHint')}</p>
                         </Field>
 
                         <Field>
-                            <FieldLabel htmlFor="user-create-role">{t('create.role')}</FieldLabel>
+                            <FieldLabel htmlFor="user-create-role" className="text-sm sm:text-base">{t('create.role')}</FieldLabel>
                             <Select
                                 value={formData.role}
                                 onValueChange={(value) => setFormData((prev) => ({ ...prev, role: value as UserRole }))}
                             >
-                                <SelectTrigger id="user-create-role" className="rounded-xl">
+                                <SelectTrigger id="user-create-role" className="rounded-xl h-11 sm:h-10">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl">
                                     {ROLE_OPTIONS.map((role) => (
-                                        <SelectItem key={role} value={role} className="rounded-xl">
+                                        <SelectItem key={role} value={role} className="rounded-xl py-2.5 sm:py-2">
                                             {t(`roles.${role}`)}
                                         </SelectItem>
                                     ))}
@@ -114,7 +114,7 @@ export function CreateDialogContent() {
                         <Button
                             type="submit"
                             disabled={createUser.isPending || !formData.username.trim() || !formData.password}
-                            className="w-full rounded-xl h-11"
+                            className="w-full rounded-xl h-12 sm:h-11 mt-2"
                         >
                             {createUser.isPending ? t('create.submitting') : t('create.submit')}
                         </Button>

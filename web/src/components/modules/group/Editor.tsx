@@ -266,6 +266,7 @@ export function GroupEditor({
     isSubmitting,
     onSubmit,
     onCancel,
+    className,
 }: {
     initial?: Partial<GroupEditorValues>;
     submitText: string;
@@ -273,6 +274,7 @@ export function GroupEditor({
     isSubmitting: boolean;
     onSubmit: (values: GroupEditorValues) => void;
     onCancel?: () => void;
+    className?: string;
 }) {
     const t = useTranslations('group');
     const { data: modelChannels = [] } = useModelChannelList();
@@ -379,11 +381,11 @@ export function GroupEditor({
 
 
     return (
-        <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col overflow-hidden">
+        <form onSubmit={handleSubmit} className={cn("flex h-full min-h-0 flex-col overflow-hidden", className)}>
             <div className="flex-1 min-h-0 overflow-y-auto pr-1">
                 <FieldGroup className="flex min-h-full flex-col gap-4 lg:h-full">
-                    <div className="grid min-h-full gap-4 xl:grid-cols-[minmax(21rem,0.9fr)_minmax(0,1.55fr)] xl:items-stretch">
-                        <section className="flex flex-col gap-4 rounded-xl border border-border/30 bg-card p-4 md:p-5">
+                    <div className="grid min-h-full gap-4 2xl:grid-cols-[minmax(21rem,0.9fr)_minmax(0,1.55fr)] 2xl:items-stretch">
+                        <section className="flex flex-col gap-3 rounded-xl border border-border/30 bg-card p-3 md:gap-4 md:p-5">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div className="space-y-2">
                                     <div className="inline-flex items-center gap-2 rounded-full border border-primary/14 bg-card px-3 py-1 text-[0.68rem] font-semibold text-primary">
@@ -398,14 +400,14 @@ export function GroupEditor({
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
                                 <Field>
                                     <FieldLabel htmlFor="group-name">{t('form.name')}</FieldLabel>
                                     <Input
                                         id="group-name"
                                         value={groupName}
                                         onChange={(e) => setGroupName(e.target.value)}
-                                        className="rounded-lg"
+                                        className="h-10 rounded-lg text-sm md:h-11"
                                     />
                                 </Field>
                                 <Field>
@@ -414,7 +416,7 @@ export function GroupEditor({
                                         id="group-endpoint-type"
                                         value={endpointType}
                                         onChange={(e) => setEndpointType(normalizeEndpointType(e.target.value))}
-                                        className="h-10 w-full rounded-lg border border-border/40 bg-card px-3 text-sm shadow-sm  transition-[border-color,box-shadow,background-color] duration-300 outline-none hover:border-primary/15  focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20"
+                                        className="h-10 w-full rounded-lg border border-border/40 bg-card px-3 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-300 outline-none hover:border-primary/15 focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20 md:h-11"
                                     >
                                         {ENDPOINT_TYPE_OPTIONS.map((option) => (
                                             <option key={option.value} value={option.value}>
@@ -433,7 +435,7 @@ export function GroupEditor({
                                             id="group-endpoint-provider"
                                             value={endpointProvider}
                                             onChange={(e) => setEndpointProvider(normalizeEndpointProvider(e.target.value))}
-                                            className="h-10 w-full rounded-lg border border-border/40 bg-card px-3 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-300 outline-none hover:border-primary/15 focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20"
+                                            className="h-10 w-full rounded-lg border border-border/40 bg-card px-3 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-300 outline-none hover:border-primary/15 focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20 md:h-11"
                                         >
                                             {MUSIC_ENDPOINT_PROVIDER_OPTIONS.map((option) => (
                                                 <option key={option.value || 'auto'} value={option.value}>
@@ -453,7 +455,7 @@ export function GroupEditor({
                                             id="group-endpoint-provider"
                                             value={endpointProvider}
                                             onChange={(e) => setEndpointProvider(normalizeEndpointProvider(e.target.value))}
-                                            className="h-10 w-full rounded-lg border border-border/40 bg-card px-3 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-300 outline-none hover:border-primary/15 focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20"
+                                            className="h-10 w-full rounded-lg border border-border/40 bg-card px-3 text-sm shadow-sm transition-[border-color,box-shadow,background-color] duration-300 outline-none hover:border-primary/15 focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20 md:h-11"
                                         >
                                             {CHAT_ENDPOINT_PROVIDER_OPTIONS.map((option) => (
                                                 <option key={option.value || 'auto'} value={option.value}>
@@ -472,7 +474,7 @@ export function GroupEditor({
                                         id="group-match-regex"
                                         value={matchRegex}
                                         onChange={(e) => setMatchRegex(e.target.value)}
-                                        className="rounded-lg"
+                                        className="h-10 rounded-lg text-sm md:h-11"
                                         placeholder={t('form.matchRegexPlaceholder')}
                                     />
                                     {regexError && (
@@ -511,7 +513,7 @@ export function GroupEditor({
                                             const n = Number.parseInt(raw, 10);
                                             setFirstTokenTimeOut(Number.isFinite(n) && n > 0 ? n : 0);
                                         }}
-                                        className="rounded-lg"
+                                        className="h-10 rounded-lg text-sm md:h-11"
                                     />
                                 </Field>
                                 <Field>
@@ -544,7 +546,7 @@ export function GroupEditor({
                                             const n = Number.parseInt(raw, 10);
                                             setSessionKeepTime(Number.isFinite(n) && n > 0 ? n : 0);
                                         }}
-                                        className="rounded-lg"
+                                        className="h-10 rounded-lg text-sm md:h-11"
                                     />
                                 </Field>
                                 <Field className="md:col-span-2">
@@ -566,25 +568,25 @@ export function GroupEditor({
                                         id="group-condition"
                                         value={condition}
                                         onChange={(e) => setCondition(e.target.value)}
-                                        className="rounded-lg font-mono text-xs"
+                                        className="h-10 rounded-lg font-mono text-xs md:h-11"
                                         placeholder={conditionPlaceholder}
                                     />
                                 </Field>
                             </div>
 
                             <div className="space-y-2">
-                                <div className="inline-flex items-center gap-2 rounded-full border border-border/25 bg-card px-3 py-1 text-[0.68rem] font-semibold text-muted-foreground">
-                                    <Sparkles className="size-3.5" />
+                                <div className="inline-flex items-center gap-1.5 rounded-md border border-border/25 bg-card px-2 py-0.5 text-[0.64rem] font-semibold text-muted-foreground md:gap-2 md:rounded-full md:px-3 md:py-1 md:text-[0.68rem]">
+                                    <Sparkles className="size-3 md:size-3.5" />
                                     {t('mode.auto')}
                                 </div>
-                                <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+                                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-5 md:gap-2">
                                     {([1, 2, 3, 4, 5] as const).map((m) => (
                                         <button
                                             key={m}
                                             type="button"
                                             onClick={() => setMode(m)}
                                             className={cn(
-                                                'rounded-lg px-3 py-2 text-xs font-medium transition-[transform,border-color,background-color,box-shadow] duration-300',
+                                                'rounded-lg px-2 py-1.5 text-[10px] font-medium transition-[transform,border-color,background-color,box-shadow] duration-300 md:px-3 md:py-2 md:text-xs',
                                                     mode === m
                                                     ? 'border border-primary/20 bg-primary text-primary-foreground'
                                                     : 'border border-border/30 bg-card text-foreground hover:-translate-y-0.5 hover:border-primary/16 hover:bg-card'
@@ -597,21 +599,21 @@ export function GroupEditor({
                             </div>
                         </section>
 
-                        <section className="flex min-h-[34rem] flex-col gap-4 rounded-xl border border-border/30 bg-card p-4 md:p-5 xl:min-h-0">
+                        <section className="flex min-h-[34rem] min-w-0 flex-col gap-3 rounded-xl border border-border/30 bg-card p-3 md:gap-4 md:p-5 xl:min-h-0">
                             <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="space-y-2">
-                                    <div className="inline-flex items-center gap-2 rounded-full border border-primary/12 bg-card px-3 py-1 text-[0.68rem] font-semibold text-primary">
-                                        <FlaskConical className="size-3.5" />
+                                <div className="space-y-1.5 md:space-y-2">
+                                    <div className="inline-flex items-center gap-1.5 rounded-md border border-primary/12 bg-card px-2 py-0.5 text-[0.64rem] font-semibold text-primary md:gap-2 md:rounded-full md:px-3 md:py-1 md:text-[0.68rem]">
+                                        <FlaskConical className="size-3 md:size-3.5" />
                                         {t('form.items')}
                                     </div>
-                                    <p className="text-sm text-muted-foreground">{t('card.empty')}</p>
+                                    <p className="text-xs text-muted-foreground md:text-sm">{t('card.empty')}</p>
                                 </div>
                                 <div className="inline-flex items-center gap-2 rounded-full border border-border/25 bg-card px-3 py-1 text-xs text-muted-foreground">
                                     {selectedMembers.length}
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 lg:flex-1 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.18fr)] lg:min-h-0">
+                            <div className="grid min-w-0 grid-cols-1 gap-3 xl:flex-1 xl:min-h-0 2xl:grid-cols-[minmax(18rem,0.92fr)_minmax(20rem,1.18fr)] 2xl:gap-4">
                                 <ModelPickerSection
                                     modelChannels={modelChannels}
                                     selectedMembers={selectedMembers}

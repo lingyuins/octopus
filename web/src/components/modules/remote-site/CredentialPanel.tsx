@@ -38,12 +38,12 @@ function CredentialCard({ profile, onEdit, onDelete, onVerify, onExport }: {
 
     return (
         <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 flex flex-col gap-3">
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                     <CircleDot className={cn('h-3 w-3 shrink-0', healthColor(profile.health_status))} />
                     <h3 className="font-medium truncate">{profile.name}</h3>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onVerify(profile.id)} title={t('verify')}>
                         <ShieldCheck className="h-3.5 w-3.5" />
                     </Button>
@@ -58,11 +58,11 @@ function CredentialCard({ profile, onEdit, onDelete, onVerify, onExport }: {
                     </Button>
                 </div>
             </div>
-            <div className="text-xs text-muted-foreground space-y-1">
+            <div className="text-xs text-muted-foreground space-y-1 min-w-0">
                 <Badge variant="outline" className="text-xs font-normal">{profile.api_type}</Badge>
-                <div className="truncate">{profile.base_url}</div>
+                <div className="truncate break-all">{profile.base_url}</div>
                 {profile.last_verified_at && (
-                    <div>{t('lastVerified')}: {new Date(profile.last_verified_at).toLocaleString()}</div>
+                    <div className="truncate">{t('lastVerified')}: {new Date(profile.last_verified_at).toLocaleString()}</div>
                 )}
             </div>
         </div>
@@ -131,20 +131,20 @@ export function CredentialPanel() {
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <KeySquare className="h-5 w-5" />
-                    <h2 className="text-lg font-semibold">{t('title')}</h2>
-                    <Badge variant="secondary">{profiles?.length ?? 0}</Badge>
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                    <KeySquare className="h-5 w-5 shrink-0" />
+                    <h2 className="text-lg font-semibold truncate">{t('title')}</h2>
+                    <Badge variant="secondary" className="shrink-0">{profiles?.length ?? 0}</Badge>
                 </div>
-                <Button size="sm" onClick={handleCreate}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    {t('add')}
+                <Button size="sm" onClick={handleCreate} className="shrink-0">
+                    <Plus className="h-4 w-4 sm:mr-1" />
+                    <span className="hidden sm:inline">{t('add')}</span>
                 </Button>
             </div>
 
             {profiles && profiles.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {profiles.map((p) => (
                         <CredentialCard
                             key={p.id}

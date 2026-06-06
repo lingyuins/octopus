@@ -11,6 +11,9 @@ import { Evaluation } from './Evaluation';
 import { LatencyDistribution } from './LatencyDistribution';
 import { ShareSnapshot } from './ShareSnapshot';
 import { Cache } from '@/components/modules/ops/Cache';
+import { useAnalyticsOverview, useAnalyticsEvaluationSummary } from '@/api/endpoints/analytics';
+import { formatCount, formatMoney } from '@/lib/utils';
+import { formatPercent } from './shared';
 
 type AnalyticsTab = 'utilization' | 'route-health' | 'cache' | 'evaluation' | 'latency';
 
@@ -21,13 +24,15 @@ export function Analytics() {
     const opsT = useTranslations('ops');
     const [activeTab, setActiveTab] = useState<AnalyticsTab>('cache');
     const [range, setRange] = useState<AnalyticsRange>('7d');
+    const { data: overview } = useAnalyticsOverview(range);
+    const { data: evaluationData } = useAnalyticsEvaluationSummary();
 
     return (
-        <PageWrapper className="h-full min-h-0 overflow-y-auto overscroll-contain space-y-6 rounded-t-xl pb-24 md:pb-4">
+        <PageWrapper className="h-full min-h-0 overflow-y-auto overscroll-contain space-y-6 rounded-t-xl pb-3 md:pb-4">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AnalyticsTab)}>
                 <section className="relative overflow-hidden rounded-xl border border-border/35 bg-card p-4 text-card-foreground md:p-5">
                     <div className="relative flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                        <div className="overflow-x-auto">
+                        <div className="-mx-1 overflow-x-auto overscroll-x-contain scroll-smooth px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                             <TabsList className="flex w-max min-w-max flex-nowrap rounded-lg border-border/30 bg-card p-1 xl:min-w-0 xl:flex-wrap">
                                 <TabsTrigger value="cache">{opsT('tabs.cache')}</TabsTrigger>
                                 <TabsTrigger value="utilization">{t('cards.utilization.title')}</TabsTrigger>
@@ -37,9 +42,9 @@ export function Analytics() {
                             </TabsList>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <Tabs value={range} onValueChange={(value) => setRange(value as AnalyticsRange)}>
-                                <div className="overflow-x-auto">
+                                <div className="-mx-1 overflow-x-auto overscroll-x-contain scroll-smooth px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                                     <TabsList className="flex w-max min-w-max flex-nowrap rounded-lg border-border/30 bg-card p-1 xl:min-w-0 xl:flex-wrap">
                                         {RANGE_OPTIONS.map((option) => (
                                             <TabsTrigger key={option} value={option}>
@@ -53,11 +58,15 @@ export function Analytics() {
                                 data={{
                                     title: t('title'),
                                     subtitle: t('subtitle'),
-                                    stats: [
-                                        { label: t('cards.utilization.title'), value: '-' },
-                                        { label: t('cards.routeHealth.title'), value: '-' },
-                                        { label: t('evaluation.title'), value: '-' },
-                                    ],
+                                    stats: overview
+                                        ? [
+                                            { label: t('metrics.requestCount'), value: formatCount(overview.request_count).formatted.value + formatCount(overview.request_count).formatted.unit },
+                                            { label: t('metrics.totalTokens'), value: formatCount(overview.total_tokens).formatted.value + formatCount(overview.total_tokens).formatted.unit },
+                                            { label: t('metrics.totalCost'), value: formatMoney(overview.total_cost).formatted.value + formatMoney(overview.total_cost).formatted.unit },
+                                            { label: t('metrics.providerCount'), value: `${overview.provider_count}` },
+                                            { label: t('cache.metrics.hitRate'), value: evaluationData?.semantic_cache.enabled ? `${formatPercent(evaluationData.semantic_cache.hit_rate).formatted.value}%` : t('cache.status.configuredOff') },
+                                        ]
+                                        : [],
                                     timestamp: new Date().toLocaleString(),
                                 }}
                             />

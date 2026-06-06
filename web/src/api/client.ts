@@ -2,7 +2,7 @@ import type { ApiError } from './types';
 import { HttpStatus } from './types';
 import { resolveRuntimeI18nMessage } from '@/lib/i18n-runtime';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '.';
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '.').trim();
 
 /**
  * 获取认证 Store（延迟导入以避免循环依赖）

@@ -17,10 +17,10 @@ export function Ops() {
     const [activeTab, setActiveTab] = useState<OpsTab>('telemetry');
 
     return (
-        <PageWrapper className="h-full min-h-0 overflow-y-auto overscroll-contain space-y-6 pb-24 md:pb-4 rounded-t-xl">
+        <PageWrapper className="h-full min-h-0 overflow-y-auto overscroll-contain space-y-6 pb-3 md:pb-4 rounded-t-xl">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as OpsTab)}>
                 <section className="rounded-xl border border-border bg-card p-5 text-card-foreground">
-                    <div className="overflow-x-auto">
+                    <div className="-mx-5 overflow-x-auto px-5 scrollbar-hide">
                         <TabsList className="w-max min-w-full xl:min-w-0">
                             <TabsTrigger value="telemetry">{t('tabs.telemetry')}</TabsTrigger>
                             <TabsTrigger value="quota">{t('tabs.quota')}</TabsTrigger>

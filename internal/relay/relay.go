@@ -33,6 +33,9 @@ import (
 	"github.com/tmaxmax/go-sse"
 )
 
+var errClientDisconnected = errors.New("client disconnected")
+var errResponseFilterBlocked = errors.New("response filter blocked by keyword")
+
 func resolveRequestedUpstreamModel(requestModel string) (string, bool) {
 	trimmed := strings.TrimSpace(requestModel)
 	if trimmed == "" {
@@ -85,6 +88,12 @@ func detectZenPreferredChannelTypes(requestModel string, isEmbeddingRequest bool
 	}
 }
 
+func outboundAttemptTypes(channelType outbound.OutboundType, request *model.InternalLLMRequest) []outbound.OutboundType {
+	if request != nil && request.RawAPIFormat == model.APIFormatOpenAIChatCompletion && channelType == outbound.OutboundTypeOpenAIChat {
+		return []outbound.OutboundType{outbound.OutboundTypeOpenAIResponse, outbound.OutboundTypeOpenAIChat}
+	}
+	return []outbound.OutboundType{channelType}
+}
 func isZenCandidateChannelAllowed(requestModel string, channelType outbound.OutboundType, isEmbeddingRequest bool) bool {
 	preferred := detectZenPreferredChannelTypes(requestModel, isEmbeddingRequest)
 	if len(preferred) == 0 {
@@ -200,9 +209,8 @@ func Handler(endpointType string, inboundType inbound.InboundType, c *gin.Contex
 	// Initialize semantic cache from settings
 	initSemanticCacheFromSettings()
 
-	if shouldUseRelayStreamSession(internalRequest) {
-		sessionHash := buildRelayStreamSessionHash(endpointType, int(inboundType), apiKeyID, internalRequest.RawRequest)
-		session, created, err := acquireRelayStreamSession(internalRequest.ConversationID, apiKeyID, sessionHash)
+	if conversationID, sessionHash, ok := resolveRelayStreamSessionIdentity(endpointType, int(inboundType), apiKeyID, internalRequest); ok {
+		session, created, err := acquireRelayStreamSession(conversationID, apiKeyID, sessionHash)
 		if err != nil {
 			statusCode := http.StatusConflict
 			if !errors.Is(err, errRelayConversationBusy) {
@@ -369,6 +377,29 @@ func (ra *relayAttempt) attempt() attemptResult {
 	// 转发请求
 	statusCode, fwdErr := ra.forward()
 
+	// Client disconnected — do not record failure stats, circuit-breaker
+	// counts, or retry hints. The client chose to stop, not the channel.
+	if errors.Is(fwdErr, errClientDisconnected) {
+		span.End(dbmodel.AttemptFailed, statusCode, "client disconnected")
+		return attemptResult{
+			Success:  false,
+			Written:  ra.c.Writer.Written(),
+			Err:      fwdErr,
+			Decision: RetryDecision{Scope: ScopeAbortAll, Reason: "client disconnected", Code: statusCode},
+		}
+	}
+
+	// 输出结果关键词拦截 — 不重试，不记录渠道失败统计
+	if errors.Is(fwdErr, errResponseFilterBlocked) {
+		span.End(dbmodel.AttemptFailed, statusCode, "response filter blocked")
+		return attemptResult{
+			Success:  false,
+			Written:  ra.c.Writer.Written(),
+			Err:      fwdErr,
+			Decision: RetryDecision{Scope: ScopeAbortAll, Reason: "response filter blocked by keyword", Code: statusCode},
+		}
+	}
+
 	// 检查是否已写入流式响应
 	written := ra.c.Writer.Written()
 
@@ -382,6 +413,7 @@ func (ra *relayAttempt) attempt() attemptResult {
 	if decision.Scope == ScopeNone && !decision.IsError {
 		// ====== 成功 ======
 		ra.collectResponse()
+		ra.collectAndStoreStreamResponse()
 		ra.usedKey.TotalCost += ra.metrics.Stats.InputCost + ra.metrics.Stats.OutputCost
 		ch.KeyUpdate(ra.usedKey)
 
@@ -678,7 +710,7 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 		case <-clientDone:
 			if ra.streamSession == nil {
 				log.Infof("client disconnected, stopping stream")
-				return nil
+				return errClientDisconnected
 			}
 			markClientDisconnected()
 		case <-firstTokenC:
@@ -704,7 +736,32 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 			}
 
 			data, err := ra.transformStreamData(ctx, r.data)
-			if err != nil || len(data) == 0 {
+			if err != nil {
+				if errors.Is(err, errResponseFilterBlocked) {
+					// 关键词拦截：发送错误 SSE 事件并终止流
+					filterCfg := loadResponseFilterConfig()
+					if ra.streamSession != nil {
+						errPayload, _ := json.Marshal(map[string]any{
+							"error": map[string]any{
+								"message": filterCfg.ErrorMessage,
+								"type":    "content_filter",
+								"code":    "content_blocked",
+							},
+						})
+						ra.streamSession.AddPayload(errPayload)
+						ra.streamSession.Finish(nil)
+					} else if !clientDisconnected {
+						writeSSEErrorEvent(ra.c.Writer, filterCfg.ErrorMessage)
+						ra.c.Writer.Flush()
+					}
+					if closeErr := response.Body.Close(); closeErr != nil {
+						log.Warnf("failed to close response body on response filter block: %v", closeErr)
+					}
+					return fmt.Errorf("response filter blocked streaming output")
+				}
+				continue
+			}
+			if len(data) == 0 {
 				continue
 			}
 			if firstToken {
@@ -764,6 +821,13 @@ func (ra *relayAttempt) transformStreamData(ctx context.Context, data string) ([
 		return nil, nil
 	}
 
+	// 输出结果关键词拦截（流式）
+	filterCfg := loadResponseFilterConfig()
+	if blocked, keyword := applyResponseFilter(internalStream, filterCfg); blocked {
+		log.Infof("response filter blocked streaming chunk with keyword %q", keyword)
+		return nil, errResponseFilterBlocked
+	}
+
 	inStream, err := ra.inAdapter.TransformStream(ctx, internalStream)
 	if err != nil {
 		logRelayErrorfByContext(err, "failed to transform stream: %v", err)
@@ -780,6 +844,24 @@ func (ra *relayAttempt) handleResponse(ctx context.Context, response *http.Respo
 		logRelayErrorfByContext(err, "failed to transform response: %v", err)
 		return fmt.Errorf("failed to transform outbound response: %w", err)
 	}
+
+	// 输出结果关键词拦截
+	filterCfg := loadResponseFilterConfig()
+	if blocked, keyword := applyResponseFilter(internalResponse, filterCfg); blocked {
+		log.Infof("response filter blocked keyword %q", keyword)
+		errMsg := filterCfg.ErrorMessage
+		errorResp := map[string]any{
+			"error": map[string]any{
+				"message": errMsg,
+				"type":    "content_filter",
+				"code":    "content_blocked",
+			},
+		}
+		data, _ := json.Marshal(errorResp)
+		ra.c.Data(http.StatusOK, "application/json", data)
+		return nil
+	}
+
 	applyReasoningExhaustedHeader(ra.c, internalResponse)
 
 	inResponse, err := ra.inAdapter.TransformResponse(ctx, internalResponse)
@@ -832,6 +914,23 @@ func (ra *relayAttempt) collectResponse() {
 	ra.metrics.SetInternalResponse(internalResponse, ra.internalRequest.Model)
 }
 
+// collectAndStoreStreamResponse stores the already-aggregated stream response
+// in the semantic cache (success path only). It reuses the InternalResponse
+// previously collected by collectResponse() to avoid a second call to
+// GetInternalResponse(), which would return nil after stream chunks are consumed.
+func (ra *relayAttempt) collectAndStoreStreamResponse() {
+	if ra.internalRequest.Stream == nil || !*ra.internalRequest.Stream {
+		return
+	}
+	internalResponse := ra.metrics.InternalResponse
+	if internalResponse == nil {
+		return
+	}
+	if responseJSON, err := json.Marshal(internalResponse); err == nil {
+		storeSemanticCacheResponse(ra.operationCtx, ra.internalRequest, responseJSON)
+	}
+}
+
 func rewriteConversationRequestByProvider(group dbmodel.Group, req *model.InternalLLMRequest) *model.InternalLLMRequest {
 	if req == nil {
 		return req
@@ -882,6 +981,24 @@ func rewriteConversationRequestByProvider(group dbmodel.Group, req *model.Intern
 	return &cloned
 }
 
+// isClientDisconnected reports whether the client has disconnected.
+func isClientDisconnected(clientCtx context.Context) bool {
+	select {
+	case <-clientCtx.Done():
+		return true
+	default:
+		return false
+	}
+}
+
+// handleClientDisconnect is a shared handler for client-disconnect checks
+// inside the executeRelay retry loops. It saves metrics and returns the error.
+func handleClientDisconnect(req *relayRequest, allAttempts []dbmodel.ChannelAttempt) error {
+	log.Infof("client disconnected, stopping relay retry loop")
+	req.metrics.Save(false, errClientDisconnected, allAttempts)
+	return errClientDisconnected
+}
+
 func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, maxKeyRetriesPerRoute int, maxRouteRetries int, ratelimitCooldown int, maxTotalAttempts int) (*inflightRelayResult, error) {
 	var allAttempts []dbmodel.ChannelAttempt
 	var lastErr error
@@ -890,6 +1007,9 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 	requestModel = modelmapping.Resolve(req.operationCtx, requestModel, group.ID)
 
 	for routeRound := 1; routeRound <= maxRouteRetries; routeRound++ {
+		if isClientDisconnected(req.clientCtx) {
+			return nil, handleClientDisconnect(req, allAttempts)
+		}
 		if err := req.operationCtx.Err(); err != nil {
 			lastErr = err
 			logRelayErrorfByContext(err, "relay operation ended before request completed: %v", err)
@@ -904,6 +1024,9 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 			if maxTotalAttempts > 0 && len(allAttempts) >= maxTotalAttempts {
 				lastErr = fmt.Errorf("reached relay max total attempts: %d", maxTotalAttempts)
 				goto exhausted
+			}
+			if isClientDisconnected(req.clientCtx) {
+				return nil, handleClientDisconnect(req, allAttempts)
 			}
 			if err := req.operationCtx.Err(); err != nil {
 				lastErr = err
@@ -933,8 +1056,8 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 				continue
 			}
 
-			outAdapter := outbound.Get(channel.Type)
-			if outAdapter == nil {
+			attemptTypes := outboundAttemptTypes(channel.Type, req.internalRequest)
+			if len(attemptTypes) == 0 || outbound.Get(attemptTypes[0]) == nil {
 				routeIter.Skip(channel.ID, 0, channel.Name, fmt.Sprintf("unsupported channel type: %d", channel.Type))
 				continue
 			}
@@ -957,6 +1080,9 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 				if maxTotalAttempts > 0 && len(allAttempts) >= maxTotalAttempts {
 					lastErr = fmt.Errorf("reached relay max total attempts: %d", maxTotalAttempts)
 					goto exhausted
+				}
+				if isClientDisconnected(req.clientCtx) {
+					return nil, handleClientDisconnect(req, allAttempts)
 				}
 				if err := req.operationCtx.Err(); err != nil {
 					lastErr = err
@@ -990,22 +1116,40 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 					requestModel, group.Mode, channel.Name, resolvedModelName, usedKey.ID,
 					routeRound, keyRound, maxKeyRetriesPerRoute, routeIter.IsSticky())
 
-				ra := &relayAttempt{
-					relayRequest:         req,
-					outAdapter:           outAdapter,
-					channel:              channel,
-					usedKey:              usedKey,
-					firstTokenTimeOutSec: group.FirstTokenTimeOut,
-					tryIndex:             keyRound,
-					tryTotal:             maxKeyRetriesPerRoute,
-				}
+				var result attemptResult
+				for adapterIndex, attemptType := range attemptTypes {
+					outAdapter := outbound.Get(attemptType)
+					if outAdapter == nil {
+						continue
+					}
+					ra := &relayAttempt{
+						relayRequest:         req,
+						outAdapter:           outAdapter,
+						channel:              channel,
+						usedKey:              usedKey,
+						firstTokenTimeOutSec: group.FirstTokenTimeOut,
+						tryIndex:             keyRound,
+						tryTotal:             maxKeyRetriesPerRoute,
+					}
 
-				result := ra.attempt()
+					result = ra.attempt()
+					if result.Success || result.Written || result.Decision.Scope == ScopeAbortAll || adapterIndex == len(attemptTypes)-1 {
+						break
+					}
+					log.Infof("chat request responses attempt failed on channel %s, falling back to chat/completions: %v", channel.Name, result.Err)
+				}
 				currentAttempts := append(allAttempts, req.iter.Attempts()...)
 				if result.Success {
 					namespace, requestText, _ := semanticCacheStoreMetadata(req.internalRequest)
 					req.metrics.Save(true, nil, currentAttempts)
 					return &inflightRelayResult{internalResp: cloneInternalResponse(req.metrics.InternalResponse), actualModel: req.internalRequest.Model, namespace: namespace, requestText: requestText}, nil
+				}
+
+				// Client disconnected — stop all retries immediately without
+				// recording failure hints or attempting further channels.
+				if errors.Is(result.Err, errClientDisconnected) {
+					req.metrics.Save(false, result.Err, currentAttempts)
+					return nil, result.Err
 				}
 
 				recordFailureHint(channel.ID, usedKey.ID, resolvedModelName, result.Decision, result.Err, ratelimitCooldown)

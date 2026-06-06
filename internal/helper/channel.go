@@ -3,8 +3,10 @@ package helper
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/lingyuins/octopus/internal/client"
 	"github.com/lingyuins/octopus/internal/model"
@@ -28,25 +30,45 @@ func ChannelHttpClient(channel *model.Channel) (*http.Client, error) {
 	}
 }
 
-func ChannelBaseUrlDelayUpdate(channel *model.Channel, ctx context.Context) {
+// ChannelShortTimeoutHttpClient 返回一个短超时(30s)的 HTTP 客户端
+// 用于后台任务(延迟探测、模型同步)，避免在 endpoint 不可达时 goroutine 堆积
+func ChannelShortTimeoutHttpClient(channel *model.Channel) (*http.Client, error) {
 	if channel == nil {
-		return
+		return nil, errors.New("channel is nil")
+	}
+	if !channel.Proxy {
+		return client.GetHTTPClientShortTimeout(false)
+	} else if channel.ChannelProxy == nil || strings.TrimSpace(*channel.ChannelProxy) == "" {
+		return client.GetHTTPClientShortTimeout(true)
+	} else {
+		return client.GetHTTPClientCustomProxyWithTimeout(strings.TrimSpace(*channel.ChannelProxy), 30*time.Second)
+	}
+}
+
+// ChannelBaseUrlDelayUpdate 更新 channel 的 base URL 延迟信息（使用短超时客户端）
+// 返回 error 表示所有 base URL 都探测失败
+func ChannelBaseUrlDelayUpdate(channel *model.Channel, ctx context.Context) error {
+	if channel == nil {
+		return errors.New("channel is nil")
 	}
 	newBaseUrls := make([]model.BaseUrl, 0, len(channel.BaseUrls))
+	allFailed := true
+
 	for _, baseUrl := range channel.BaseUrls {
 		if baseUrl.URL == "" {
 			continue
 		}
-		httpClient, err := ChannelHttpClient(channel)
+		httpClient, err := ChannelShortTimeoutHttpClient(channel)
 		if err != nil {
 			log.Warnf("failed to get http client (channel=%d): %v", channel.ID, err)
 			continue
 		}
 		delay, err := GetUrlDelay(httpClient, baseUrl.URL, ctx)
 		if err != nil {
-			log.Warnf("failed to get url delay (channel=%d): %v", channel.ID, err)
+			log.Warnf("failed to get url delay (channel=%d, url=%s): %v", channel.ID, baseUrl.URL, err)
 			continue
-}
+		}
+		allFailed = false
 		newBaseUrls = append(newBaseUrls, model.BaseUrl{
 			URL:        baseUrl.URL,
 			Delay:      delay,
@@ -56,6 +78,11 @@ func ChannelBaseUrlDelayUpdate(channel *model.Channel, ctx context.Context) {
 	if len(newBaseUrls) > 0 {
 		ch.BaseUrlUpdate(channel.ID, newBaseUrls)
 	}
+
+	if allFailed && len(channel.BaseUrls) > 0 {
+		return fmt.Errorf("all base URLs failed for channel %d", channel.ID)
+	}
+	return nil
 }
 
 func ChannelAutoGroup(channel *model.Channel, ctx context.Context) {

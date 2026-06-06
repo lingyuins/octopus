@@ -132,6 +132,45 @@ func TestBuildRelayStreamSessionHash_IgnoresResumeControlFields(t *testing.T) {
 	}
 }
 
+func TestResolveRelayStreamSessionIdentity_GeneratesImplicitConversationID(t *testing.T) {
+	stream := true
+	req := &transmodel.InternalLLMRequest{
+		Model:      "gpt-4o",
+		Stream:     &stream,
+		RawRequest: []byte(`{"model":"gpt-4o","stream":true,"messages":[{"role":"user","content":"hello"}]}`),
+	}
+
+	conversationID, requestHash, ok := resolveRelayStreamSessionIdentity("chat", 0, 7, req)
+	if !ok {
+		t.Fatal("resolveRelayStreamSessionIdentity() should enable stream session for stream requests without conversation_id")
+	}
+	if !strings.HasPrefix(conversationID, "implicit:") {
+		t.Fatalf("conversationID = %q, want implicit prefix", conversationID)
+	}
+	if requestHash == 0 {
+		t.Fatal("requestHash should be non-zero")
+	}
+	if req.ConversationID != conversationID {
+		t.Fatalf("req.ConversationID = %q, want %q", req.ConversationID, conversationID)
+	}
+
+	retry := &transmodel.InternalLLMRequest{
+		Model:      "gpt-4o",
+		Stream:     &stream,
+		RawRequest: []byte(`{"model":"gpt-4o","stream":true,"messages":[{"role":"user","content":"hello"}],"last_event_id":2}`),
+	}
+	retryConversationID, retryHash, ok := resolveRelayStreamSessionIdentity("chat", 0, 7, retry)
+	if !ok {
+		t.Fatal("resolveRelayStreamSessionIdentity() should enable retry stream session")
+	}
+	if retryConversationID != conversationID {
+		t.Fatalf("retry conversationID = %q, want %q", retryConversationID, conversationID)
+	}
+	if retryHash != requestHash {
+		t.Fatalf("retry requestHash = %d, want %d", retryHash, requestHash)
+	}
+}
+
 func TestRelayStreamSessionSnapshotReportsReplayWindowExpiredWhenTrimmed(t *testing.T) {
 	maxEvents := 2
 	maxBytes := 0
@@ -236,8 +275,8 @@ func TestHandleStreamResponseStopsImmediatelyWhenClientDisconnectsWithoutSession
 
 	select {
 	case err := <-done:
-		if err != nil {
-			t.Fatalf("handleStreamResponse() err = %v, want nil", err)
+		if !errors.Is(err, errClientDisconnected) {
+			t.Fatalf("handleStreamResponse() err = %v, want errClientDisconnected", err)
 		}
 	case <-time.After(200 * time.Millisecond):
 		t.Fatal("handleStreamResponse() did not stop after client disconnect")

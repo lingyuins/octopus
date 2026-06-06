@@ -86,7 +86,7 @@ export function Utilization({ range }: { range: AnalyticsRange }) {
                 empty={isEmpty}
                 emptyLabel={isLoading ? t('states.loading') : t('utilization.empty')}
             >
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                     <BreakdownCard
                         title={t('utilization.providers')}
                         icon={Radio}

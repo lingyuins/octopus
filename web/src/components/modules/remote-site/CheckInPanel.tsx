@@ -120,25 +120,26 @@ export function CheckInPanel() {
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <CalendarCheck className="h-5 w-5" />
-                    <h2 className="text-lg font-semibold">{t('title')}</h2>
-                    <Badge variant="secondary">{enabledSites.length}</Badge>
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                    <CalendarCheck className="h-5 w-5 shrink-0" />
+                    <h2 className="text-lg font-semibold truncate">{t('title')}</h2>
+                    <Badge variant="secondary" className="shrink-0">{enabledSites.length}</Badge>
                 </div>
                 <Button
                     variant="outline"
                     size="sm"
                     onClick={handleCheckInAll}
                     disabled={executeAll.isPending}
+                    className="shrink-0"
                 >
-                    <RefreshCw className={cn('h-4 w-4 mr-1', executeAll.isPending && 'animate-spin')} />
-                    {t('checkInAll')}
+                    <RefreshCw className={cn('h-4 w-4 sm:mr-1', executeAll.isPending && 'animate-spin')} />
+                    <span className="hidden sm:inline">{t('checkInAll')}</span>
                 </Button>
             </div>
 
             {enabledSites.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {enabledSites.map((site) => (
                         <SiteCheckInCard key={site.id} site={site} />
                     ))}

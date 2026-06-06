@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { animate } from 'motion/react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface AnimatedNumberProps {
     value: string | number | undefined;
@@ -9,6 +10,7 @@ interface AnimatedNumberProps {
 export function AnimatedNumber({ value, duration = 800 }: AnimatedNumberProps) {
     const [displayValue, setDisplayValue] = useState(0);
     const prevValueRef = useRef(0);
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         if (value === undefined || value === null || value === '-') {
@@ -44,8 +46,9 @@ export function AnimatedNumber({ value, duration = 800 }: AnimatedNumberProps) {
     const decimalPlaces = shouldShowDecimals ? 2 : 0;
 
     const formattedValue = displayValue.toLocaleString('en-US', {
-        minimumFractionDigits: decimalPlaces,
-        maximumFractionDigits: decimalPlaces
+        notation: isMobile && displayValue >= 1_000_000 ? 'compact' : 'standard',
+        maximumFractionDigits: decimalPlaces,
+        ...(shouldShowDecimals ? { minimumFractionDigits: decimalPlaces } : {}),
     });
 
     return <span>{formattedValue}</span>;

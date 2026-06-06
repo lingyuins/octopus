@@ -91,13 +91,13 @@ export function UsageHistoryPanel() {
   const totalQuota = summary?.reduce((acc, s) => acc + s.quota_consumed, 0) || 0
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">{t('title')}</h1>
-          <p className="text-muted-foreground mt-1">{t('description')}</p>
+    <div className="py-4 sm:py-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold">{t('title')}</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">{t('description')}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0">
           {siteId && (
             <Button
               onClick={() => syncMutation.mutate()}
@@ -126,7 +126,7 @@ export function UsageHistoryPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-5">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
             <div>
               <label className="text-sm font-medium">{t('site')}</label>
               <Select value={siteId} onValueChange={setSiteId}>
@@ -191,7 +191,7 @@ export function UsageHistoryPanel() {
 
       {siteId && (
         <>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
             <Card>
               <CardHeader className="pb-2">
                 <CardDescription>{t('total_requests')}</CardDescription>
@@ -229,6 +229,7 @@ export function UsageHistoryPanel() {
               <CardDescription>{t('history_description')}</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="overflow-x-auto -mx-6 px-6">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -271,6 +272,7 @@ export function UsageHistoryPanel() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </>

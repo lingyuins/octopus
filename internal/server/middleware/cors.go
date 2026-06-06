@@ -57,5 +57,14 @@ func Cors() gin.HandlerFunc {
 		}
 		return false
 	}
-	return cors.New(config)
+	corsHandler := cors.New(config)
+
+	return func(c *gin.Context) {
+		// Private Network Access (PNA): Chrome requires this header when a
+		// public website (e.g. claude.ai) accesses private/local addresses.
+		if c.GetHeader("Access-Control-Request-Private-Network") == "true" {
+			c.Header("Access-Control-Allow-Private-Network", "true")
+		}
+		corsHandler(c)
+	}
 }

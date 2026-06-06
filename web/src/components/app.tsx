@@ -16,7 +16,6 @@ import { DEFAULT_LOG_PAGE_SIZE, useLogRefresh } from '@/api/endpoints/log';
 import { SettingKey, type Setting } from '@/api/endpoints/setting';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/common/Toast';
-import { ENTRANCE_VARIANTS } from '@/lib/animations/fluid-transitions';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { REFETCH_INTERVAL_DEFAULT } from '@/api/constants';
 import { CONTENT_MAP } from '@/route';
@@ -24,6 +23,7 @@ import { parseNavOrder, parseNavVisible } from '@/components/modules/navbar';
 import { apiClient } from '@/api/client';
 import { logger } from '@/lib/logger';
 import { FirstRunSetup } from '@/components/modules/first-run-setup';
+import { ProxyPoolDialog } from '@/components/modules/proxy-pool/ProxyPoolDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { BootstrapStatusResponse } from '@/api/endpoints/bootstrap';
 import type { NavItem } from '@/components/modules/navbar';
@@ -70,10 +70,10 @@ function HeaderActions({ activeItem }: { activeItem: NavItem }) {
             size="sm"
             onClick={() => void handleRefresh()}
             disabled={isRefreshing}
-            className="h-10 rounded-lg px-4"
+            className="h-9 shrink-0 rounded-lg px-2.5 sm:h-10 sm:px-4"
         >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {t('actions.refresh')}
+            <RefreshCw className={`h-4 w-4 sm:mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="sr-only sm:not-sr-only">{t('actions.refresh')}</span>
         </Button>
     );
 }
@@ -341,8 +341,16 @@ export function AppContainer() {
     // 加载页面
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
+            <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background">
                 <Logo size={120} animate />
+                <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: [0.4, 0.7, 0.4] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    className="text-sm text-muted-foreground"
+                >
+                    Loading...
+                </motion.span>
             </div>
         );
     }
@@ -384,9 +392,9 @@ export function AppContainer() {
         >
             <NavBar />
             <main className="relative z-10 flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4 md:gap-5">
-                <header className="relative z-20 flex flex-none flex-col gap-4 overflow-visible rounded-xl border border-border bg-card px-4 py-4 md:px-6 md:py-5 lg:flex-row lg:items-center lg:gap-6">
-                    <div className="flex min-w-0 flex-1 items-center gap-4">
-                        <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-card">
+                <header className="relative z-20 flex flex-none items-center gap-3 overflow-visible rounded-xl border border-border bg-card px-4 py-3 md:px-6 md:py-5 lg:gap-6">
+                    <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-4">
+                        <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-card md:size-14">
                             <Logo size={42} />
                         </div>
                         <div className="min-w-0 flex-1 overflow-hidden">
@@ -424,42 +432,34 @@ export function AppContainer() {
                                     transition={{ duration: lightweightMotion ? 0.18 : 0.4, ease: [0.16, 1, 0.3, 1] }}
                                     className="flex min-w-0 flex-col"
                                 >
-                                    <span className="truncate text-3xl font-bold leading-tight tracking-[-0.04em] text-foreground md:text-4xl">
-                                        {t(activeItem)}
-                                    </span>
+                                    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                                        <span className="min-w-0 truncate text-2xl font-bold leading-tight tracking-[-0.04em] text-foreground sm:text-3xl md:text-4xl">
+                                            {t(activeItem)}
+                                        </span>
+                                        <HeaderActions activeItem={activeItem} />
+                                    </div>
                                 </motion.div>
                             </AnimatePresence>
                         </div>
                     </div>
-                    <div className="flex min-w-0 flex-col gap-3 lg:ml-auto lg:items-end">
-                        <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 lg:justify-end">
-                            <HeaderActions activeItem={activeItem} />
-                        </div>
+                    <div className="ml-auto flex shrink-0 items-center justify-end">
                         <Toolbar />
                     </div>
                 </header>
                 <AnimatePresence mode="wait" initial={false}>
                     <motion.div
                         key={activeItem}
-                        variants={lightweightMotion ? {
-                            initial: { opacity: 0 },
-                            animate: { opacity: 1 },
-                            exit: { opacity: 0 },
-                        } : ENTRANCE_VARIANTS.content}
-                        initial="initial"
-                        animate="animate"
-                        exit={lightweightMotion ? { opacity: 0 } : {
-                            opacity: 0,
-                            scale: 0.97,
-                            filter: 'blur(4px)',
-                        }}
-                        transition={{ duration: lightweightMotion ? 0.18 : 0.35, ease: [0.16, 1, 0.3, 1] }}
-                        className="h-full min-h-0 flex-1 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.12, ease: 'easeOut' }}
+                        className="h-full min-h-0 flex-1 md:pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
                     >
                         <ContentLoader activeRoute={activeItem} />
                     </motion.div>
                 </AnimatePresence>
             </main>
+            <ProxyPoolDialog />
         </motion.div>
     );
 }

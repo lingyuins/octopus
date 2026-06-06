@@ -85,6 +85,9 @@ func listRemoteSites(c *gin.Context) {
 		resp.InternalError(c)
 		return
 	}
+	if isViewerRole(c.GetString("user_role")) {
+		redactRemoteSiteBaseURLsForViewer(sites)
+	}
 	resp.Success(c, sites)
 }
 

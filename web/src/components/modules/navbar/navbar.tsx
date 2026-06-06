@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { motion, useReducedMotion } from "motion/react"
 import { cn } from "@/lib/utils"
 import { useNavStore, type NavItem } from "@/components/modules/navbar"
@@ -17,6 +17,7 @@ export function NavBar() {
     const isMobile = useIsMobile()
     const reduceMotion = useReducedMotion()
     const lightweightMotion = isMobile || reduceMotion
+    const [pressedItem, setPressedItem] = useState<string | null>(null)
     const visibleRouteSet = useMemo(() => new Set(visibleItems), [visibleItems])
     const routeById = useMemo(
         () => new Map(ROUTES.map((route) => [route.id as NavItem, route])),
@@ -44,8 +45,8 @@ export function NavBar() {
                 initial={lightweightMotion ? false : "initial"}
                 animate={lightweightMotion ? undefined : "animate"}
             >
-                <div className="pointer-events-none absolute inset-y-0 left-0 z-30 w-8 rounded-l-2xl bg-gradient-to-r from-sidebar/90 to-transparent md:hidden" />
-                <div className="pointer-events-none absolute inset-y-0 right-0 z-30 w-8 rounded-r-2xl bg-gradient-to-l from-sidebar/90 to-transparent md:hidden" />
+                <div className="pointer-events-none absolute inset-y-0 left-0 z-30 w-5 rounded-l-2xl bg-gradient-to-r from-sidebar/50 via-sidebar/20 to-transparent md:hidden" />
+                <div className="pointer-events-none absolute inset-y-0 right-0 z-30 w-5 rounded-r-2xl bg-gradient-to-l from-sidebar/50 via-sidebar/20 to-transparent md:hidden" />
                 {orderedRoutes.map((route, index) => {
                     const isActive = activeItem === route.id
                     return (
@@ -60,10 +61,13 @@ export function NavBar() {
                                 }
                             }}
                             className={cn(
-                                "group relative z-20 flex items-center justify-center rounded-lg border transition-[color,background-color,border-color] duration-150 md:w-full",
-                                isMobile ? "size-9" : "w-12 h-11 md:justify-start md:gap-3 md:px-3",
+                                "group relative z-20 flex items-center justify-center rounded-lg border transition-[color,background-color,border-color,box-shadow] duration-150 md:w-full",
+                                isMobile ? "size-9" : "h-11 md:justify-start md:gap-3 md:px-3",
                                 isActive
-                                    ? "border-transparent bg-primary/15 text-primary border-t-2 border-t-primary md:border-t-0 md:border-l-2 md:border-l-primary md:border-r-0 md:border-b-0"
+                                    ? cn(
+                                        "border-transparent bg-primary/15 text-primary border-t-2 border-t-primary md:border-t-0 md:border-l-2 md:border-l-primary md:border-r-0 md:border-b-0",
+                                        isMobile && "shadow-[0_0_12px_rgba(var(--primary),0.25)]"
+                                    )
                                     : "border-transparent text-sidebar-foreground/50 hover:bg-muted/60 hover:text-sidebar-foreground"
                             )}
                             initial={lightweightMotion ? false : { opacity: 0, scale: 0.8 }}
@@ -75,9 +79,37 @@ export function NavBar() {
                                     duration: 0.3,
                                 }
                             }}
-                            whileTap={lightweightMotion ? { scale: 0.97 } : { scale: 0.97 }}
+                            whileTap={lightweightMotion
+                                ? { scale: 0.88, transition: { type: "spring", stiffness: 400, damping: 17 } }
+                                : { scale: 0.97 }}
+                            onPointerDown={() => {
+                                if (isMobile) setPressedItem(route.id)
+                            }}
+                            onPointerUp={() => {
+                                if (isMobile) setPressedItem(null)
+                            }}
+                            onPointerLeave={() => {
+                                if (isMobile) setPressedItem(null)
+                            }}
+                            onPointerCancel={() => {
+                                if (isMobile) setPressedItem(null)
+                            }}
                         >
                             <route.icon className="size-4 shrink-0 md:size-[1.125rem]" strokeWidth={1.5} />
+                            <span className="hidden text-sm font-medium md:inline">
+                                {t(route.id as NavItem)}
+                            </span>
+                            {isMobile && (isActive || pressedItem === route.id) && (
+                                <motion.span
+                                    initial={{ opacity: 0, y: 2 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.12 }}
+                                    className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-popover px-1.5 py-0.5 text-[10px] font-medium text-popover-foreground shadow-md ring-1 ring-border"
+                                >
+                                    {t(route.id as NavItem)}
+                                </motion.span>
+                            )}
                         </motion.button>
                     )
                 })}

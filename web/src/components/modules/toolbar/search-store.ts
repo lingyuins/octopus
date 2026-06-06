@@ -1,10 +1,10 @@
 import { create } from 'zustand';
-import type { ToolbarPage } from './view-options-store';
+import type { ToolbarSearchablePage } from './view-options-store';
 
 interface SearchState {
-    searchTerms: Partial<Record<ToolbarPage, string>>;
-    getSearchTerm: (page: ToolbarPage) => string;
-    setSearchTerm: (page: ToolbarPage, term: string) => void;
+    searchTerms: Partial<Record<ToolbarSearchablePage, string>>;
+    getSearchTerm: (page: ToolbarSearchablePage) => string;
+    setSearchTerm: (page: ToolbarSearchablePage, term: string) => void;
 }
 
 export const useSearchStore = create<SearchState>((set, get) => ({

@@ -72,7 +72,7 @@ export function SiteDialog({ open, onOpenChange, editingSite }: SiteDialogProps)
         }
     }, [open, editingSite]);
 
-    const isOctopusType = siteType === 'octopus';
+    const usesPasswordAuth = siteType === 'octopus' || siteType === 'sapi';
 
     const handleDetect = () => {
         if (!baseUrl) return;
@@ -136,7 +136,7 @@ export function SiteDialog({ open, onOpenChange, editingSite }: SiteDialogProps)
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? t('editSite') : t('addSite')}</DialogTitle>
                 </DialogHeader>
@@ -178,7 +178,7 @@ export function SiteDialog({ open, onOpenChange, editingSite }: SiteDialogProps)
                             </SelectContent>
                         </Select>
                     </div>
-                    {isOctopusType ? (
+                    {usesPasswordAuth ? (
                         <>
                             <div className="grid gap-2">
                                 <Label>{t('form.username')}</Label>

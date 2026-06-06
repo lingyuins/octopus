@@ -74,6 +74,9 @@ func getSettingList(c *gin.Context) {
 		resp.InternalError(c)
 		return
 	}
+	if isViewerRole(c.GetString("user_role")) {
+		redactSettingsURLsForViewer(settings)
+	}
 	resp.Success(c, settings)
 }
 

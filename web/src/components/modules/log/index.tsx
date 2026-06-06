@@ -35,15 +35,18 @@ export function Log() {
     const footer = useMemo(() => {
         if (hasMore && (isLoading || isLoadingMore)) {
             return (
-                <div className="flex justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <div className="flex justify-center py-6">
+                    <div className="flex items-center gap-2 rounded-full border border-border/50 bg-card/80 px-4 py-2 shadow-sm backdrop-blur">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">{t('list.loadingMore')}</span>
+                    </div>
                 </div>
             );
         }
         if (!hasMore && logs.length > 0) {
             return (
-                <div className="flex justify-center py-4">
-                    <span className="text-sm text-muted-foreground">{t('list.noMore')}</span>
+                <div className="flex justify-center py-6">
+                    <span className="text-xs text-muted-foreground/60">{t('list.noMore')}</span>
                 </div>
             );
         }
@@ -51,7 +54,7 @@ export function Log() {
     }, [hasMore, isLoading, isLoadingMore, logs.length, t]);
 
     return (
-        <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain rounded-t-xl pb-24 md:pb-4">
+        <div className="flex h-full min-h-0 flex-col gap-4 overflow-hidden rounded-t-xl pt-2 md:pt-0">
             {isLoading && logs.length === 0 ? (
                 <div className="flex min-h-[18rem] items-center justify-center rounded-xl border border-border/35 bg-card">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -66,7 +69,7 @@ export function Log() {
                         items={logs}
                         layout="list"
                         columns={{ default: 1 }}
-                        estimateItemHeight={80}
+                        estimateItemHeight={180}
                         overscan={8}
                         getItemKey={(log) => `log-${log.id}`}
                         renderItem={(log) => <LogCard log={log} channelNameById={channelNameById} />}
@@ -74,6 +77,7 @@ export function Log() {
                         onReachEnd={handleReachEnd}
                         reachEndEnabled={canLoadMore}
                         reachEndOffset={2}
+                        bottomPaddingClassName="pb-16 md:pb-4"
                     />
                 </div>
             )}

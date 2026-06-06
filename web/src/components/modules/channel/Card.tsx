@@ -54,47 +54,48 @@ export function Card({ channel, stats, layout = 'grid' }: { channel: Channel; st
 
     return (
         <MorphingDialog>
-            <article
-                className={`group relative flex w-full rounded-xl border border-border bg-card p-4 text-card-foreground transition-[border-color,transform] duration-200 hover:border-border/80 hover:bg-muted/20 md:hover:-translate-y-0.5 ${isListLayout ? 'min-h-[12rem]' : 'min-h-[18rem]'}`}
+            <MorphingDialogTrigger
+                className={`group relative flex w-full rounded-xl border border-border bg-card p-4 text-card-foreground transition-all duration-200 hover:border-border/80 hover:shadow-md hover:bg-muted/20 active:scale-[0.995] md:hover:-translate-y-0.5 md:active:translate-y-0 ${isListLayout ? 'min-h-[12rem]' : 'min-h-[18rem]'}`}
             >
-                <div className="relative flex w-full flex-col gap-4">
-                    <header className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 space-y-3">
-                            <div className="flex items-center gap-2">
-                                <span className={`h-2 w-2 rounded-full ${channel.enabled ? 'bg-emerald-500' : 'bg-destructive'}`} />
-                                <Badge variant="secondary" className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium">
+                <div className="relative flex w-full flex-col gap-3 sm:gap-4">
+                    <header className="flex items-start justify-between gap-2 sm:gap-3">
+                        <div className="min-w-0 flex-1 space-y-2 sm:space-y-3">
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                <span className={`h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full ${channel.enabled ? 'bg-emerald-500' : 'bg-destructive'}`} />
+                                <Badge variant="secondary" className="rounded-md border border-border bg-muted px-1.5 sm:px-2 py-0.5 text-[0.65rem] sm:text-xs font-medium">
                                     #{channel.id}
                                 </Badge>
-                                <Badge variant="secondary" className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium">
+                                <Badge variant="secondary" className="rounded-md border border-border bg-muted px-1.5 sm:px-2 py-0.5 text-[0.65rem] sm:text-xs font-medium">
                                     {enabledKeyCount}/{channel.keys.length}
                                 </Badge>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span
-                                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/40 text-muted-foreground"
+                                    className="inline-flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/40 text-muted-foreground"
                                     aria-hidden="true"
                                 >
-                                    <GripVertical className="size-4" />
+                                    <GripVertical className="size-3.5 sm:size-4" />
                                 </span>
                                 <Tooltip side="top" sideOffset={10} align="center">
                                     <TooltipTrigger asChild>
-                                        <h3 className="max-w-full truncate text-lg font-semibold tracking-tight">{channel.name}</h3>
+                                        <h3 className="max-w-full truncate text-base sm:text-lg font-semibold tracking-tight">{channel.name}</h3>
                                     </TooltipTrigger>
                                     <TooltipContent key={channel.name}>{channel.name}</TooltipContent>
                                 </Tooltip>
                             </div>
                         </div>
-                        <Switch
-                            checked={channel.enabled}
-                            onCheckedChange={handleEnableChange}
-                            disabled={enableChannel.isPending}
-                            onClick={(e) => e.stopPropagation()}
-                        />
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                            <Switch
+                                checked={channel.enabled}
+                                onCheckedChange={handleEnableChange}
+                                disabled={enableChannel.isPending}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                            />
+                        </div>
                     </header>
 
-                    <MorphingDialogTrigger className="w-full text-left">
-
-                        <div className={`grid gap-3 ${isListLayout ? 'lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.8fr)]' : 'grid-cols-1'}`}>
+                    <div className={`grid gap-3 ${isListLayout ? 'lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.8fr)]' : 'grid-cols-1'}`}>
                             <div className="relative flex min-h-[6.5rem] flex-col justify-between overflow-hidden rounded-lg border border-border bg-card p-3.5">
                                 <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                                     <Globe className="size-3.5 text-primary/60" strokeWidth={1.5} />
@@ -106,113 +107,112 @@ export function Card({ channel, stats, layout = 'grid' }: { channel: Channel; st
                             </div>
 
                             {isListLayout ? (
-                                <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                                    <div className="rounded-lg border border-border bg-card p-3">
-                                        <dt className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <MessageSquare className="size-3.5 text-primary/60" strokeWidth={1.5} />
+                                <dl className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+                                    <div className="rounded-lg border border-border bg-card p-2.5 sm:p-3">
+                                        <dt className="mb-1.5 flex items-center gap-1.5 text-[0.65rem] sm:text-xs text-muted-foreground">
+                                            <MessageSquare className="size-3 sm:size-3.5 text-primary/60" strokeWidth={1.5} />
                                             {t('requestCount')}
                                         </dt>
-                                        <dd className="text-base font-semibold">
+                                        <dd className="text-sm sm:text-base font-semibold tabular-nums">
                                             {stats.request_count.formatted.value}
-                                            <span className="ml-1 text-[0.7rem] text-muted-foreground">{stats.request_count.formatted.unit}</span>
+                                            <span className="ml-0.5 text-[0.65rem] sm:text-[0.7rem] text-muted-foreground">{stats.request_count.formatted.unit}</span>
                                         </dd>
                                     </div>
-                                    <div className="rounded-lg border border-border bg-card p-3">
-                                        <dt className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <Layers className="size-3.5 text-primary/60" strokeWidth={1.5} />
+                                    <div className="rounded-lg border border-border bg-card p-2.5 sm:p-3">
+                                        <dt className="mb-1.5 flex items-center gap-1.5 text-[0.65rem] sm:text-xs text-muted-foreground">
+                                            <Layers className="size-3 sm:size-3.5 text-primary/60" strokeWidth={1.5} />
                                             {tForm('model')}
                                         </dt>
-                                        <dd className="text-base font-semibold">{modelCount}</dd>
+                                        <dd className="text-sm sm:text-base font-semibold tabular-nums">{modelCount}</dd>
                                     </div>
-                                    <div className="rounded-lg border border-border bg-card p-3">
-                                        <dt className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <CheckCircle2 className="size-3.5 text-emerald-500" strokeWidth={1.5} />
+                                    <div className="rounded-lg border border-border bg-card p-2.5 sm:p-3">
+                                        <dt className="mb-1.5 flex items-center gap-1.5 text-[0.65rem] sm:text-xs text-muted-foreground">
+                                            <CheckCircle2 className="size-3 sm:size-3.5 text-emerald-500" strokeWidth={1.5} />
                                             {tMetrics('successRequests')}
                                         </dt>
-                                        <dd className="text-base font-semibold">
+                                        <dd className="text-sm sm:text-base font-semibold tabular-nums">
                                             {successRequests.value}
                                             {successRequests.unit ? (
-                                                <span className="ml-1 text-[0.7rem] text-muted-foreground">{successRequests.unit}</span>
+                                                <span className="ml-0.5 text-[0.65rem] sm:text-[0.7rem] text-muted-foreground">{successRequests.unit}</span>
                                             ) : null}
                                         </dd>
                                     </div>
-                                    <div className="rounded-lg border border-border bg-card p-3">
-                                        <dt className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <DollarSign className="size-3.5 text-primary/60" strokeWidth={1.5} />
+                                    <div className="rounded-lg border border-border bg-card p-2.5 sm:p-3">
+                                        <dt className="mb-1.5 flex items-center gap-1.5 text-[0.65rem] sm:text-xs text-muted-foreground">
+                                            <DollarSign className="size-3 sm:size-3.5 text-primary/60" strokeWidth={1.5} />
                                             {t('totalCost')}
                                         </dt>
-                                        <dd className="text-base font-semibold">
+                                        <dd className="text-sm sm:text-base font-semibold tabular-nums">
                                             {stats.total_cost.formatted.value}
-                                            <span className="ml-1 text-[0.7rem] text-muted-foreground">{stats.total_cost.formatted.unit}</span>
+                                            <span className="ml-0.5 text-[0.65rem] sm:text-[0.7rem] text-muted-foreground">{stats.total_cost.formatted.unit}</span>
                                         </dd>
                                     </div>
                                 </dl>
                             ) : (
-                                <dl className="grid grid-cols-2 gap-3">
-                                    <div className="rounded-lg border border-border bg-card p-3">
-                                        <dt className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <MessageSquare className="size-3.5 text-primary/60" strokeWidth={1.5} />
+                                <dl className="grid grid-cols-2 gap-2 sm:gap-3">
+                                    <div className="rounded-lg border border-border bg-card p-2.5 sm:p-3">
+                                        <dt className="mb-1.5 flex items-center gap-1.5 text-[0.65rem] sm:text-xs text-muted-foreground">
+                                            <MessageSquare className="size-3 sm:size-3.5 text-primary/60" strokeWidth={1.5} />
                                             {t('requestCount')}
                                         </dt>
-                                        <dd className="text-base font-semibold">
+                                        <dd className="text-sm sm:text-base font-semibold tabular-nums">
                                             {stats.request_count.formatted.value}
-                                            <span className="ml-1 text-[0.7rem] text-muted-foreground">{stats.request_count.formatted.unit}</span>
+                                            <span className="ml-0.5 text-[0.65rem] sm:text-[0.7rem] text-muted-foreground">{stats.request_count.formatted.unit}</span>
                                         </dd>
                                     </div>
-                                    <div className="rounded-lg border border-border bg-card p-3">
-                                        <dt className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <DollarSign className="size-3.5 text-primary/60" strokeWidth={1.5} />
+                                    <div className="rounded-lg border border-border bg-card p-2.5 sm:p-3">
+                                        <dt className="mb-1.5 flex items-center gap-1.5 text-[0.65rem] sm:text-xs text-muted-foreground">
+                                            <DollarSign className="size-3 sm:size-3.5 text-primary/60" strokeWidth={1.5} />
                                             {t('totalCost')}
                                         </dt>
-                                        <dd className="text-base font-semibold">
+                                        <dd className="text-sm sm:text-base font-semibold tabular-nums">
                                             {stats.total_cost.formatted.value}
-                                            <span className="ml-1 text-[0.7rem] text-muted-foreground">{stats.total_cost.formatted.unit}</span>
+                                            <span className="ml-0.5 text-[0.65rem] sm:text-[0.7rem] text-muted-foreground">{stats.total_cost.formatted.unit}</span>
                                         </dd>
                                     </div>
-                                    <div className="rounded-lg border border-border bg-card p-3">
-                                        <dt className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <Key className="size-3.5 text-primary/60" strokeWidth={1.5} />
+                                    <div className="rounded-lg border border-border bg-card p-2.5 sm:p-3">
+                                        <dt className="mb-1.5 flex items-center gap-1.5 text-[0.65rem] sm:text-xs text-muted-foreground">
+                                            <Key className="size-3 sm:size-3.5 text-primary/60" strokeWidth={1.5} />
                                             {tSections('keys')}
                                         </dt>
-                                        <dd className="text-base font-semibold">{enabledKeyCount}/{channel.keys.length}</dd>
+                                        <dd className="text-sm sm:text-base font-semibold tabular-nums">{enabledKeyCount}/{channel.keys.length}</dd>
                                     </div>
-                                    <div className="rounded-lg border border-border bg-card p-3">
-                                        <dt className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <Layers className="size-3.5 text-primary/60" strokeWidth={1.5} />
+                                    <div className="rounded-lg border border-border bg-card p-2.5 sm:p-3">
+                                        <dt className="mb-1.5 flex items-center gap-1.5 text-[0.65rem] sm:text-xs text-muted-foreground">
+                                            <Layers className="size-3 sm:size-3.5 text-primary/60" strokeWidth={1.5} />
                                             {tForm('model')}
                                         </dt>
-                                        <dd className="text-base font-semibold">{modelCount}</dd>
+                                        <dd className="text-sm sm:text-base font-semibold tabular-nums">{modelCount}</dd>
                                     </div>
-                                    <div className="rounded-lg border border-border bg-card p-3">
-                                        <dt className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <CheckCircle2 className="size-3.5 text-emerald-500" strokeWidth={1.5} />
+                                    <div className="rounded-lg border border-border bg-card p-2.5 sm:p-3">
+                                        <dt className="mb-1.5 flex items-center gap-1.5 text-[0.65rem] sm:text-xs text-muted-foreground">
+                                            <CheckCircle2 className="size-3 sm:size-3.5 text-emerald-500" strokeWidth={1.5} />
                                             {tMetrics('successRequests')}
                                         </dt>
-                                        <dd className="text-base font-semibold">
+                                        <dd className="text-sm sm:text-base font-semibold tabular-nums">
                                             {successRequests.value}
                                             {successRequests.unit ? (
-                                                <span className="ml-1 text-[0.7rem] text-muted-foreground">{successRequests.unit}</span>
+                                                <span className="ml-0.5 text-[0.65rem] sm:text-[0.7rem] text-muted-foreground">{successRequests.unit}</span>
                                             ) : null}
                                         </dd>
                                     </div>
-                                    <div className="rounded-lg border border-border bg-card p-3">
-                                        <dt className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <XCircle className="size-3.5 text-destructive" strokeWidth={1.5} />
+                                    <div className="rounded-lg border border-border bg-card p-2.5 sm:p-3">
+                                        <dt className="mb-1.5 flex items-center gap-1.5 text-[0.65rem] sm:text-xs text-muted-foreground">
+                                            <XCircle className="size-3 sm:size-3.5 text-destructive" strokeWidth={1.5} />
                                             {tMetrics('failedRequests')}
                                         </dt>
-                                        <dd className="text-base font-semibold">
+                                        <dd className="text-sm sm:text-base font-semibold tabular-nums">
                                             {failedRequests.value}
                                             {failedRequests.unit ? (
-                                                <span className="ml-1 text-[0.7rem] text-muted-foreground">{failedRequests.unit}</span>
+                                                <span className="ml-0.5 text-[0.65rem] sm:text-[0.7rem] text-muted-foreground">{failedRequests.unit}</span>
                                             ) : null}
                                         </dd>
                                     </div>
                                 </dl>
                             )}
                         </div>
-                    </MorphingDialogTrigger>
                 </div>
-            </article>
+            </MorphingDialogTrigger>
 
             <MorphingDialogContainer>
                 <MorphingDialogContent className="relative flex max-h-[calc(100dvh-2rem)] min-h-0 w-[min(100vw-1rem,56rem)] max-w-full flex-col overflow-hidden rounded-xl border border-border bg-card px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] text-card-foreground md:px-6 md:py-5">

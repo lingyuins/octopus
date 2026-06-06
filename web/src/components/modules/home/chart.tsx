@@ -190,12 +190,14 @@ export function StatsChart() {
                         </button>
                     </div>
                     <Tabs value={chartMetricType} onValueChange={(value) => setChartMetricType(value as ChartMetricType)}>
-                        <TabsList className="flex w-full flex-wrap rounded-lg border border-border bg-card p-1 sm:w-max">
-                            <TabsTrigger value="cost">{t('metricType.cost')}</TabsTrigger>
-                            <TabsTrigger value="count">{t('metricType.count')}</TabsTrigger>
-                            <TabsTrigger value="tokens">{t('metricType.tokens')}</TabsTrigger>
-                            <TabsTrigger value="success-rate">{t('metricType.successRate')}</TabsTrigger>
-                        </TabsList>
+                        <div className="w-full overflow-x-auto sm:w-auto">
+                            <TabsList className="flex w-max min-w-full flex-nowrap rounded-lg border border-border bg-card p-1 sm:min-w-0">
+                                <TabsTrigger value="cost">{t('metricType.cost')}</TabsTrigger>
+                                <TabsTrigger value="count">{t('metricType.count')}</TabsTrigger>
+                                <TabsTrigger value="tokens">{t('metricType.tokens')}</TabsTrigger>
+                                <TabsTrigger value="success-rate">{t('metricType.successRate')}</TabsTrigger>
+                            </TabsList>
+                        </div>
                     </Tabs>
                 </div>
 

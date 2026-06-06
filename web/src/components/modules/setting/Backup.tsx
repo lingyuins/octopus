@@ -110,20 +110,20 @@ export function SettingBackup() {
     };
 
     return (
-        <div className="rounded-xl border-border/35 bg-card p-6 space-y-5 text-card-foreground shadow-md ">
+        <div className="rounded-xl border-border/35 bg-card p-4 sm:p-6 space-y-4 sm:space-y-5 text-card-foreground shadow-md ">
             <h2 className="text-lg font-bold text-card-foreground flex items-center gap-2">
                 <Database className="h-5 w-5" />
                 {t('backup.title')}
             </h2>
 
             {/* 导出 */}
-            <div className="space-y-3 rounded-lg border-border/30 bg-card p-4 shadow-sm">
+            <div className="space-y-3 rounded-lg border-border/30 bg-card p-3 sm:p-4 shadow-sm">
                 <div className="text-sm font-semibold text-card-foreground">{t('backup.export.title')}</div>
 
                 <div className="flex items-center justify-between gap-4">
-                    <div>
+                    <div className="min-w-0 flex-1">
                         <div className="text-sm text-muted-foreground">{t('backup.export.includeLogs')}</div>
-                        {includeLogs && <div className="text-[11px] text-muted-foreground/70">{t('backup.export.includeLogsHint')}</div>}
+                        {includeLogs && <div className="text-[11px] text-muted-foreground/70 break-words">{t('backup.export.includeLogsHint')}</div>}
                     </div>
                     <Switch checked={includeLogs} onCheckedChange={setIncludeLogs} />
                 </div>
@@ -147,10 +147,10 @@ export function SettingBackup() {
 
             <div className="h-px bg-border/50" />
 
-            <div className="space-y-3 rounded-lg border border-amber-500/20 bg-card p-4 shadow-sm">
+            <div className="space-y-3 rounded-lg border border-amber-500/20 bg-card p-3 sm:p-4 shadow-sm">
                 <div className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
-                    <div>
+                    <div className="min-w-0 flex-1">
                         <div className="text-sm font-semibold text-card-foreground">{t('backup.migration.title')}</div>
                         <div className="mt-1 text-xs leading-5 text-muted-foreground">
                             {t('backup.migration.description')}
@@ -158,29 +158,29 @@ export function SettingBackup() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3">
                     <select
                         value={targetType}
                         onChange={(e) => setTargetType(e.target.value as 'sqlite' | 'mysql' | 'postgres')}
-                        className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
+                        className="h-10 rounded-xl border border-input bg-background px-3 text-sm w-full"
                     >
                         <option value="sqlite">SQLite</option>
                         <option value="mysql">MySQL</option>
                         <option value="postgres">PostgreSQL</option>
                     </select>
                     <Input
-                        className="md:col-span-2 rounded-xl"
+                        className="rounded-xl w-full"
                         value={targetPath}
                         onChange={(e) => setTargetPath(e.target.value)}
                         placeholder={targetType === 'sqlite' ? 'data/data-next.db' : 'user:pass@tcp(host:3306)/octopus'}
                     />
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3">
                     <div className="flex items-center justify-between gap-4 rounded-lg border border-border/30 p-3">
-                        <div>
+                        <div className="min-w-0 flex-1">
                             <div className="text-sm text-muted-foreground">{t('backup.migration.migrateLogs')}</div>
-                            <div className="text-[11px] text-muted-foreground/70">{t('backup.migration.migrateLogsHint')}</div>
+                            <div className="text-[11px] text-muted-foreground/70 break-words">{t('backup.migration.migrateLogsHint')}</div>
                         </div>
                         <Switch checked={migrateLogs} onCheckedChange={setMigrateLogs} />
                     </div>
@@ -191,18 +191,18 @@ export function SettingBackup() {
                 </div>
 
                 <div className="flex flex-col gap-2 sm:flex-row">
-                    <Button type="button" variant="outline" className="rounded-xl" onClick={onTestDatabase} disabled={testDatabase.isPending || migrateDatabase.isPending}>
+                    <Button type="button" variant="outline" className="w-full sm:flex-1 rounded-xl" onClick={onTestDatabase} disabled={testDatabase.isPending || migrateDatabase.isPending}>
                         {testDatabase.isPending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
                         {t('backup.migration.testButton')}
                     </Button>
-                    <Button type="button" variant="destructive" className="rounded-xl" onClick={onMigrateDatabase} disabled={migrateDatabase.isPending || testDatabase.isPending}>
+                    <Button type="button" variant="destructive" className="w-full sm:flex-1 rounded-xl" onClick={onMigrateDatabase} disabled={migrateDatabase.isPending || testDatabase.isPending}>
                         {migrateDatabase.isPending ? <Loader2 className="size-4 animate-spin" /> : <Database className="size-4" />}
                         {migrateDatabase.isPending ? t('backup.migration.migrating') : t('backup.migration.button')}
                     </Button>
                 </div>
 
                 {migrateDatabase.data ? (
-                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/8 p-3 text-xs text-emerald-700 dark:text-emerald-300">
+                    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/8 p-3 text-xs text-emerald-700 dark:text-emerald-300 break-words">
                         {t('backup.migration.successDetail', { type: migrateDatabase.data.type, path: migrateDatabase.data.path })}
                     </div>
                 ) : null}
@@ -211,17 +211,17 @@ export function SettingBackup() {
             <div className="h-px bg-border/50" />
 
             {/* 导入 */}
-            <div className="space-y-3 rounded-lg border-border/30 bg-card p-4 shadow-sm">
+            <div className="space-y-3 rounded-lg border-border/30 bg-card p-3 sm:p-4 shadow-sm">
                 <div className="text-sm font-semibold text-card-foreground">{t('backup.import.title')}</div>
 
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-sm text-muted-foreground">{t('backup.import.mode.label')}</div>
                     <div className="flex gap-1 rounded-lg border border-border/30 bg-muted/30 p-0.5">
                         <button
                             type="button"
                             onClick={() => setImportMode('incremental')}
                             className={cn(
-                                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                                'flex-1 sm:flex-initial rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
                                 importMode === 'incremental' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                             )}
                         >
@@ -231,7 +231,7 @@ export function SettingBackup() {
                             type="button"
                             onClick={() => setImportMode('full')}
                             className={cn(
-                                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                                'flex-1 sm:flex-initial rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
                                 importMode === 'full' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                             )}
                         >
@@ -243,7 +243,7 @@ export function SettingBackup() {
                 {importMode === 'full' && (
                     <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 p-3 text-xs text-amber-700 dark:text-amber-300">
                         <AlertTriangle className="size-4 shrink-0 mt-0.5" />
-                        <span>{t('backup.import.mode.fullWarning')}</span>
+                        <span className="break-words">{t('backup.import.mode.fullWarning')}</span>
                     </div>
                 )}
 
@@ -252,7 +252,7 @@ export function SettingBackup() {
                     type="file"
                     accept="application/json,.json"
                     onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-                    className="rounded-xl"
+                    className="rounded-xl w-full"
                 />
 
                 <Button
@@ -278,7 +278,7 @@ export function SettingBackup() {
                                     )}>
                                         {step.ok ? <Check className="size-3.5 shrink-0" /> : <X className="size-3.5 shrink-0" />}
                                         <span className="tabular-nums w-10 shrink-0 text-muted-foreground">{step.mode}</span>
-                                        <span className="truncate flex-1">{step.table}</span>
+                                        <span className="truncate flex-1 break-all">{step.table}</span>
                                         <span className="tabular-nums shrink-0 text-muted-foreground">{step.rows_affected}</span>
                                     </div>
                                 ))}
@@ -293,8 +293,8 @@ export function SettingBackup() {
                         <div className="grid grid-cols-2 gap-1 text-xs text-muted-foreground">
                             {rowsAffectedList.map((it) => (
                                 <div key={it.table} className="flex justify-between gap-2">
-                                    <span className="truncate">{it.table}</span>
-                                    <span className="tabular-nums">{it.count}</span>
+                                    <span className="truncate break-all">{it.table}</span>
+                                    <span className="tabular-nums shrink-0">{it.count}</span>
                                 </div>
                             ))}
                         </div>

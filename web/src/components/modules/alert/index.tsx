@@ -37,7 +37,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
     return (
         <button
             onClick={onClick}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95 ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-xl text-sm font-medium transition-all active:scale-95 ${
                 active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'
             }`}
         >
@@ -464,22 +464,22 @@ export function Alert() {
     }
 
     return (
-        <PageWrapper className="h-full min-h-0 overflow-y-auto overscroll-contain rounded-t-xl space-y-4 pb-24 md:pb-6">
-            <div className="flex items-center gap-2 mb-2">
+        <PageWrapper className="h-full min-h-0 overflow-y-auto overscroll-contain rounded-t-xl space-y-4 pb-3 md:pb-6">
+            <div className="flex items-center gap-2 mb-2 overflow-x-auto scrollbar-none -mx-1 px-1">
                 <TabButton active={tab === 'rules'} onClick={() => setTab('rules')}>{t('tabs.rules')}</TabButton>
                 <TabButton active={tab === 'channels'} onClick={() => setTab('channels')}>{t('tabs.channels')}</TabButton>
                 <TabButton active={tab === 'history'} onClick={() => setTab('history')}>{t('tabs.history')}</TabButton>
             </div>
 
             {tab === 'rules' && (
-                <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-4">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-bold text-card-foreground flex items-center gap-2">
                             <Bell className="h-5 w-5" />{t('rules.title')}
                         </h2>
                         <button
                             onClick={() => setShowNewRule((prev) => !prev)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95"
+                            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95 shrink-0"
                         >
                             <Plus className="h-4 w-4" />{t('rules.new')}
                         </button>
@@ -645,41 +645,41 @@ export function Alert() {
                                                             ))}
                                                         </select>
                                                     </label>
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         <button
                                                             onClick={() => handleSaveRule(rule)}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95"
+                                                            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95"
                                                         >
-                                                            <Save className="h-4 w-4" />{t('actions.save')}
+                                                            <Save className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{t('actions.save')}
                                                         </button>
                                                         <button
                                                             onClick={resetRuleEdit}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-all active:scale-95"
+                                                            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-all active:scale-95"
                                                         >
-                                                            <X className="h-4 w-4" />{t('actions.cancel')}
+                                                            <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{t('actions.cancel')}
                                                         </button>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div>
-                                                    <div className="font-medium text-sm">{rule.name}</div>
-                                                    <div className="text-xs text-muted-foreground">
+                                                <div className="min-w-0">
+                                                    <div className="font-medium text-sm truncate">{rule.name}</div>
+                                                    <div className="text-xs text-muted-foreground truncate">
                                                         {getConditionLabel(rule.condition_type)} &ge; {rule.threshold}
                                                         {rule.cooldown_sec > 0 && ` · ${t('rules.cooldown', { seconds: rule.cooldown_sec })}`}
                                                     </div>
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 shrink-0">
                                             {!isEditing ? (
                                                 <button
                                                     onClick={() => {
                                                         setEditingRuleId(rule.id);
                                                         setEditingRule(createAlertRuleDraft(rule));
                                                     }}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-background text-foreground hover:bg-card transition-all active:scale-95"
+                                                    className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium bg-background text-foreground hover:bg-card transition-all active:scale-95"
                                                 >
-                                                    <Pencil className="h-4 w-4" />{t('actions.edit')}
+                                                    <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{t('actions.edit')}
                                                 </button>
                                             ) : null}
                                             <button
@@ -708,14 +708,14 @@ export function Alert() {
             )}
 
             {tab === 'channels' && (
-                <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-4">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg font-bold text-card-foreground flex items-center gap-2">
                             <Bell className="h-5 w-5" />{t('channels.title')}
                         </h2>
                         <button
                             onClick={() => setShowNewChannel((prev) => !prev)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95"
+                            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95 shrink-0"
                         >
                             <Plus className="h-4 w-4" />{t('channels.new')}
                         </button>
@@ -787,40 +787,40 @@ export function Alert() {
                                                         ))}
                                                     </select>
                                                     <ChannelConfigFields draft={editingChannel} onChange={setEditingChannel} t={t} />
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         <button
                                                             onClick={() => handleSaveChannel(channel)}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95"
+                                                            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all active:scale-95"
                                                         >
-                                                            <Save className="h-4 w-4" />{t('actions.save')}
+                                                            <Save className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{t('actions.save')}
                                                         </button>
                                                         <button
                                                             onClick={resetChannelEdit}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-all active:scale-95"
+                                                            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-all active:scale-95"
                                                         >
-                                                            <X className="h-4 w-4" />{t('actions.cancel')}
+                                                            <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{t('actions.cancel')}
                                                         </button>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div>
-                                                    <div className="font-medium text-sm">{channel.name}</div>
-                                                    <div className="text-xs text-muted-foreground truncate max-w-[300px]">
+                                                <div className="min-w-0">
+                                                    <div className="font-medium text-sm truncate">{channel.name}</div>
+                                                    <div className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-[300px]">
                                                         {getChannelTypeLabel(channel.type)} · {getChannelDescription(channel)}
                                                     </div>
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 shrink-0">
                                             {!isEditing ? (
                                                 <button
                                                     onClick={() => {
                                                         setEditingChannelId(channel.id);
                                                         setEditingChannel(createAlertChannelDraft(channel));
                                                     }}
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-background text-foreground hover:bg-card transition-all active:scale-95"
+                                                    className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium bg-background text-foreground hover:bg-card transition-all active:scale-95"
                                                 >
-                                                    <Pencil className="h-4 w-4" />{t('actions.edit')}
+                                                    <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{t('actions.edit')}
                                                 </button>
                                             ) : null}
                                             <button
@@ -849,7 +849,7 @@ export function Alert() {
             )}
 
             {tab === 'history' && (
-                <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+                <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-4">
                     <h2 className="text-lg font-bold text-card-foreground flex items-center gap-2">
                         <Clock className="h-5 w-5" />{t('history.title')}
                     </h2>
@@ -858,15 +858,15 @@ export function Alert() {
                     ) : (
                         <div className="space-y-2">
                             {(history || []).map((item) => (
-                                <div key={item.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/50">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className={`h-2 w-2 rounded-full shrink-0 ${item.state === 1 ? 'bg-red-500' : item.state === 2 ? 'bg-green-500' : 'bg-muted-foreground'}`} />
-                                        <div>
-                                            <div className="font-medium text-sm">{item.rule_name}</div>
-                                            <div className="text-xs text-muted-foreground">{getHistoryMessage(item.message, item.state)}</div>
+                                <div key={item.id} className="flex items-start sm:items-center justify-between gap-2 sm:gap-3 p-3 rounded-xl bg-muted/50">
+                                    <div className="flex items-start sm:items-center gap-2 sm:gap-3 min-w-0">
+                                        <div className={`h-2 w-2 rounded-full shrink-0 mt-1.5 sm:mt-0 ${item.state === 1 ? 'bg-red-500' : item.state === 2 ? 'bg-green-500' : 'bg-muted-foreground'}`} />
+                                        <div className="min-w-0">
+                                            <div className="font-medium text-sm truncate">{item.rule_name}</div>
+                                            <div className="text-xs text-muted-foreground truncate">{getHistoryMessage(item.message, item.state)}</div>
                                         </div>
                                     </div>
-                                    <span className="text-xs text-muted-foreground shrink-0">
+                                    <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
                                         {new Date(item.time).toLocaleString()}
                                     </span>
                                 </div>

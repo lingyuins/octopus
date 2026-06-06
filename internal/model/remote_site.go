@@ -14,6 +14,7 @@ const (
 	SiteTypeAIHubMix      = "aihubmix"
 	SiteTypeAxonHub       = "axonhub"
 	SiteTypeClaudeCodeHub = "claude-code-hub"
+	SiteTypeSAPI          = "sapi"
 	SiteTypeUnknown       = "unknown"
 )
 
@@ -168,6 +169,7 @@ func AllSiteTypes() []string {
 		SiteTypeAIHubMix,
 		SiteTypeAxonHub,
 		SiteTypeClaudeCodeHub,
+		SiteTypeSAPI,
 		SiteTypeUnknown,
 	}
 }

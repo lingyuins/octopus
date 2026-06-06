@@ -99,7 +99,7 @@ function RuntimeSignals({
     return (
         <div className="space-y-4">
             <h3 className="text-sm font-medium">{t('telemetry.runtime_signals.title')}</h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <HeroMetricCard icon={Timer} label={t('telemetry.runtime_signals.p95_latency')} value={signals.p95_latency_ms.toFixed(0)} unit="ms" />
                 <HeroMetricCard icon={TrendingUp} label={t('telemetry.runtime_signals.throughput')} value={signals.throughput_rps.toFixed(1)} unit="r/s" />
                 <HeroMetricCard icon={Cpu} label={t('telemetry.runtime_signals.memory')} value={String(signals.memory_mb)} unit="MB" />

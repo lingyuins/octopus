@@ -13,6 +13,7 @@ import {
     type TestChannelSummary,
 } from '@/api/endpoints/channel';
 import { channelTemplates } from './templates';
+import { CHANNEL_TYPE_OPTIONS } from './type-options';
 import {
     Select,
     SelectContent,
@@ -700,13 +701,9 @@ export function ChannelForm({
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent className="rounded-lg">
-                                <SelectItem className="rounded-xl" value={String(ChannelType.OpenAIChat)}>{t('typeOpenAIChat')}</SelectItem>
-                                <SelectItem className="rounded-xl" value={String(ChannelType.OpenAIResponse)}>{t('typeOpenAIResponse')}</SelectItem>
-                                <SelectItem className="rounded-xl" value={String(ChannelType.Anthropic)}>{t('typeAnthropic')}</SelectItem>
-                                <SelectItem className="rounded-xl" value={String(ChannelType.Gemini)}>{t('typeGemini')}</SelectItem>
-                                <SelectItem className="rounded-xl" value={String(ChannelType.Volcengine)}>{t('typeVolcengine')}</SelectItem>
-                                <SelectItem className="rounded-xl" value={String(ChannelType.OpenAIEmbedding)}>{t('typeOpenAIEmbedding')}</SelectItem>
-                                <SelectItem className="rounded-xl" value={String(ChannelType.MiMoChat)}>{t('typeMiMoChat')}</SelectItem>
+                                {CHANNEL_TYPE_OPTIONS.map(option => (
+                                    <SelectItem key={option.value} className="rounded-xl" value={String(option.value)}>{t(option.labelKey)}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>

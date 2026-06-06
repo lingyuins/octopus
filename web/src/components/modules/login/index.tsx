@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from "react"
-import { motion, AnimatePresence } from "motion/react"
+import { motion } from "motion/react"
 import { useTranslations } from 'next-intl'
 import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
@@ -15,12 +15,10 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Tabs,
   TabsList,
-  TabsHighlight,
-  TabsHighlightItem,
   TabsTrigger,
   TabsContents,
   TabsContent,
-} from "@/components/animate-ui/primitives/animate/tabs"
+} from "@/components/animate-ui/components/animate/tabs"
 
 type LoginMode = 'user' | 'apikey';
 
@@ -71,112 +69,96 @@ export function LoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="relative min-h-screen flex items-center justify-center px-6 text-foreground overflow-hidden"
+      className="relative min-h-screen min-h-dvh flex items-center justify-center px-4 sm:px-6 py-8 text-foreground overflow-hidden"
     >
       {/* Nature: 粒子背景 */}
       {!isMobile && <ParticleBackground count={40} minOpacity={0.08} maxOpacity={0.25} />}
       
       <div className="relative z-10 w-full max-w-sm">
-        <div className="flex flex-col gap-8 p-8 md:p-10 border-border/35 bg-card rounded-xl">
-          <header className="flex flex-col items-center gap-4">
-            <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg border-border/35 bg-card">
-              <Logo size={48} />
+        <div className="flex flex-col gap-6 sm:gap-8 p-5 sm:p-8 md:p-10 border-border/35 bg-card rounded-xl">
+          <header className="flex flex-col items-center gap-3 sm:gap-4">
+            <div className="grid size-14 sm:size-16 shrink-0 place-items-center overflow-hidden rounded-lg border-border/35 bg-card">
+              <Logo size={40} />
             </div>
             <div className="flex flex-col items-center gap-1">
-              <h1 className="text-3xl font-bold tracking-tight">Octopus</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Octopus</h1>
               <p className="text-sm text-muted-foreground/80 font-medium">{t('welcome') || 'Welcome back'}</p>
             </div>
           </header>
 
             <Tabs value={mode} onValueChange={handleModeChange}>
-            <TabsList className="flex p-1 bg-muted/50 rounded-2xl border border-border/20">
-              <TabsHighlight className="rounded-xl bg-background">
-                <TabsHighlightItem value="user" className="flex-1">
-                  <TabsTrigger
-                    value="user"
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-colors data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
-                  >
-                    <User className="w-4 h-4" />
-                    {t('mode.user')}
-                  </TabsTrigger>
-                </TabsHighlightItem>
-                <TabsHighlightItem value="apikey" className="flex-1">
-                  <TabsTrigger
-                    value="apikey"
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-medium transition-colors data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
-                  >
-                    <KeyRound className="w-4 h-4" />
-                    {t('mode.apikey')}
-                  </TabsTrigger>
-                </TabsHighlightItem>
-              </TabsHighlight>
+            <TabsList className="flex w-full h-auto p-1 bg-muted/50 rounded-2xl border border-border/20">
+              <TabsTrigger
+                value="user"
+                className="rounded-xl text-xs sm:text-sm"
+              >
+                <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="truncate">{t('mode.user')}</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="apikey"
+                className="rounded-xl text-xs sm:text-sm"
+              >
+                <KeyRound className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="truncate">{t('mode.apikey')}</span>
+              </TabsTrigger>
             </TabsList>
 
             <form onSubmit={handleSubmit} className="space-y-6 pt-4">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={mode}
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
-                >
-                  <TabsContents>
-                    <TabsContent value="user" className="space-y-5">
-                      <Field>
-                        <FieldLabel className="text-xs font-semibold text-muted-foreground/70 ml-1" htmlFor="username">{t('username')}</FieldLabel>
-                        <Input
-                          id="username"
-                          type="text"
-                          placeholder={t('usernamePlaceholder')}
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          className="h-12 rounded-xl bg-card border-border/30"
-                          autoComplete="username"
-                          autoCapitalize="none"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          required={mode === 'user'}
-                          disabled={isPending}
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel className="text-xs font-semibold text-muted-foreground/70 ml-1" htmlFor="password">{t('password')}</FieldLabel>
-                        <Input
-                          id="password"
-                          type="password"
-                          placeholder={t('passwordPlaceholder')}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="h-12 rounded-xl bg-card border-border/30"
-                          autoComplete="current-password"
-                          required={mode === 'user'}
-                          disabled={isPending}
-                        />
-                      </Field>
-                    </TabsContent>
-                    <TabsContent value="apikey">
-                      <Field>
-                        <FieldLabel className="text-xs font-semibold text-muted-foreground/70 ml-1" htmlFor="apikey">{t('apikey')}</FieldLabel>
-                        <Input
-                          id="apikey"
-                          type="password"
-                          placeholder={t('apikeyPlaceholder')}
-                          value={apiKey}
-                          onChange={(e) => setApiKey(e.target.value)}
-                          className="h-12 rounded-xl bg-card border-border/30"
-                          autoComplete="off"
-                          autoCapitalize="none"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          required={mode === 'apikey'}
-                          disabled={isPending}
-                        />
-                      </Field>
-                    </TabsContent>
-                  </TabsContents>
-                </motion.div>
-              </AnimatePresence>
+              <TabsContents>
+                <TabsContent value="user" className="space-y-5">
+                  <Field>
+                    <FieldLabel className="text-xs font-semibold text-muted-foreground/70 ml-1" htmlFor="username">{t('username')}</FieldLabel>
+                    <Input
+                      id="username"
+                      type="text"
+                      placeholder={t('usernamePlaceholder')}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="h-12 rounded-xl bg-card border-border/30"
+                      autoComplete="username"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      required={mode === 'user'}
+                      disabled={isPending}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel className="text-xs font-semibold text-muted-foreground/70 ml-1" htmlFor="password">{t('password')}</FieldLabel>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder={t('passwordPlaceholder')}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="h-12 rounded-xl bg-card border-border/30"
+                      autoComplete="current-password"
+                      required={mode === 'user'}
+                      disabled={isPending}
+                    />
+                  </Field>
+                </TabsContent>
+                <TabsContent value="apikey">
+                  <Field>
+                    <FieldLabel className="text-xs font-semibold text-muted-foreground/70 ml-1" htmlFor="apikey">{t('apikey')}</FieldLabel>
+                    <Input
+                      id="apikey"
+                      type="password"
+                      placeholder={t('apikeyPlaceholder')}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      className="h-12 rounded-xl bg-card border-border/30"
+                      autoComplete="off"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      required={mode === 'apikey'}
+                      disabled={isPending}
+                    />
+                  </Field>
+                </TabsContent>
+              </TabsContents>
 
               {error && (
                 <motion.div

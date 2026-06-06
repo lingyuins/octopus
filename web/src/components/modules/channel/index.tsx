@@ -10,7 +10,7 @@ import type { StatsMetricsFormatted } from '@/api/endpoints/stats';
 
 import { LoadingState } from '@/components/common/LoadingState';
 import { ErrorState } from '@/components/common/ErrorState';
-import { Radio, RefreshCw, Clock3 } from 'lucide-react';
+import { Radio, RefreshCw, Clock3, Layers } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/common/Toast';
@@ -111,10 +111,10 @@ export function Channel() {
 
     const channelGridClassName = layout === 'list'
         ? 'grid grid-cols-1 gap-4'
-        : 'grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3';
+        : 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3';
 
     return (
-        <section className="relative flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-t-xl pb-24 md:pb-4" aria-label={pageKey}>
+        <section className="relative flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-t-xl pb-3 md:pb-4" aria-label={pageKey}>
             <div className="relative flex flex-col gap-4 rounded-xl border border-border bg-card p-3 text-card-foreground md:p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                     <div className="flex items-center gap-2 rounded-lg border-border/30 bg-card px-3 py-2 text-xs text-muted-foreground sm:text-sm">
@@ -164,15 +164,18 @@ export function Channel() {
                                     ))}
                                 </div>
                             ) : (
-                                <div className="flex min-h-[8rem] items-center justify-center rounded-lg border border-dashed border-border/30 bg-card px-4 text-center text-sm text-muted-foreground">
-                                    {t('groupManager.emptyGroup')}
+                                <div className="flex min-h-[10rem] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/40 bg-muted/20 px-4 py-6 text-center">
+                                    <Layers className="h-8 w-8 text-muted-foreground/40" strokeWidth={1.5} />
+                                    <p className="text-sm text-muted-foreground">{t('groupManager.emptyGroup')}</p>
                                 </div>
                             )}
                         </section>
                     ) : (
-                        <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border bg-card px-4 py-6 text-center">
-                            <Radio className="h-12 w-12 text-muted-foreground/30" strokeWidth={1.5} />
-                            <p className="text-sm text-muted-foreground">{t('empty')}</p>
+                        <div className="flex min-h-[18rem] flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border/40 bg-muted/10 px-6 py-8 text-center">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted/30">
+                                <Radio className="h-8 w-8 text-muted-foreground/40" strokeWidth={1.5} />
+                            </div>
+                            <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">{t('empty')}</p>
                         </div>
                     )}
                 </div>

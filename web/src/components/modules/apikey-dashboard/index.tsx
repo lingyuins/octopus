@@ -114,21 +114,21 @@ export function APIKeyDashboard() {
     };
 
     return (
-        <div className="mx-auto max-w-6xl px-3 md:px-6">
+        <div className="mx-auto max-w-6xl px-3 sm:px-4 md:px-6">
             {/* Header - Consistent with app.tsx */}
-            <header className="my-6 flex items-center gap-2 px-2">
-                <Logo size={48} />
-                <h1 className="ml-2 flex-1 truncate text-2xl font-bold tracking-tight">octopus</h1>
-                <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-xl hover:bg-accent">
+            <header className="my-4 sm:my-6 flex items-center gap-2 px-1 sm:px-2">
+                <Logo size={40} />
+                <h1 className="ml-1 sm:ml-2 flex-1 truncate text-xl sm:text-2xl font-bold tracking-tight">octopus</h1>
+                <div className="flex items-center gap-1 sm:gap-2">
+                    <Button variant="ghost" size="icon" onClick={toggleTheme} className="size-9 sm:size-10 rounded-xl hover:bg-accent">
                         <Sun className="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                         <Moon className="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={toggleLanguage} className="rounded-xl hover:bg-accent">
+                    <Button variant="ghost" size="icon" onClick={toggleLanguage} className="size-9 sm:size-10 rounded-xl hover:bg-accent">
                         <Languages className="size-4" />
                     </Button>
-                    <div className="w-px h-6 bg-border mx-1" />
-                    <Button variant="ghost" size="icon" onClick={logout} className="rounded-xl hover:bg-destructive/10 hover:text-destructive">
+                    <div className="w-px h-5 sm:h-6 bg-border mx-0.5 sm:mx-1" />
+                    <Button variant="ghost" size="icon" onClick={logout} className="size-9 sm:size-10 rounded-xl hover:bg-destructive/10 hover:text-destructive">
                         <LogOut className="size-4" />
                     </Button>
                 </div>
@@ -140,29 +140,29 @@ export function APIKeyDashboard() {
                     <div className="overflow-hidden rounded-xl border bg-card">
                         <div className="grid grid-cols-1 md:grid-cols-2">
                             {/* Left: Key Info */}
-                            <div className="p-6 md:p-8 flex flex-col relative">
-                                <KeyRound aria-hidden="true" className="pointer-events-none absolute top-6 right-6 h-27 w-27 text-muted-foreground/10" />
-                                <h2 className="text-2xl font-bold truncate pr-16">{info.name}</h2>
-                                <div className="mt-4 flex items-center gap-2 rounded-xl border border-border/50 bg-muted/50 p-3">
-                                    <code className="flex-1 font-mono text-sm truncate">
+                            <div className="p-5 sm:p-6 md:p-8 flex flex-col relative">
+                                <KeyRound aria-hidden="true" className="pointer-events-none absolute top-5 right-5 sm:top-6 sm:right-6 h-20 w-20 sm:h-27 sm:w-27 text-muted-foreground/10" />
+                                <h2 className="text-xl sm:text-2xl font-bold truncate pr-12 sm:pr-16">{info.name}</h2>
+                                <div className="mt-3 sm:mt-4 flex items-center gap-2 rounded-xl border border-border/50 bg-muted/50 p-2.5 sm:p-3">
+                                    <code className="flex-1 font-mono text-xs sm:text-sm truncate">
                                         {info.api_key.slice(0, 11)}********{info.api_key.slice(-4)}
                                     </code>
                                     <CopyIconButton
                                         text={info.api_key}
-                                        className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary transition-all hover:bg-primary hover:text-primary-foreground active:scale-95"
-                                        copyIconClassName="size-4"
-                                        checkIconClassName="size-4"
+                                        className="flex size-7 sm:size-8 items-center justify-center rounded-lg bg-primary/10 text-primary transition-all hover:bg-primary hover:text-primary-foreground active:scale-95"
+                                        copyIconClassName="size-3.5 sm:size-4"
+                                        checkIconClassName="size-3.5 sm:size-4"
                                     />
                                 </div>
                                 {/* Expiry & Quota inline */}
-                                <div className="mt-auto pt-6 text-sm">
-                                    <div className="flex items-center justify-between">
-                                        <span className="flex items-center gap-2 text-muted-foreground"><Calendar className="w-4 h-4" />{t('expireAt')}</span>
+                                <div className="mt-auto pt-5 sm:pt-6 text-xs sm:text-sm">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="flex items-center gap-1.5 sm:gap-2 text-muted-foreground whitespace-nowrap"><Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />{t('expireAt')}</span>
                                         {expireAt ? (
                                             <span className={`font-medium ${isExpired ? 'text-destructive' : ''}`}>
                                                 {expireAt.format('YYYY-MM-DD')}
-                                                {!isExpired && daysUntilExpire !== null && <span className="ml-2 text-xs bg-secondary px-2 py-0.5 rounded-full">{daysUntilExpire} {t('daysLeft')}</span>}
-                                                {isExpired && <span className="ml-2 text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded-full">{t('expired')}</span>}
+                                                {!isExpired && daysUntilExpire !== null && <span className="ml-1.5 sm:ml-2 text-[10px] sm:text-xs bg-secondary px-1.5 sm:px-2 py-0.5 rounded-full">{daysUntilExpire} {t('daysLeft')}</span>}
+                                                {isExpired && <span className="ml-1.5 sm:ml-2 text-[10px] sm:text-xs bg-destructive/10 text-destructive px-1.5 sm:px-2 py-0.5 rounded-full">{t('expired')}</span>}
                                             </span>
                                         ) : (
                                             <span className="font-medium">{t('neverExpire')}</span>
@@ -171,17 +171,17 @@ export function APIKeyDashboard() {
                                 </div>
                             </div>
                             {/* Right: Quota visual */}
-                            <div className="relative flex flex-col justify-center border-t bg-muted/30 p-6 md:border-l md:border-t-0 md:p-8">
-                                <Wallet aria-hidden="true" className="pointer-events-none absolute top-6 right-6 h-27 w-27 text-muted-foreground/10" />
-                                <div className="text-lg text-muted-foreground mb-2">{t('totalCost')}</div>
-                                <div className="text-6xl font-bold text-chart-1">
+                            <div className="relative flex flex-col justify-center border-t bg-muted/30 p-5 sm:p-6 md:border-l md:border-t-0 md:p-8">
+                                <Wallet aria-hidden="true" className="pointer-events-none absolute top-5 right-5 sm:top-6 sm:right-6 h-20 w-20 sm:h-27 sm:w-27 text-muted-foreground/10" />
+                                <div className="text-base sm:text-lg text-muted-foreground mb-1.5 sm:mb-2">{t('totalCost')}</div>
+                                <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-chart-1">
                                     <AnimatedNumber value={stats.total_cost.formatted.value} />
-                                    <span className="text-lg font-normal text-muted-foreground ml-1">{stats.total_cost.formatted.unit}</span>
+                                    <span className="text-base sm:text-lg font-normal text-muted-foreground ml-1">{stats.total_cost.formatted.unit}</span>
                                 </div>
                                 {maxCost > 0 && (
-                                    <div className="mt-4">
-                                        <Progress value={Math.min(100, (usedCost / maxCost) * 100)} className="h-4 *:data-[slot=progress-indicator]:bg-chart-1" />
-                                        <div className="flex justify-between text-sm text-muted-foreground mt-1">
+                                    <div className="mt-3 sm:mt-4">
+                                        <Progress value={Math.min(100, (usedCost / maxCost) * 100)} className="h-3 sm:h-4 *:data-[slot=progress-indicator]:bg-chart-1" />
+                                        <div className="flex justify-between text-xs sm:text-sm text-muted-foreground mt-1">
                                             <span>0</span>
                                             <span>{maxCost.toFixed(2)} $</span>
                                         </div>

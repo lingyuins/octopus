@@ -9,6 +9,7 @@ import {
     useState,
 } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { cn } from '@/lib/utils';
 
 const BREAKPOINTS = {
     sm: 640,
@@ -20,11 +21,12 @@ const BREAKPOINTS = {
 
 type Breakpoint = keyof typeof BREAKPOINTS;
 type ResponsiveColumns = Partial<Record<Breakpoint | 'default', number>>;
+type ColumnConfig = ResponsiveColumns | ((width: number) => number);
 
 interface VirtualizedGridProps<T> {
     items: T[];
     layout?: 'grid' | 'list';
-    columns: ResponsiveColumns;
+    columns: ColumnConfig;
     estimateItemHeight: number;
     gap?: number;
     overscan?: number;
@@ -34,12 +36,14 @@ interface VirtualizedGridProps<T> {
     onReachEnd?: () => void;
     reachEndEnabled?: boolean;
     reachEndOffset?: number;
+    bottomPaddingClassName?: string;
 }
 
 function getColumnsForWidth(
     width: number,
-    columns: ResponsiveColumns,
+    columns: ColumnConfig,
 ): number {
+    if (typeof columns === 'function') return columns(width);
     if (width >= BREAKPOINTS['2xl'] && columns['2xl'] !== undefined) return columns['2xl'];
     if (width >= BREAKPOINTS.xl && columns.xl !== undefined) return columns.xl;
     if (width >= BREAKPOINTS.lg && columns.lg !== undefined) return columns.lg;
@@ -61,6 +65,7 @@ export function VirtualizedGrid<T>({
     onReachEnd,
     reachEndEnabled = false,
     reachEndOffset = 1,
+    bottomPaddingClassName = 'pb-3 md:pb-4',
 }: VirtualizedGridProps<T>) {
     'use no memo';
 
@@ -152,7 +157,7 @@ export function VirtualizedGrid<T>({
         <div className="relative h-full min-h-0 w-full">
             <div
                 ref={containerRef}
-                className="relative h-full w-full overflow-y-auto overscroll-contain rounded-t-3xl touch-pan-y pb-24 md:pb-4"
+                className={cn('relative h-full w-full overflow-y-auto overscroll-contain rounded-t-3xl touch-pan-y', bottomPaddingClassName)}
             >
                 {rowCount === 0 ? null : (
                     <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>

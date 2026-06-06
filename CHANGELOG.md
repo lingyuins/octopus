@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.0.3] - 2026-06
+
+### 🚀 Features
+- Add zashboard-style collapsible group list view for the group management page.
+- Inject channel `param_override` into outbound relay requests for per-channel parameter customization.
+
+### 🐛 Bug Fixes
+- Write stream responses to semantic cache for streaming SSE replay support.
+- Prune expired semantic-cache entries in `Stats()` for accurate size reporting.
+- Cancel upstream request on client stream disconnect to avoid wasted resources.
+- Stop injecting default `max_completion_tokens` for reasoning models in the outbound transformer.
+- Fix group edit dialog sizing and horizontal overflow issues.
+- Fix group edit dialog and site management overview display issues.
+- Improve mobile API key form layout.
+
+**Full Changelog:** https://github.com/lingyuins/octopus/compare/v2.0.2...v2.0.3
+
+---
+
+## [v2.0.2] - 2026-06
+
+### 🚀 Features
+- Update Hub module workflows for stream-session resilience and viewer-safe management surfaces.
+- Hub-related management data now masks domains for viewer accounts across sites, remote sites, credentials, channels, and URL settings.
+
+### 🐛 Bug Fixes
+- Enable semantic cache for streaming requests, including SSE cache-hit replay and stable stream-session recovery without explicit `conversation_id`.
+- Preserve semantic-cache entries across unchanged runtime config refreshes.
+
+### ⚠️ Upgrade Notes
+- The Hub module has been updated. For security and consistency, please re-enter Hub site domains/Base URLs and related credentials if you need to edit or refresh them after upgrading.
+- Viewer accounts will see masked domains (`***`) and should ask an admin/editor to re-enter or confirm Hub connection details when needed.
+
+**Full Changelog:** https://github.com/lingyuins/octopus/compare/v2.0.1...v2.0.2
+
+---
+
+## [v2.0.0] - 2026-05
+
+### 🚀 Features
+- Hub navigation overhaul: merge five standalone modules (Announcement, Check-in, Redemption, Usage History, Credential) into Hub as tab panels, reducing top-level navigation from 18 to 13 items.
+- Hub tab interface with six tabs: Sites, Check-in, Announcement, Redemption, Usage, and Credential.
+
+### 🐛 Bug Fixes
+- Fix FetchTokens pagination in common Hub adapter — tokens beyond the first page of 100 are now correctly retrieved.
+- Add 13 missing StatsMetrics fields (latency percentiles, FTUT metrics, histogram counts) to all stats formatting functions to resolve TypeScript compilation errors.
+
+### 🛠 Optimizations/Refactor
+- Remove orphaned TokenManager frontend component and remote-site-token API hooks (dead code after Hub navigation merge).
+- Remove 12 orphaned i18n keys across all three locales (en, zh_hans, zh_hant).
+- Bump version to v2.0.0 (version.go, package.json, docker-compose.yml).
+
+**Full Changelog:** https://github.com/lingyuins/octopus/compare/v1.9.8...v2.0.0
+
+---
+
 ## [v1.9.8] - 2026-05
 
 ### 🚀 Features
@@ -85,7 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v1.9.3] - 2026-07
+## [v1.9.3] - 2026-05
 
 ### 🚀 Features
 - Support endpoint-provider specific rewrites for group relay and media passthrough.

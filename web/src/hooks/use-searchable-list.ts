@@ -52,7 +52,7 @@ export function useSearchableList<T>({
     getItemName,
 }: UseSearchableListOptions<T>) {
     const searchTerm = useSearchStore((s) => s.getSearchTerm(pageKey));
-    const sortField = useToolbarViewOptionsStore((s) => s.getSortField(pageKey));
+    const sortField = useToolbarViewOptionsStore((s) => s.getSortField(pageKey) as 'name' | 'created');
     const sortOrder = useToolbarViewOptionsStore((s) => s.getSortOrder(pageKey));
     const resolvedGetItemId = useMemo(
         () => getItemId ?? ((item: T) => (item as SortableItem).id),

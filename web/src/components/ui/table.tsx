@@ -6,12 +6,13 @@ const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement> & {
     wrapperClassName?: string
+    containerClassName?: string
   }
->(({ className, wrapperClassName, ...props }, ref) => (
+>(({ className, wrapperClassName, containerClassName, ...props }, ref) => (
   <div
     className={cn(
-      "relative w-full overflow-auto rounded-lg border border-border bg-card shadow-sm",
-      wrapperClassName
+      "relative w-full overflow-x-auto rounded-lg border border-border bg-card shadow-sm",
+      wrapperClassName ?? containerClassName
     )}
   >
     <table

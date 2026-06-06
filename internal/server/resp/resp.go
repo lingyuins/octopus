@@ -5,14 +5,15 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lingyuins/octopus/internal/apperror"
 )
 
 type ResponseStruct struct {
-	Code       int            `json:"code" example:"200"`
-	Message    string         `json:"message" example:"success"`
-	MessageKey string         `json:"message_key,omitempty"`
+	Code        int            `json:"code" example:"200"`
+	Message     string         `json:"message" example:"success"`
+	MessageKey  string         `json:"message_key,omitempty"`
 	MessageArgs map[string]any `json:"message_args,omitempty"`
-	Data       interface{}    `json:"data,omitempty"`
+	Data        interface{}    `json:"data,omitempty"`
 }
 
 func Success(c *gin.Context, data any) {
@@ -29,9 +30,9 @@ func Error(c *gin.Context, code int, err string) {
 
 func ErrorWithKey(c *gin.Context, code int, err string, messageKey string, messageArgs map[string]any) {
 	c.AbortWithStatusJSON(code, ResponseStruct{
-		Code:       code,
-		Message:    err,
-		MessageKey: messageKey,
+		Code:        code,
+		Message:     err,
+		MessageKey:  messageKey,
 		MessageArgs: messageArgs,
 	})
 }
@@ -42,6 +43,31 @@ func InternalError(c *gin.Context) {
 
 func BadGateway(c *gin.Context) {
 	Error(c, http.StatusBadGateway, "upstream service unavailable")
+}
+
+func ErrorWithAppError(c *gin.Context, fallbackStatus int, err error) {
+	status := fallbackStatus
+	if appStatus := apperror.Status(err); appStatus != 0 {
+		status = appStatus
+	}
+	ErrorWithCodeAndParams(c, status, apperror.Code(err), apperror.Message(err), apperror.Params(err))
+}
+
+func ErrorWithCodeAndParams(c *gin.Context, status int, code string, message string, params map[string]any) {
+	c.AbortWithStatusJSON(status, ResponseStruct{
+		Code:        status,
+		Message:     message,
+		MessageKey:  code,
+		MessageArgs: params,
+	})
+}
+
+func InvalidJSON(c *gin.Context) {
+	ErrorWithAppError(c, http.StatusBadRequest, apperror.InvalidJSON(ErrInvalidJSON))
+}
+
+func InvalidParam(c *gin.Context) {
+	ErrorWithAppError(c, http.StatusBadRequest, apperror.InvalidParam(ErrInvalidParam))
 }
 
 func inferErrorMessageKey(message string) string {

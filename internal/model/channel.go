@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +17,30 @@ const (
 	AutoGroupTypeExact AutoGroupType = 2 //准确匹配
 	AutoGroupTypeRegex AutoGroupType = 3 //正则匹配
 )
+
+func (t AutoGroupType) Valid() bool {
+	switch t {
+	case AutoGroupTypeNone, AutoGroupTypeFuzzy, AutoGroupTypeExact, AutoGroupTypeRegex:
+		return true
+	default:
+		return false
+	}
+}
+
+func ParseAutoGroupSettingValue(value string) (AutoGroupType, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "false":
+		return AutoGroupTypeNone, true
+	case "true":
+		return AutoGroupTypeFuzzy, true
+	}
+	parsed, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		return AutoGroupTypeNone, false
+	}
+	mode := AutoGroupType(parsed)
+	return mode, mode.Valid()
+}
 
 type RequestRewriteProfile string
 
@@ -57,15 +82,19 @@ type Channel struct {
 	Keys           []ChannelKey          `json:"keys" gorm:"foreignKey:ChannelID"`
 	Model          string                `json:"model"`
 	CustomModel    string                `json:"custom_model"`
-	Proxy          bool                  `json:"proxy" gorm:"default:false"`
+	ProxyMode      ProxyUsageMode        `json:"proxy_mode" gorm:"type:varchar(16);not null;default:'direct'"`
+	ProxyConfigID  *int                  `json:"proxy_config_id"`
+	Proxy          bool                  `json:"-" gorm:"default:false"`
 	AutoSync       bool                  `json:"auto_sync" gorm:"default:false"`
 	AutoGroup      AutoGroupType         `json:"auto_group" gorm:"default:0"`
 	CustomHeader   []CustomHeader        `json:"custom_header" gorm:"serializer:json"`
 	ParamOverride  *string               `json:"param_override"`
-	ChannelProxy   *string               `json:"channel_proxy"`
+	ChannelProxy   *string               `json:"-" gorm:"column:channel_proxy"`
 	RequestRewrite *RequestRewriteConfig `json:"request_rewrite" gorm:"serializer:json"`
 	Stats          *StatsChannel         `json:"stats,omitempty" gorm:"foreignKey:ChannelID"`
 	MatchRegex     *string               `json:"match_regex"`
+	Managed        bool                  `json:"managed" gorm:"-"`
+	ManagedSource  *ManagedChannelSource `json:"managed_source,omitempty" gorm:"-"`
 }
 
 type BaseUrl struct {
@@ -100,6 +129,8 @@ type ChannelUpdateRequest struct {
 	BaseUrls       *[]BaseUrl             `json:"base_urls,omitempty"`
 	Model          *string                `json:"model,omitempty"`
 	CustomModel    *string                `json:"custom_model,omitempty"`
+	ProxyMode      *ProxyUsageMode        `json:"proxy_mode,omitempty"`
+	ProxyConfigID  *int                   `json:"proxy_config_id,omitempty"`
 	Proxy          *bool                  `json:"proxy,omitempty"`
 	AutoSync       *bool                  `json:"auto_sync,omitempty"`
 	AutoGroup      *AutoGroupType         `json:"auto_group,omitempty"`
@@ -112,6 +143,8 @@ type ChannelUpdateRequest struct {
 	KeysToAdd    []ChannelKeyAddRequest    `json:"keys_to_add,omitempty"`
 	KeysToUpdate []ChannelKeyUpdateRequest `json:"keys_to_update,omitempty"`
 	KeysToDelete []int                     `json:"keys_to_delete,omitempty"`
+
+	BypassManagedCheck bool `json:"-"` // 内部使用：允许投影逻辑更新 managed channel
 }
 
 type ChannelKeyAddRequest struct {

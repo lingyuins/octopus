@@ -58,3 +58,20 @@ func Warnf(template string, args ...interface{}) {
 func Debugf(template string, args ...interface{}) {
 	Logger.Debugf(template, args...)
 }
+
+// Infow / Warnw / Debugw emit structured key-value log entries.
+func Infow(msg string, keysAndValues ...interface{}) {
+	Logger.Infow(msg, keysAndValues...)
+}
+
+func Warnw(msg string, keysAndValues ...interface{}) {
+	Logger.Warnw(msg, keysAndValues...)
+}
+
+func Debugw(msg string, keysAndValues ...interface{}) {
+	Logger.Debugw(msg, keysAndValues...)
+}
+
+func Errorw(msg string, keysAndValues ...interface{}) {
+	Logger.Errorw(msg, keysAndValues...)
+}

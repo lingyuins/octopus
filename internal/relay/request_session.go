@@ -93,7 +93,26 @@ func shouldUseRelayStreamSession(req *transmodel.InternalLLMRequest) bool {
 	if req == nil || req.Stream == nil || !*req.Stream {
 		return false
 	}
-	return strings.TrimSpace(req.ConversationID) != ""
+	return true
+}
+
+func resolveRelayStreamSessionIdentity(endpointType string, inboundType int, apiKeyID int, req *transmodel.InternalLLMRequest) (string, uint64, bool) {
+	if !shouldUseRelayStreamSession(req) {
+		return "", 0, false
+	}
+
+	requestHash := buildRelayStreamSessionHash(endpointType, inboundType, apiKeyID, req.RawRequest)
+	if requestHash == 0 {
+		return "", 0, false
+	}
+
+	conversationID := strings.TrimSpace(req.ConversationID)
+	if conversationID == "" {
+		conversationID = "implicit:" + strconv.FormatUint(requestHash, 16)
+		req.ConversationID = conversationID
+	}
+
+	return conversationID, requestHash, true
 }
 
 func buildRelayStreamSessionHash(endpointType string, inboundType int, apiKeyID int, rawRequest []byte) uint64 {

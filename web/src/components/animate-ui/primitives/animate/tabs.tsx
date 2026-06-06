@@ -181,26 +181,21 @@ function TabsTrigger({
   );
 }
 
-type TabsContentsProps = HTMLMotionProps<'div'> & {
+type TabsContentsProps = React.ComponentProps<'div'> & {
   children: React.ReactNode;
   transition?: Transition;
 };
 
 function TabsContents({
   children,
-  transition = {
-    type: 'spring',
-    stiffness: 300,
-    damping: 30,
-    bounce: 0,
-    restDelta: 0.01,
-  },
+  transition,
   ...props
 }: TabsContentsProps) {
+  void transition;
+
   const { activeValue } = useTabs();
   const childrenArray = React.Children.toArray(children);
-  const activeIndex = childrenArray.findIndex(
-    (child): child is React.ReactElement<{ value: string }> =>
+  const activeChild = childrenArray.find((child) =>
       React.isValidElement(child) &&
       typeof child.props === 'object' &&
       child.props !== null &&
@@ -208,103 +203,10 @@ function TabsContents({
       child.props.value === activeValue,
   );
 
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const itemRefs = React.useRef<Array<HTMLDivElement | null>>([]);
-  const [height, setHeight] = React.useState(0);
-  const roRef = React.useRef<ResizeObserver | null>(null);
-  const safeActiveIndex = activeIndex >= 0 ? activeIndex : 0;
-
-  const measure = React.useCallback((index: number) => {
-    const pane = itemRefs.current[index];
-    const container = containerRef.current;
-    if (!pane || !container) return 0;
-
-    const base = pane.getBoundingClientRect().height || 0;
-
-    const cs = getComputedStyle(container);
-    const isBorderBox = cs.boxSizing === 'border-box';
-    const paddingY =
-      (parseFloat(cs.paddingTop || '0') || 0) +
-      (parseFloat(cs.paddingBottom || '0') || 0);
-    const borderY =
-      (parseFloat(cs.borderTopWidth || '0') || 0) +
-      (parseFloat(cs.borderBottomWidth || '0') || 0);
-
-    let total = base + (isBorderBox ? paddingY + borderY : 0);
-
-    const dpr =
-      typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    total = Math.ceil(total * dpr) / dpr;
-
-    return total;
-  }, []);
-
-  React.useEffect(() => {
-    if (roRef.current) {
-      roRef.current.disconnect();
-      roRef.current = null;
-    }
-
-    if (activeIndex < 0) {
-      setHeight(0);
-      return;
-    }
-
-    const pane = itemRefs.current[activeIndex];
-    const container = containerRef.current;
-    if (!pane || !container) return;
-
-    setHeight(measure(activeIndex));
-
-    const ro = new ResizeObserver(() => {
-      const next = measure(activeIndex);
-      requestAnimationFrame(() => setHeight(next));
-    });
-
-    ro.observe(pane);
-    ro.observe(container);
-
-    roRef.current = ro;
-    return () => {
-      ro.disconnect();
-      roRef.current = null;
-    };
-  }, [activeIndex, childrenArray.length, measure]);
-
-  React.useLayoutEffect(() => {
-    if (height === 0 && activeIndex >= 0) {
-      const next = measure(activeIndex);
-      if (next !== 0) setHeight(next);
-    }
-  }, [activeIndex, height, measure]);
-
   return (
-    <motion.div
-      ref={containerRef}
-      data-slot="tabs-contents"
-      style={{ overflow: 'hidden' }}
-      animate={{ height }}
-      transition={transition}
-      {...props}
-    >
-      <motion.div
-        className="flex -mx-2"
-        animate={{ x: safeActiveIndex * -100 + '%' }}
-        transition={transition}
-      >
-        {childrenArray.map((child, index) => (
-          <div
-            key={index}
-            ref={(el) => {
-              itemRefs.current[index] = el;
-            }}
-            className="w-full shrink-0 px-2 h-full"
-          >
-            {child}
-          </div>
-        ))}
-      </motion.div>
-    </motion.div>
+    <div data-slot="tabs-contents" {...props}>
+      {activeChild}
+    </div>
   );
 }
 
@@ -332,10 +234,6 @@ function TabsContent({
       data-slot="tabs-content"
       inert={!isActive}
       style={{ overflow: 'hidden', ...style }}
-      initial={{ filter: 'blur(0px)' }}
-      animate={{ filter: isActive ? 'blur(0px)' : 'blur(4px)' }}
-      exit={{ filter: 'blur(0px)' }}
-      transition={{ type: 'spring', stiffness: 200, damping: 25 }}
       {...props}
     />
   );

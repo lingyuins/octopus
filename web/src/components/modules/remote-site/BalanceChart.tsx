@@ -54,16 +54,17 @@ export function BalanceChart({ siteId, days = 30 }: BalanceChartProps) {
     }, [chartData, prediction]);
 
     if (isLoading) {
-        return <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">{t('chart.loading')}</div>;
+        return <div className="h-40 sm:h-48 flex items-center justify-center text-muted-foreground text-sm">{t('chart.loading')}</div>;
     }
 
     if (!mergedData || mergedData.length === 0) {
-        return <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">{t('chart.noData')}</div>;
+        return <div className="h-40 sm:h-48 flex items-center justify-center text-muted-foreground text-sm">{t('chart.noData')}</div>;
     }
 
     return (
         <div className="space-y-3">
-            <ResponsiveContainer width="100%" height={200}>
+            <div className="h-48 sm:h-56 md:h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={mergedData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis
@@ -119,6 +120,7 @@ export function BalanceChart({ siteId, days = 30 }: BalanceChartProps) {
                     )}
                 </LineChart>
             </ResponsiveContainer>
+            </div>
 
             {/* Prediction info cards */}
             {prediction && (

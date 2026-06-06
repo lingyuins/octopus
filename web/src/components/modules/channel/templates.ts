@@ -45,23 +45,6 @@ export const channelTemplates: ChannelTemplate[] = [
         }),
     },
     {
-        key: 'openai-responses',
-        name: 'OpenAI Responses',
-        descriptionKey: 'template.descriptions.openaiResponses',
-        apply: (current) => createTemplatePatch(current, {
-            name: current.name || 'OpenAI Responses',
-            type: ChannelType.OpenAIResponse,
-            base_urls: [{ url: 'https://api.openai.com', delay: 0, suffix_mode: 'auto' }],
-            custom_header: [],
-            channel_proxy: '',
-            param_override: '',
-            model: '',
-            custom_model: '',
-            auto_group: AutoGroupType.None,
-            match_regex: '',
-        }),
-    },
-    {
         key: 'anthropic',
         name: 'Anthropic',
         descriptionKey: 'template.descriptions.anthropic',

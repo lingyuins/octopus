@@ -83,7 +83,7 @@ export interface ModelPricingEntry {
 
 export const SITE_TYPES = [
     'new-api', 'veloera', 'done-hub', 'one-hub', 'sub2api',
-    'octopus', 'anyrouter', 'aihubmix', 'axonhub', 'claude-code-hub', 'unknown',
+    'octopus', 'sapi', 'anyrouter', 'aihubmix', 'axonhub', 'claude-code-hub', 'unknown',
 ] as const;
 
 export type SiteType = (typeof SITE_TYPES)[number];

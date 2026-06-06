@@ -13,6 +13,7 @@ import (
 	_ "github.com/lingyuins/octopus/internal/hub/claudecodehub"
 	_ "github.com/lingyuins/octopus/internal/hub/common"
 	_ "github.com/lingyuins/octopus/internal/hub/octopus"
+	_ "github.com/lingyuins/octopus/internal/hub/sapi"
 	_ "github.com/lingyuins/octopus/internal/hub/sub2api"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/utils/crypto"

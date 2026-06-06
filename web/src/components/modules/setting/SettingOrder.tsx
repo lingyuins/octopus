@@ -26,6 +26,7 @@ export type SettingItemId =
     | 'system'
     | 'llmsync'
     | 'circuit-breaker'
+    | 'response-filter'
     | 'backup'
     | 'webdav'
     | 'route-group-danger';
@@ -42,6 +43,7 @@ export const DEFAULT_SETTING_ORDER: SettingItemId[] = [
     'system',
     'llmsync',
     'circuit-breaker',
+    'response-filter',
     'backup',
     'webdav',
     'route-group-danger',
@@ -116,6 +118,7 @@ export function SettingOrder() {
             system: settingT('system'),
             llmsync: settingT('llmSync.title'),
             'circuit-breaker': settingT('circuitBreaker.title'),
+            'response-filter': settingT('responseFilter.title'),
             backup: settingT('backup.title'),
             webdav: settingT('webdav.title'),
             'route-group-danger': settingT('routeGroups.title'),

@@ -22,18 +22,24 @@
 - 🔄 **Protocol Conversion** - Seamless conversion between OpenAI Chat / OpenAI Responses / OpenAI Embeddings / Anthropic API formats
 - 🌐 **Multi-Provider Support** - Built-in support for OpenAI-compatible, Anthropic, Gemini, Volcengine, and MiMo channels
 - 🛰️ **Media & Utility Relay** - Relay OpenAI Images, audio, video, search, rerank, and moderation endpoints through the same group / retry / circuit-breaker infrastructure
-- 🧾 **API Key Governance** - Supported-model allowlists, expiry, max-cost caps, RPM / TPM limits, and optional per-model quotas
+- 🧾 **API Key Governance** - Supported-model allowlists, expiry, max-cost caps, RPM / TPM limits, per-model quotas, and IP / CIDR allowlists
 - 🔐 **Role-Based Admin Access** - Built-in `admin`, `editor`, and `viewer` roles with server-side permission enforcement
-- 🚨 **Alerts & Notifications** - Alert rules for error rate, cost threshold, quota exceeded, and channel down with webhook, Gotify, and email notification channels and history
+- 🚨 **Alerts & Notifications** - Alert rules for error rate, cost threshold, quota exceeded, and channel down with webhook, Gotify, email, Telegram, Feishu, DingTalk, WeCom, and ntfy notification channels and history
 - 💎 **Model Market** - Unified model catalog with pricing, channel coverage, enabled key counts, latency, and success metrics, plus create / edit / delete / refresh price workflows
 - 🔃 **Model Sync** - Automatic synchronization of available model lists with channels
-- 📊 **Analytics & Evaluation** - Overview, provider / model / API key utilization, route health, semantic-cache evaluation, and live entry points for group testing / AI routing
-- 🛠️ **Ops & Audit** - Cache, quota, health, system, and audit dashboards for daily operations, plus a management-write audit trail
-- 🧠 **Semantic Cache** - Embedding-backed semantic cache for non-streaming OpenAI Chat / OpenAI Responses text requests, with runtime status and effectiveness metrics
-- 🧭 **Configurable Navigation Order** - Persist top-level console page order in settings and reuse it across browsers
+- 📊 **Analytics & Evaluation** - Overview, provider / model / API key utilization, route health, latency distribution, semantic-cache evaluation, provider prompt-cache analytics, and live entry points for group testing / AI routing
+- 🛠️ **Ops & Audit** - Telemetry, quota, health, system, and audit dashboards for daily operations, plus a management-write audit trail
+- 🧠 **Semantic Cache** - Embedding-backed semantic cache for non-streaming and streaming OpenAI Chat / OpenAI Responses text requests, with runtime status and effectiveness metrics
+- 🧭 **Configurable Navigation** - Persist top-level console page order and visibility in settings and reuse it across browsers
 - 💾 **Runtime State Persistence** - Persist auto strategy windows and circuit breaker state to the database
-- 🎨 **Elegant UI** - Clean and beautiful web management panel
-- 🗄️ **Multi-Database Support** - Support for SQLite, MySQL, PostgreSQL
+- 🔗 **Site Management** - Manage upstream relay platforms (New-API, One-API, One-Hub, Sub2API, etc.) with multi-account support, projected channels, auto-sync, and auto-checkin
+- 🌍 **Proxy Pool** - Named proxy configurations with direct / system / pool / inherit modes and reference tracking across sites, accounts, and channels
+- 🔁 **Model Mapping** - Global model name rewriting rules with exact, wildcard, and regex matching, priority ordering, and optional group scope
+- ☁️ **WebDAV Cloud Backup** - Automated cloud backup via WebDAV with configurable schedule, remote file management, and one-click restore
+- 🔑 **API Credential Profiles** - Reusable Base URL + API Key pairs with health verification probes and CLI config export
+- 📤 **CLI Config Export** - Generate configuration snippets for Claude Code, Codex, Gemini CLI, Cherry Studio, and Kilo Code
+- 🎨 **Elegant UI** - Clean and beautiful web management panel with dark mode, activity heatmap, share snapshot, and responsive mobile layout
+- 🗄️ **Multi-Database Support** - Support for SQLite, MySQL, PostgreSQL with live migration between database types
 
 
 ## 🚀 Quick Start
@@ -156,7 +162,7 @@ http://localhost:3000
 On first launch, you can initialize the admin account in either of these ways:
 
 - Provide `OCTOPUS_INITIAL_ADMIN_USERNAME` and `OCTOPUS_INITIAL_ADMIN_PASSWORD` to bootstrap automatically at startup
-- Or open the Web UI on first visit and create the initial admin account there
+- Or open the Web UI on first visit and create the initial admin account through the guided setup wizard
 
 > ⚠️ **Security Notice**: The initial admin password must be at least 12 characters long.
 >
@@ -193,11 +199,14 @@ The configuration file is located at `data/config.json` by default and is automa
   },
   "auth": {
     "jwt_secret": "replace-with-a-long-random-secret"
+  },
+  "security": {
+    "encryption_key": "replace-with-another-long-random-secret"
   }
 }
 ```
 
-Most operational knobs are not stored in `config.json`. Retry policy, circuit breaker thresholds, auto-strategy tuning, relay log retention, public API base URL, AI-route service settings, and semantic-cache switches are managed at runtime from the Settings page / management API and stored in the database.
+Most operational knobs are not stored in `config.json`. Retry policy, circuit breaker thresholds, auto-strategy tuning, relay log retention, public API base URL, AI-route service settings, semantic-cache switches, WebDAV backup, proxy pool, and model mapping rules are managed at runtime from the Settings page / management API and stored in the database.
 
 **Configuration Options:**
 
@@ -209,6 +218,9 @@ Most operational knobs are not stored in `config.json`. Retry policy, circuit br
 | `database.path` | Database connection string | `data/data.db` |
 | `log.level` | Log level | `info` |
 | `auth.jwt_secret` | JWT signing secret | empty (ephemeral secret generated at startup if unset) |
+| `security.encryption_key` | Encryption key for sensitive stored data (credential profiles, site passwords, etc.) | empty (falls back to JWT secret) |
+| `relay.max_json_body_bytes` | Maximum JSON request body size | `67108864` (64 MB) |
+| `relay.max_multipart_body_bytes` | Maximum multipart request body size | `67108864` (64 MB) |
 
 > 💡 **Tip**: Set `OCTOPUS_AUTH_JWT_SECRET` or `auth.jwt_secret` before running Octopus in production so login tokens stay valid across restarts.
 
@@ -259,6 +271,7 @@ All configuration options can be overridden via environment variables using the 
 | `OCTOPUS_DATA_DIR` | Default directory for `config.json` and the SQLite DB when `database.path` is not explicitly set |
 | `OCTOPUS_LOG_LEVEL` | `log.level` |
 | `OCTOPUS_AUTH_JWT_SECRET` | `auth.jwt_secret` |
+| `OCTOPUS_SECURITY_ENCRYPTION_KEY` | `security.encryption_key` |
 | `OCTOPUS_INITIAL_ADMIN_USERNAME` | Bootstrap the initial admin username at startup |
 | `OCTOPUS_INITIAL_ADMIN_PASSWORD` | Bootstrap the initial admin password at startup |
 | `OCTOPUS_GITHUB_PAT` | For rate limiting when getting the latest version (optional) |
@@ -327,21 +340,34 @@ The embedded management UI currently ships with these top-level modules:
 
 | Module | What it covers |
 |--------|----------------|
-| Home | Version, runtime status, and high-level summaries |
-| Channel | Upstream provider configuration, keys, headers, sync, and latency probing |
-| Group | Model routing, load-balancing strategies, sticky sessions, group test, and AI route generation |
-| Model Market | Model catalog, custom pricing, channel coverage, enabled key counts, latency, and success summaries |
-| Analytics | Home-linked overview metrics, utilization, route health, and evaluation |
+| Home | Version, runtime status, high-level summaries, trend chart, activity heatmap, and ranking panel |
+| Hub | Remote site management with tabs: Sites (with balance chart & prediction), Check-in, Announcement, Redemption, Usage, Credential, and Site Channels |
+| Channel | Upstream provider configuration, keys, headers, sync, latency probing, proxy mode, and request rewrite profiles |
+| Group | Model routing, load-balancing strategies, sticky sessions, group test, AI route generation, endpoint provider, zashboard-style collapsible group list, and CC Switch deep link |
+| Model Market | Model catalog, custom pricing, channel coverage, enabled key counts, latency, success metrics, and capabilities dual-view |
+| Analytics | Cache overview, utilization, route health, latency distribution, evaluation, and share snapshot |
 | Log | Relay request history, error details, token usage, and cost records |
-| Alert | Alert rules, notification channels, state, and history |
-| Ops | Semantic cache, API key quota posture, system health, runtime summary, and audit trail |
-| APIKey | API key create, edit, delete, supported-model allowlists, expiry, max-cost caps, and RPM / TPM quotas |
-| Setting | Version/update info, appearance and nav preferences, runtime tuning, semantic cache, AI route services, API key defaults, retry, circuit breaker, backup, and dangerous operations |
+| Alert | Alert rules, notification channels (webhook, Gotify, email, Telegram, Feishu, DingTalk, WeCom, ntfy), state, and history |
+| Ops | Telemetry (hero metrics, P95 latency, provider health, prompt-cache analytics), quota, health, system, and audit trail |
+| APIKey | API key create, edit, delete, supported-model allowlists, expiry, max-cost caps, RPM / TPM quotas, IP allowlists, and per-model quotas |
+| Setting | Version/update info, appearance and nav preferences (order + visibility), runtime tuning, semantic cache, AI route services, API key defaults, database migration, WebDAV backup, site automation, backup/restore, and dangerous operations |
 | User | Admin user management and roles |
+
+Additionally, the following features are accessible from the app shell toolbar or within other modules:
+
+| Feature | What it covers |
+|---------|----------------|
+| Proxy Pool | Named proxy configurations CRUD, connectivity testing, and reference tree tracking |
+| Model Mapping | Global model name rewriting rules with exact / wildcard / regex matching, priority, and group scope |
+| API Credential Profiles | Reusable Base URL + API Key pairs with health verification and CLI export |
 
 ### 📡 Channel Management
 
 Channels are the basic configuration units for connecting to LLM providers.
+
+**Channel Templates:**
+
+The UI provides 9 built-in channel templates for quick creation: OpenAI, OpenAI Responses, Anthropic, Gemini, DeepSeek, OpenRouter, SiliconFlow, Volcengine, and MiMo.
 
 **Base URL Guide:**
 
@@ -360,6 +386,38 @@ The program automatically appends API paths based on channel type. You only need
 
 > 💡 **Tip**: Base URLs now support `Auto detect` and `Custom`. `Auto detect` appends the version suffix based on the channel type, while `Custom` keeps the URL exactly as you entered it.
 
+**Proxy Mode:**
+
+Each channel can configure a proxy mode:
+
+| Mode | Description |
+|------|-------------|
+| `direct` | No proxy, connect directly |
+| `system` | Use system proxy settings |
+| `pool` | Select from the named proxy pool |
+| `inherit` | Inherit proxy from the parent site or account |
+
+**Request Rewrite Profiles:**
+
+Per-channel request rewriting for upstream compatibility:
+
+| Profile | Description |
+|---------|-------------|
+| `preserve` | No body rewrite — forward as-is |
+| `openai_chat_compat` | Strip incompatible fields for standard OpenAI Chat format |
+
+**Parameter Override:**
+
+Each channel supports a `param_override` JSON configuration that injects or overrides specific parameters in outbound requests to the upstream provider, enabling per-channel parameter customization without modifying the client request.
+
+Header and message strategies:
+
+| Strategy | Options | Description |
+|----------|---------|-------------|
+| Header Profile | `none`, `codex` | Codex-specific header shaping |
+| Tool Role | `keep`, `stringify_to_user` | How to handle tool role messages |
+| System Message | `keep`, `merge` | How to handle system messages |
+
 ### 🌐 Public Relay Endpoints
 
 The public relay API supports both OpenAI-style and Anthropic-style clients:
@@ -376,7 +434,19 @@ The public relay API supports both OpenAI-style and Anthropic-style clients:
 
 JSON media endpoints can also proxy upstream SSE streams when the provider supports `stream=true`.
 
-Semantic cache is currently evaluated only for non-streaming OpenAI Chat and OpenAI Responses text requests. Anthropic, embeddings, streaming, and media / utility requests bypass the cache and continue through the normal relay flow.
+Semantic cache is currently evaluated for non-streaming and streaming OpenAI Chat and OpenAI Responses text requests (streaming cache hits replay from the SSE session buffer). Anthropic, embeddings, and media / utility requests bypass the cache and continue through the normal relay flow.
+
+**Zen Direct Model Routing:**
+
+Requests with model name prefixed `zen/<model>` bypass group model mapping and route directly to the upstream model. Octopus performs smart channel-type detection based on the model name (e.g., Claude → Anthropic, Gemini → Gemini, GPT → OpenAI).
+
+**Response ID Affinity:**
+
+For the OpenAI Responses API, follow-up requests referencing the same response ID are automatically routed to the same upstream channel to maintain conversation continuity.
+
+**Model Mapping:**
+
+Global model name rewriting rules are applied in the relay pipeline before group resolution. Rules support exact, wildcard (glob), and regex matching with priority ordering and optional group scope.
 
 ---
 
@@ -463,6 +533,7 @@ Groups aggregate multiple channels into a unified external model name.
 - **First Token Timeout**: unit in seconds, only effective for streaming responses, `0` means no limit
 - **Session Keep Time**: unit in seconds, keeps using the same channel for the same API key + model within the configured session window, `0` means disabled
 - **Condition (JSON)**: optional AND rules currently evaluated in the main LLM relay path; the built-in request context currently includes `model`, `api_key_id`, and `hour`
+- **Endpoint Provider**: provider-aware request rewriting (`openai`, `deepseek`, `mimo`, `siliconflow`, `newapi`) that strips incompatible reasoning fields (e.g., `reasoning_content`, `reasoning_signature`) from messages for upstream compatibility
 
 **Load Balancing Modes:**
 
@@ -490,6 +561,11 @@ Groups aggregate multiple channels into a unified external model name.
 - Existing groups with the same name only receive missing route items; existing groups are not cleared or replaced
 - Clicking **AI Fill Current Group** in the edit dialog sends all models to AI and appends only the matched route items to that group
 - The setting previously named AI route target group now acts as the default target group for the single-group compatibility flow only
+- AI route tasks are persistent with heartbeat, progress tracking, batch management, and interruption recovery
+
+**CC Switch Integration:**
+
+The group toolbar includes a CC Switch deep link generator that creates provider import links for 5 target apps: Claude Code, Codex, Gemini, OpenCode, and OpenClaw. For Claude Code, it supports mapping Haiku / Sonnet / Opus models to specific route groups.
 
 > 💡 **Example**: Create a group named `gpt-4o`, add multiple providers' GPT-4o channels to it, then access all channels via a unified `model: gpt-4o`.
 
@@ -497,9 +573,9 @@ Groups aggregate multiple channels into a unified external model name.
 
 ### 💎 Model Market & Pricing
 
-The `Model` route is now a model market view instead of a plain price list. It combines model pricing, channel coverage, enabled key counts, average latency, and success metrics into a single page while keeping the original pricing workflows.
+The `Model` route is a model market view with a dual-tab interface: **Market** (pricing and coverage) and **Capabilities** (endpoint support declarations).
 
-**Data merged on each card:**
+**Market tab data merged on each card:**
 
 - Custom or synced pricing from the LLM price catalog
 - Channel coverage and enabled key counts from channel-model relationships
@@ -513,6 +589,10 @@ The `Model` route is now a model market view instead of a plain price list. It c
 | Coverage | Total channel-to-model coverage count in the current result set |
 | Unique Channels | Distinct channels represented by the visible cards |
 | Average Latency | Weighted average latency derived from model request stats |
+
+**Capabilities tab:**
+
+The Capabilities panel shows per-model endpoint support declarations, conversation flag, availability status, and auto-endpoint detection indicators. Models can be searched and filtered by name with status badges (Active, Down, Non-conversation).
 
 **Data Sources:**
 
@@ -541,19 +621,25 @@ The `Model` route is now a model market view instead of a plain price list. It c
 
 ### 📈 Analytics
 
-The Analytics module is a read-oriented operations view with three tabs:
+The Analytics module is a read-oriented operations view with five tabs:
 
 | Tab | What it shows |
 |-----|---------------|
+| Cache | Semantic cache effectiveness and provider-side prompt-cache analytics (cache rate, reuse ratio, estimated cost savings per provider) |
 | Utilization | Provider, model, and API key breakdowns for the selected time range |
 | Route Health | Health score, enabled / disabled item counts, and recent failure pressure for each group |
 | Evaluation | Group readiness, AI route progress, group test progress, and semantic-cache effectiveness |
+| Latency | Request latency metrics (Avg, P50, P95, P99), first-token-user-time (FTUT) metrics, and latency distribution histogram |
 
 **Time ranges:** `1d`, `7d`, `30d`, `90d`, `ytd`, and `all`
 
-The overview metrics API still exists as `/api/v1/analytics/overview`, but the primary UI entry point for those summary cards is now the Home page. Home also carries an independent `7d / 30d / 90d` overview-range switch, plus a daily hero summary, trend chart, activity heatmap, and ranking panel.
+The overview metrics API still exists as `/api/v1/analytics/overview`, but the primary UI entry point for those summary cards is now the Home page. Home also carries an independent `7d / 30d / 90d` overview-range switch, plus a daily hero summary, trend chart, GitHub-style activity heatmap, and ranking panel.
 
 The Evaluation tab is intentionally lightweight: it acts as an entry point into group testing, AI routing, and semantic-cache tuning instead of duplicating those full workflows.
+
+**Share Snapshot:**
+
+The Analytics page includes a Share button that generates a visual PNG snapshot of the current analytics state, which can be downloaded or copied to the clipboard. The snapshot includes key stats (requests, tokens, cost, providers, cache hit rate) and a timestamp.
 
 ---
 
@@ -563,11 +649,15 @@ The Ops module focuses on runtime posture and operational diagnostics:
 
 | Tab | What it shows |
 |-----|---------------|
-| Cache | Semantic-cache configured state, runtime-enabled state, TTL, threshold, hit / miss counts, and usage rate |
+| Telemetry | Hero metrics (uptime, total requests, avg latency, error rate, active connections, memory usage), P95 latency, throughput RPS, database health, session & quota activity, semantic cache snapshot, provider health table with success rates |
 | Quota | API key limit posture across RPM, TPM, max-cost, and per-model quota settings |
 | Health | Database reachability, cache readiness, task-runtime sanity, recent error count, and failing groups |
 | System | Build metadata, database type, public API base URL, proxy, retention intervals, AI route mode, and AI route services |
 | Audit | Paginated audit history for management-side write operations |
+
+**Provider Prompt Cache Analytics:**
+
+The Telemetry tab includes provider-side prompt cache monitoring, tracking upstream provider prompt caching effectiveness: cache rate, cache reuse ratio, cache read / write tokens, estimated cost savings per channel, and a 24-hour cache trend chart. This is separate from the semantic cache.
 
 **Audit scope:**
 
@@ -599,24 +689,38 @@ Since the program handles numerous statistics, writing to the database on every 
 
 | Card | Purpose |
 |------|---------|
-| Info | Current version, latest release lookup, cache-mismatch detection, and in-place self-update entry |
-| Appearance | Theme, locale, alert language, and drag-and-drop top-level navigation order preferences |
-| System | Public API base URL, proxy URL, CORS allowlist, and stats persistence interval |
-| Account | Login-session/account preferences exposed in the current console |
+| Info | Current version, latest release lookup, cache-mismatch detection, and in-place self-update entry with version mismatch notification |
+| Appearance | Theme, locale, alert language, drag-and-drop top-level navigation order, and per-page visibility toggles |
+| System | Public API base URL, proxy URL, CORS allowlist (tag-style management), and stats persistence interval |
+| Account | Login-session/account preferences and application timezone selection (10 time zones) |
 | Semantic Cache | Enablement, TTL, similarity threshold, max entries, embedding base URL / API key / model / timeout |
 | AI Route | Default compatibility group, timeout, parallelism, and service-pool configuration |
 | API Key | API key creation defaults and quota-related controls |
 | Retry / Auto Strategy / Circuit Breaker | Relay retry and candidate-selection tuning |
-| Log / LLM Price / LLM Sync | Retention, price refresh cadence, and upstream model synchronization |
-| Backup | Database export and import |
+| Log / LLM Price / LLM Sync | Retention (time-based and count-based), price refresh cadence, and upstream model synchronization |
+| Site Automation | Auto-sync interval, auto-checkin interval, and manual sync / checkin triggers for remote sites |
+| WebDAV Backup | WebDAV cloud backup configuration: connection settings, auto-backup interval, max backups retention, manual trigger, remote file listing, restore, and delete |
+| Backup | Database export, import, and live database migration between SQLite / MySQL / PostgreSQL with connection testing and per-table row count results |
 | Route Group Danger | Delete all route groups with explicit confirmation |
 
 **Semantic Cache Scope:**
 
-- Applies only to non-streaming OpenAI Chat and OpenAI Responses text requests
+- Applies to non-streaming and streaming OpenAI Chat and OpenAI Responses text requests
+- Streaming cache hits replay from the SSE session buffer with stable stream-session recovery
 - Namespaces cache entries by `api_key_id + endpoint_family + requested_model`
 - If the embedding client is not fully configured, or embedding lookup / store fails, Octopus bypasses the cache and relays the request normally
-- Runtime state and effectiveness are visible in both `Analytics -> Evaluation` and `Ops -> Cache`
+- Runtime state and effectiveness are visible in both `Analytics -> Evaluation` and `Ops -> Telemetry`
+- Cache entries are preserved across unchanged runtime config refreshes
+
+**Database Live Migration:**
+
+The Backup settings card includes a live database migration feature beyond simple export/import:
+
+- Target database types: SQLite, MySQL, PostgreSQL
+- Connection testing before migration
+- Optional inclusion of logs and stats in migration
+- Migration result display with per-table row counts
+- Post-migration restart reminder (the backend continues using the old database until restart)
 
 **Dangerous Operation in Settings:**
 
@@ -624,7 +728,114 @@ Since the program handles numerous statistics, writing to the database on every 
 - The action requires a second confirmation before execution
 - It deletes all groups and group items, then resets the default target group for single-group AI routing to `0` to avoid dangling references
 
+**Settings Card Order:**
+
+The Settings page supports drag-and-drop reordering of its 14+ card sections, with order persisted to local storage. A "Reset to Default" button restores the original order.
+
 > ⚠️ **Important**: When exiting the program, use proper shutdown methods (like `Ctrl+C` or sending `SIGTERM` signal) to ensure in-memory statistics are correctly written to the database. **Do NOT use `kill -9` or other forced termination methods**, as this may result in statistics data loss.
+
+---
+
+### 🔗 Site Management
+
+The Site module manages upstream relay platforms as a first-class entity, distinct from the Hub (remote site connections). Sites represent platforms like New-API, One-API, One-Hub, Done-Hub, Sub2API, AnyRouter, OpenAI, Claude, and Gemini.
+
+**Features:**
+
+- Multi-account support per site with username/password, access_token, or api_key credentials
+- Auto-sync of channels, tokens, and models at configurable intervals
+- Auto-checkin with configurable intervals and random time windows
+- **Projected channels**: automatically creates local Octopus channels from site account groups with per-group key management, model routing, and history tracking
+- Route type inference per model (openai_chat, openai_response, anthropic, gemini, volcengine, embedding)
+- Manual model add / delete and route type override
+- Source key and projected key management with model history tracking
+- Bulk import from AllAPIHub and MetAPI formats
+- Proxy pool integration with per-site, per-account, and per-channel proxy selection
+
+---
+
+### 🌍 Proxy Pool
+
+A shared proxy configuration pool accessible from the app shell toolbar:
+
+- Named proxy configurations with URL, scheme (SOCKS5 / HTTP / HTTPS), enable/disable, and remarks
+- 4 proxy modes: `direct`, `system`, `pool`, `inherit`
+- Proxy connectivity testing against a configurable test URL
+- **Reference tree** showing which sites, site accounts, managed channels, and channels use each proxy
+- Jump-to-reference navigation that deep-links to the referencing entity
+- Deletion protection when a proxy has active references
+
+---
+
+### 🔁 Model Mapping
+
+Global model name rewriting rules applied in the relay pipeline before group resolution:
+
+- **Match types**: Exact, Wildcard (glob), and Regex
+- **Target model**: the rewritten model name
+- **Priority ordering**: rules are evaluated in priority order
+- **Group scope**: optionally apply only to a specific group
+- **Enable/disable toggle** per rule
+
+---
+
+### ☁️ WebDAV Cloud Backup
+
+Automated cloud backup via WebDAV with full lifecycle management:
+
+- Configurable base URL, credentials, remote path, auto-backup interval (default 6 hours), and max backups retention
+- Connection testing before enabling
+- Manual backup trigger
+- Remote backup file listing with size info
+- One-click restore from any remote backup
+- Delete remote backups
+- Included in the Settings page as a dedicated card
+
+---
+
+### 🔑 API Credential Profiles & CLI Export
+
+Reusable API credential profiles store Base URL + API Key pairs for quick access:
+
+- Health verification probes: `text_gen`, `models_list`, `tool_calling`, `structured_output`
+- Health status tracking per credential
+- Encryption at rest via `security.encryption_key`
+- Tags and notes for organization
+
+**CLI Config Export:**
+
+Generate ready-to-use configuration snippets for 5 client tools:
+
+| Tool | Format |
+|------|--------|
+| Claude Code | Environment variables for `~/.claude/settings.json` |
+| Codex | Environment variables for `~/.codex/auth.json` and `config.toml` |
+| Gemini CLI | Environment variables |
+| Cherry Studio | JSON provider import configuration |
+| Kilo Code | JSON settings block |
+
+---
+
+### 🚨 Alerts & Notifications
+
+Alert rules monitor system health and trigger notifications:
+
+**Alert rule types:** Error rate, cost threshold, quota exceeded, and channel down.
+
+**Notification channels:**
+
+| Channel | Configuration |
+|---------|--------------|
+| Webhook | URL, method, headers |
+| Gotify | Server URL, app token |
+| Email | SMTP settings, recipients |
+| Telegram | Bot token, chat ID |
+| Feishu | Webhook key |
+| DingTalk | Robot access token, optional HMAC-SHA256 signing secret |
+| WeCom | Group robot key |
+| ntfy | Topic URL, optional access token |
+
+Alert state and history are tracked per rule, with configurable evaluation intervals.
 
 ---
 
@@ -691,6 +902,10 @@ Edit `~/.codex/auth.json`
 }
 ```
 
+### CLI Config Export
+
+For other clients (Gemini CLI, Cherry Studio, Kilo Code), use the built-in **CLI Export** feature from the API Credential Profiles panel in the management console to generate ready-to-use configuration snippets.
+
 ---
 
 ## 🏗️ Architecture
@@ -703,40 +918,58 @@ internal/
 ├── conf/               # Configuration loading & build metadata
 ├── client/             # HTTP client utilities
 ├── db/                 # Database connection & migrations (SQLite/MySQL/PostgreSQL)
-│   └── migrate/        # Versioned schema migrations (001-009)
-├── model/              # Domain types (Channel, Group, APIKey, User, …)
+│   └── migrate/        # Versioned schema migrations (001-011)
+├── model/              # Domain types (Channel, Group, APIKey, User, Site, ProxyConfiguration, ModelMapping, …)
 ├── op/                 # Business logic operations split by domain
-│   ├── airoute/        # AI route generation and compatibility helpers
-│   ├── analytics/      # Dashboard, utilization, route-health, and evaluation queries
-│   ├── channel/        # Channel CRUD, sync, grouping, keys, and base URL helpers
-│   ├── group/          # Route-group CRUD, group items, tests, and cache-backed lookups
-│   ├── relaylog/       # Relay log persistence and query helpers
-│   └── stats/          # Request statistics aggregation and time-window summaries
+│   ├── airoute/        # AI route generation, progress tracking, service pool, and compatibility helpers
+│   ├── alert/          # Alert rule evaluation and notification dispatch
+│   ├── analytics/      # Dashboard, utilization, route-health, evaluation, and latency queries
+│   ├── apikey/         # API key CRUD and validation
+│   ├── audit/          # Audit log persistence
+│   ├── backup/         # Database export/import, WebDAV cloud backup scheduler
+│   ├── cacheusage/     # Cache usage tracking
+│   ├── channel/        # Channel CRUD, sync, grouping, keys, managed channel projection, and base URL helpers
+│   ├── credential/     # API credential profile management with encryption
+│   ├── dbmigration/    # Live database migration between SQLite/MySQL/PostgreSQL
+│   ├── group/          # Route-group CRUD, auto-grouping, group items, tests, and cache-backed lookups
+│   ├── llm/            # LLM price catalog operations
+│   ├── modelmapping/   # Model mapping rule management
+│   ├── navorder/       # Navigation order and visibility persistence
+│   ├── ops/            # Ops dashboard data aggregation (telemetry, quota, health)
+│   ├── ratelimitstore/ # RPM/TPM rate limit state
+│   ├── relaylog/       # Relay log persistence with async flush worker
+│   ├── remotesite/     # Remote Hub site operations (balance, checkin, announcements, usage, tokens, redemption)
+│   ├── setting/        # Settings CRUD and validation
+│   ├── stats/          # Request statistics aggregation, cache, and site-model backfill
+│   └── user/           # User management and authentication
 ├── relay/              # Core relay pipeline
 │   ├── balancer/       # Load balancing strategies (RoundRobin, Random, Failover, Weighted, Auto)
 │   └── condition/      # Request condition evaluation
 ├── server/             # HTTP layer (Gin)
 │   ├── auth/           # JWT auth & permissions
 │   ├── handlers/       # Route handlers (one per resource)
-│   ├── middleware/     # Auth, RBAC, CORS, rate-limit, audit, …
+│   ├── middleware/     # Auth, RBAC, CORS, rate-limit, audit, security, IP allowlist, …
 │   ├── resp/           # Response envelope helpers
 │   └── router/         # Route registration system
 ├── task/               # Background periodic jobs
 ├── transformer/        # Protocol adapters
 │   ├── inbound/        # Client→Internal (OpenAI, Anthropic)
 │   ├── outbound/       # Internal→Upstream (OpenAI, Anthropic, Gemini, Volcengine, MiMo)
-│   ├── rewrite/        # Request normalization
+│   ├── rewrite/        # Request normalization with configurable profiles
 │   └── model/          # Shared transformer types & interfaces
+├── hub/                # Remote site adapter interface, registry, HTTP client, and platform-specific adapters
 ├── helper/             # Cross-cutting helpers (AI route, channel/group probes, price, notify)
 ├── price/              # LLM price catalog (models.dev sync)
 ├── update/             # Self-update mechanism
-└── utils/              # Utilities (cache, ratelimit, semantic_cache, tokenizer, …)
+└── utils/              # Utilities (cache, ratelimit, semantic_cache, tokenizer, crypto, …)
 ```
 
 **Relay data flow:**
 
 ```
 Client Request
+    ↓
+Model Mapping (global name rewriting)
     ↓
 inbound.TransformRequest (raw → internal format)
     ↓
@@ -753,6 +986,22 @@ Client Response
 
 For streaming, the same pipeline processes each SSE event through `TransformStream`.
 
+**Hub adapters:**
+
+The Hub remote site management uses an adapter-based architecture with 7 registered site adapters:
+
+| Adapter | Site Type |
+|---------|-----------|
+| `common` | `new-api` (fallback for One API / New API family) |
+| `octopus` | `octopus` (self-aware adapter) |
+| `aihubmix` | `aihubmix` |
+| `axonhub` | `axonhub` |
+| `claudecodehub` | `claude-code-hub` |
+| `ldoh` | `ldoh` |
+| `sub2api` | `sub2api` |
+
+Each adapter implements the 15-method `SiteAdapter` interface covering user info, check-in, models, pricing, tokens, channels, announcements, status, redemption, and usage logs.
+
 **Frontend (Next.js 16 App Router):**
 
 ```
@@ -760,12 +1009,12 @@ web/src/
 ├── api/               # API client & endpoint hooks (TanStack Query)
 ├── app/               # Next.js App Router pages
 ├── components/
-│   ├── modules/       # Domain modules (channel, group, apikey, …)
+│   ├── modules/       # Domain modules (channel, group, apikey, remote-site, site, proxy-pool, model-mapping, credential, …)
 │   ├── ui/            # UI primitives (Radix-based)
 │   ├── common/        # Shared components
 │   └── nature/        # Animated backgrounds & effects
 ├── hooks/             # Custom hooks
-├── lib/               # Utilities, i18n, logger
+├── lib/               # Utilities, i18n, logger, time zone helpers
 ├── provider/          # React context providers
 ├── route/             # Lazy-loaded route config
 └── stores/            # Zustand client state
@@ -779,13 +1028,23 @@ Octopus involves three independent timezone layers:
 |-------|--------------|---------|
 | **Container timezone** | `ENV TZ` / `-e TZ=` | Server log timestamps, `time.Now()` return value |
 | **Stats timezone** | Admin UI → `stats_timezone_offset` | Which date hourly/daily statistics roll into |
-| **Frontend display timezone** | Admin UI → user preference | How all timestamps appear on pages |
+| **Frontend display timezone** | Admin UI → user preference (10 time zones) | How all timestamps appear on pages |
 
 The three layers are independent: the container timezone affects the server runtime, the stats timezone affects data aggregation, and the frontend timezone only changes how users see time text.
+
+## 🔐 Security
+
+- **JWT Authentication**: Management API uses JWT tokens with configurable expiry. Login rate limiting protects against brute-force attacks (configurable window and max failed attempts).
+- **Role-Based Access Control**: Server-side RBAC with `admin`, `editor`, `viewer` roles, reloaded from DB each request.
+- **API Key Security**: API keys (`sk-octopus-...`) support model allowlists, IP/CIDR allowlists, expiry, max-cost caps, RPM/TPM limits, and per-model quotas.
+- **Encryption at Rest**: Sensitive stored data (credential profiles, site passwords) is encrypted via AES-256-GCM using `security.encryption_key`.
+- **CORS Management**: Tag-style CORS allowlist manager with `*` for all, specific domains, or deny-all (empty).
+- **Viewer Domain Masking**: Hub-related management data masks domains for viewer accounts across sites, remote sites, credentials, channels, and URL settings.
 
 ## 🤝 Acknowledgments
 
 - 🙏 [looplj/axonhub](https://github.com/looplj/axonhub) - The LLM API adaptation module in this project is directly derived from this repository
 - 📊 [sst/models.dev](https://github.com/sst/models.dev) - AI model database providing model pricing data
-- [ALL api hub](https://github.com/qixing-jk/all-api-hub) - Hub
+- 💡 [qixing-jk/all-api-hub](https://github.com/qixing-jk/all-api-hub) - The Hub concept and feature design inspiration
+- 🛠️ [Hureru/octopus](https://github.com/Hureru/octopus) - The original Hub implementation
 

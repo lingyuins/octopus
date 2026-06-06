@@ -49,9 +49,9 @@ function formatAction(action: string) {
 
 function InfoRow({ label, value }: { label: string; value: string }) {
     return (
-        <div className="flex items-start justify-between gap-4 border-b border-border/40 py-3 last:border-b-0 last:pb-0 first:pt-0">
+        <div className="flex flex-col gap-1 border-b border-border/40 py-3 last:border-b-0 last:pb-0 first:pt-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <span className="text-sm text-muted-foreground">{label}</span>
-            <span className="max-w-[65%] break-all text-right text-sm font-medium">{value || '-'}</span>
+            <span className="break-all text-sm font-medium sm:max-w-[65%] sm:text-right">{value || '-'}</span>
         </div>
     );
 }

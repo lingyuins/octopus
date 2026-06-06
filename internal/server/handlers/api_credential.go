@@ -53,6 +53,9 @@ func listCredentials(c *gin.Context) {
 		resp.InternalError(c)
 		return
 	}
+	if isViewerRole(c.GetString("user_role")) {
+		redactCredentialBaseURLsForViewer(profiles)
+	}
 	resp.Success(c, profiles)
 }
 

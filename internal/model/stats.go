@@ -61,6 +61,18 @@ type StatsAPIKey struct {
 	StatsMetrics
 }
 
+// StatsSiteModelHourly stores hourly request stats for site-channel models,
+// used for availability trend charts on the site-channel page.
+type StatsSiteModelHourly struct {
+	Hour          int    `json:"hour" gorm:"primaryKey;autoIncrement:false"`
+	SiteAccountID int    `json:"site_account_id" gorm:"primaryKey;index:idx_stats_site_model_lookup"`
+	GroupKey      string `json:"group_key" gorm:"primaryKey;type:varchar(128);index:idx_stats_site_model_lookup"`
+	ModelName     string `json:"model_name" gorm:"primaryKey;type:varchar(128);index:idx_stats_site_model_lookup"`
+	Date          string `json:"date" gorm:"not null;type:varchar(8)"`
+	LastRequestAt int64  `json:"last_request_at" gorm:"not null;default:0"`
+	StatsMetrics
+}
+
 // Add aggregates another StatsMetrics into the current one.
 func (s *StatsMetrics) Add(delta StatsMetrics) {
 	s.InputToken += delta.InputToken

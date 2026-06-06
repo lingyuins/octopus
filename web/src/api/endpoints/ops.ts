@@ -127,6 +127,7 @@ export interface OpsSystemSummary {
     proxy_url: string;
     relay_log_keep_enabled: boolean;
     relay_log_keep_days: number;
+    relay_log_keep_count: number;
     stats_save_interval_minutes: number;
     sync_llm_interval_hours: number;
     model_info_update_interval_hours: number;

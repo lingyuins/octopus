@@ -124,7 +124,7 @@ export function SettingSystem() {
     };
 
     return (
-        <div className="rounded-xl border-border/35 bg-card p-6 space-y-5 text-card-foreground shadow-md ">
+        <div className="rounded-xl border-border/35 bg-card p-4 sm:p-6 space-y-4 sm:space-y-5 text-card-foreground shadow-md ">
             <h2 className="text-lg font-bold text-card-foreground flex items-center gap-2">
                 <Monitor className="h-5 w-5" />
                 {t('system')}
@@ -133,7 +133,7 @@ export function SettingSystem() {
             {/* 代理地址 */}
             <div className="flex flex-col gap-3 rounded-lg border-border/30 bg-card p-4 shadow-sm md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-3">
-                    <Globe className="h-5 w-5 text-muted-foreground" />
+                    <Globe className="h-5 w-5 text-muted-foreground shrink-0" />
                     <span className="text-sm font-medium">{t('proxyUrl.label')}</span>
                 </div>
                 <Input
@@ -148,12 +148,12 @@ export function SettingSystem() {
             {/* 公开 API 基础地址 */}
             <div className="flex flex-col gap-3 rounded-lg border-border/30 bg-card p-4 shadow-sm md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-3">
-                    <Globe className="h-5 w-5 text-muted-foreground" />
+                    <Globe className="h-5 w-5 text-muted-foreground shrink-0" />
                     <span className="text-sm font-medium">{t('publicApiBaseUrl.label')}</span>
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <HelpCircle className="size-4 text-muted-foreground cursor-help" />
+                                <HelpCircle className="size-4 text-muted-foreground cursor-help shrink-0" />
                             </TooltipTrigger>
                             <TooltipContent>
                                 {t('publicApiBaseUrl.hint')}
@@ -173,7 +173,7 @@ export function SettingSystem() {
             {/* 统计保存周期 */}
             <div className="flex flex-col gap-3 rounded-lg border-border/30 bg-card p-4 shadow-sm md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-3">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
+                    <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
                     <span className="text-sm font-medium">{t('statsSaveInterval.label')}</span>
                 </div>
                 <Input
@@ -189,12 +189,12 @@ export function SettingSystem() {
             {/* CORS 跨域白名单 */}
             <div className="flex flex-col gap-3 rounded-lg border-border/30 bg-card p-4 shadow-sm md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-3">
-                    <Shield className="h-5 w-5 text-muted-foreground" />
+                    <Shield className="h-5 w-5 text-muted-foreground shrink-0" />
                     <span className="text-sm font-medium">{t('corsAllowOrigins.label')}</span>
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <HelpCircle className="size-4 text-muted-foreground cursor-help" />
+                                <HelpCircle className="size-4 text-muted-foreground cursor-help shrink-0" />
                             </TooltipTrigger>
                             <TooltipContent>
                                 {t('corsAllowOrigins.hint')}
@@ -216,7 +216,7 @@ export function SettingSystem() {
                             </span>
                         </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-72 space-y-2 rounded-lg bg-card p-3">
+                    <PopoverContent className="w-[min(90vw,18rem)] sm:w-72 space-y-2 rounded-lg bg-card p-3">
                         <Input
                             value={corsInputValue}
                             onChange={(e) => setCorsInputValue(e.target.value)}
@@ -227,7 +227,7 @@ export function SettingSystem() {
                                 }
                             }}
                             placeholder={t('corsAllowOrigins.example')}
-                            className="h-9 rounded-xl"
+                            className="h-9 rounded-xl w-full"
                             autoFocus
                         />
                         <div className="max-h-48 space-y-1 overflow-y-auto">
@@ -238,7 +238,7 @@ export function SettingSystem() {
                                         <button
                                             type="button"
                                             onClick={() => handleRemoveCorsOrigin(origin)}
-                                            className="text-muted-foreground transition-colors hover:text-destructive"
+                                            className="text-muted-foreground transition-colors hover:text-destructive shrink-0"
                                             aria-label={t('corsAllowOrigins.removeAriaLabel', { origin })}
                                         >
                                             <X className="size-4" />

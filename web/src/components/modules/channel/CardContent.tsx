@@ -24,7 +24,7 @@ import {
     MorphingDialogClose,
     useMorphingDialog,
 } from '@/components/ui/morphing-dialog';
-import { Tabs, TabsContents, TabsContent } from '@/components/animate-ui/primitives/animate/tabs';
+import { Tabs, TabsContents, TabsContent } from '@/components/animate-ui/components/animate/tabs';
 import { type StatsMetricsFormatted } from '@/api/endpoints/stats';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';

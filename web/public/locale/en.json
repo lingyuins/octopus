@@ -105,7 +105,8 @@
       "announcement": "Announcements",
       "redemption": "Redemption",
       "usage": "Usage History",
-      "credential": "Credentials"
+      "credential": "Credentials",
+      "siteChannels": "Site Channels"
     },
     "title": "Remote Sites",
     "addSite": "Add Site",
@@ -321,6 +322,16 @@
   "analytics": {
     "title": "Analytics",
     "subtitle": "A unified view for Octopus metrics, utilization, and route health. Phase one stays on top of existing stats and relay logs.",
+    "cache": {
+      "title": "Cache",
+      "metrics": {
+        "hitRate": "Hit Rate",
+        "entries": "Entries"
+      },
+      "status": {
+        "configuredOff": "Off"
+      }
+    },
     "cards": {
       "overview": {
         "title": "Overview",
@@ -670,6 +681,7 @@
         "servicePoolMode": "Service Pool Mode",
         "enabled": "Enabled",
         "disabled": "Disabled",
+        "logCountUnit": "entries",
         "notConfigured": "No AI-route service is configured right now."
       }
     },
@@ -930,6 +942,13 @@
             "title": "Ranking",
             "successRate": "By success rate",
             "requestCount": "By call count"
+          },
+          "latencyUnit": {
+            "title": "Average latency unit",
+            "auto": "Auto",
+            "ms": "ms",
+            "s": "s",
+            "h": "h"
           }
         }
       }
@@ -1136,6 +1155,33 @@
         "placeholder": "Enter max cooldown in seconds"
       },
       "hint": "When a channel fails consecutively up to the threshold, circuit breaker trips. Cooldown grows exponentially up to the max cooldown"
+    },
+    "responseFilter": {
+      "title": "Response Keyword Filter",
+      "description": "Intercept model output based on keywords. Supports blocking or replacing matched content.",
+      "enabled": {
+        "label": "Enable response keyword filter"
+      },
+      "action": {
+        "label": "Filter action",
+        "block": "Block",
+        "replace": "Replace",
+        "blockHint": "Immediately stop the response and return an error when a keyword is detected.",
+        "replaceHint": "Replace matched keywords with asterisks (*), the response continues normally."
+      },
+      "keywords": {
+        "label": "Blocked keywords",
+        "placeholder": "Type a keyword and press Enter to add",
+        "add": "Add",
+        "empty": "No keywords yet. Add keywords to block.",
+        "duplicate": "This keyword already exists",
+        "removeHint": "Click to remove"
+      },
+      "errorMessage": {
+        "label": "Block error message",
+        "placeholder": "Enter the error message returned when blocked",
+        "hint": "The error message text returned to the client when a keyword is detected in block mode."
+      }
     },
     "retry": {
       "title": "Retry Settings",
@@ -1510,8 +1556,9 @@
         "label": "Enable History Logs"
       },
       "keepPeriod": {
-        "label": "Log Retention (days)",
-        "placeholder": "Enter days"
+        "label": "Log Retention Days",
+        "placeholder": "e.g. 7",
+        "description": "Logs older than the specified days will be automatically deleted"
       },
       "clear": {
         "label": "Clear History Logs",
@@ -1519,7 +1566,23 @@
         "clearing": "Clearing..."
       },
       "clearSuccess": "Logs cleared",
-      "clearFailed": "Failed to clear logs"
+      "clearFailed": "Failed to clear logs",
+      "keepCount": {
+        "label": "Log Retention Count",
+        "description": "Automatically deletes oldest 50% of logs when exceeding the limit, avoiding frequent cleanup overhead",
+        "placeholder": "e.g. 1000"
+      },
+      "keepMode": {
+        "label": "Retention Mode",
+        "count": "By Count",
+        "days": "By Days"
+      },
+      "mode": {
+        "label": "Log Retention Mode",
+        "description": "Choose to auto-clean logs by count or by days",
+        "count": "By Count",
+        "days": "By Days"
+      }
     },
     "navOrder": {
       "title": "Page Order & Visibility",
@@ -1904,7 +1967,8 @@
       "requests": "Requests",
       "channels": "Channels",
       "keys": "Keys",
-      "latency": "Latency",
+      "latency": "Average Latency",
+      "averageLatency": "Average Latency",
       "successRate": "Success Rate",
       "expand": "Expand details",
       "collapse": "Collapse details"
@@ -1964,7 +2028,8 @@
     },
     "list": {
       "empty": "There are no logs yet",
-      "noMore": "No more logs"
+      "noMore": "No more logs",
+      "loadingMore": "Loading more logs…"
     },
     "card": {
       "error": "Error",
@@ -2222,6 +2287,7 @@
         "hint": "Batch tests all entered endpoint and key combinations. HTTP 200 and 429 are treated as pass.",
         "removeFailedKeys": "Remove Failed Keys"
       },
+      "typeOpenAI": "OpenAI",
       "typeOpenAIChat": "OpenAI Chat",
       "typeOpenAIResponse": "OpenAI Response",
       "typeOpenAIEmbedding": "OpenAI Embedding",
@@ -2265,5 +2331,117 @@
     "databaseSchemaOutdatedRestart": "Database schema is outdated; restart the service to apply the latest migrations",
     "upstreamServiceUnavailable": "Upstream service unavailable",
     "unexpectedError": "Unexpected error"
+  },
+  "siteChannel": {
+    "card": {
+      "statusEnabled": "Enabled",
+      "statusDisabled": "Disabled",
+      "maskedPending": "{n} pending",
+      "noRouteDistribution": "No model distribution",
+      "metrics": {
+        "totalRequests": "Requests",
+        "successRequests": "Success",
+        "failedRequests": "Failed",
+        "totalCost": "Cost",
+        "lastRequestAt": "Last used"
+      }
+    },
+    "advanced": {
+      "title": "Site Channel Advanced Settings",
+      "description": "Configure parameter overrides for projected channels under group {group}.",
+      "channelList": "Projected channels",
+      "empty": "No projected channels in this group",
+      "paramOverride": "Parameter override JSON",
+      "paramOverridePlaceholder": "Leave empty to clear. Must be a valid JSON object.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Advanced settings saved",
+      "invalidParamOverride": "Parameter override must be a valid JSON object",
+      "saveFailed": "Failed to save advanced settings"
+    }
+  },
+  "system": {
+    "fields": {
+      "logCountUnit": "entries"
+    }
+  },
+  "proxyPool": {
+    "site": {
+      "inherit": "Inherit from site"
+    },
+    "mode": {
+      "label": "Proxy Mode",
+      "direct": "Direct",
+      "system": "System",
+      "pool": "Proxy Pool",
+      "inherit": "Inherit"
+    },
+    "name": "Proxy",
+    "selectConfig": "Select proxy…",
+    "disabledSuffix": " (disabled)",
+    "empty": "No proxy configured",
+    "noEnabled": "No enabled proxies",
+    "manage": "Manage proxies",
+    "disabledSelected": "The selected proxy is currently disabled.",
+    "dialog": {
+      "title": "Proxy Pool",
+      "description": "Manage proxy configurations for sites and channels.",
+      "searchPlaceholder": "Search proxies…",
+      "loading": "Loading proxies…",
+      "loadFailed": "Failed to load proxies: {message}",
+      "empty": "No proxies configured yet.",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "references": "{count} refs",
+      "referencesTitle": "References",
+      "referencesDescription": "Entities using proxy \"{name}\".",
+      "referencesEmpty": "No entities reference this proxy.",
+      "referenceTypes": {
+        "site": "Site",
+        "siteAccount": "Account",
+        "managedChannel": "Managed Channel",
+        "channel": "Channel",
+        "reference": "Entity"
+      },
+      "referenceLocations": {
+        "site": "Site",
+        "siteAccount": "Site Account",
+        "channel": "Channel",
+        "managedChannel": "Managed Channel",
+        "managedChannelUnderSite": "Site: {site}",
+        "archivedSite": "Archived Site",
+        "siteNamed": "Site: {name}"
+      },
+      "managedChannelTitle": "Channel: {channel}",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteBlocked": "Cannot delete — has references",
+      "deleteReferenced": "Cannot delete — still referenced by other entities.",
+      "test": "Test",
+      "testDraft": "Test Draft URL",
+      "testUrl": "Test Target URL",
+      "testSuccess": "Test passed — HTTP {statusCode} in {durationMs}ms",
+      "testFailed": "Test failed",
+      "formTitleCreate": "Create Proxy",
+      "formTitleEdit": "Edit Proxy",
+      "formDescription": "Fill in proxy details below and save.",
+      "new": "New",
+      "name": "Name",
+      "url": "URL",
+      "remark": "Remark",
+      "formRequired": "Name and URL are required.",
+      "operationFailed": "Operation failed.",
+      "created": "Proxy created.",
+      "updated": "Proxy updated.",
+      "deleted": "Proxy deleted.",
+      "submitCreate": "Create",
+      "submitEdit": "Save Changes",
+      "collapseReference": "Collapse",
+      "expandReference": "Expand",
+      "jumpToReference": "Go to reference",
+      "derivedReferences": "+{count} managed channels"
+    },
+    "selectRequired": "Please select a proxy configuration."
   }
 }

@@ -32,6 +32,7 @@ import {
     type GroupFilter,
     type ModelFilter,
     type ModelSortMode,
+    type ModelLatencyUnit,
     type ToolbarSortField,
     type ToolbarSortOrder,
 } from './view-options-store';
@@ -40,6 +41,7 @@ const CHANNEL_FILTER_OPTIONS: ChannelFilter[] = ['all', 'enabled', 'disabled'];
 const GROUP_FILTER_OPTIONS: GroupFilter[] = ['all', 'with-members', 'empty', 'chat', 'deepseek', 'mimo', 'embeddings', 'rerank', 'moderations', 'image_generation', 'audio_speech', 'audio_transcription', 'video_generation', 'music_generation', 'search'];
 const MODEL_FILTER_OPTIONS: ModelFilter[] = ['all', 'priced', 'free'];
 const MODEL_SORT_OPTIONS: ModelSortMode[] = ['success-rate', 'request-count'];
+const MODEL_LATENCY_UNIT_OPTIONS: ModelLatencyUnit[] = ['auto', 'ms', 's', 'h'];
 type CombinedSortOption = {
     value: `${ToolbarSortField}-${ToolbarSortOrder}`;
     field: ToolbarSortField;
@@ -55,8 +57,8 @@ const COMBINED_SORT_OPTIONS: readonly CombinedSortOption[] = [
 
 const COMMAND_CELL_CLASS = 'rounded-lg border border-border bg-card transition-[color,background-color,border-color] duration-150 hover:border-border/80 hover:bg-muted/50 active:scale-[0.98]';
 const COMMAND_ICON_BUTTON_CLASS = `${COMMAND_CELL_CLASS} h-11 w-11 text-muted-foreground hover:text-foreground`;
-const COMMAND_TEXT_BUTTON_CLASS = `${COMMAND_CELL_CLASS} h-11 px-3.5 text-sm font-medium text-muted-foreground hover:text-foreground`;
-const OPTION_BUTTON_CLASS = 'h-9 rounded-md border px-3 text-xs font-medium transition-[color,background-color,border-color] duration-150 active:scale-[0.98]';
+const COMMAND_TEXT_BUTTON_CLASS = `${COMMAND_CELL_CLASS} min-h-11 px-3.5 text-sm font-medium text-muted-foreground hover:text-foreground`;
+const OPTION_BUTTON_CLASS = 'min-h-9 sm:h-9 rounded-md border px-3 text-xs font-medium transition-[color,background-color,border-color] duration-150 active:scale-[0.98] py-2 sm:py-0';
 const ACTIVE_OPTION_CLASS = 'border-primary/30 bg-primary text-primary-foreground';
 const INACTIVE_OPTION_CLASS = 'border-border bg-card text-foreground hover:border-primary/20 hover:bg-muted/50';
 
@@ -77,7 +79,7 @@ function CreateDialogContent({ activeItem }: { activeItem: ToolbarPage }) {
 
 function getCreateDialogContentClassName(activeItem: ToolbarPage) {
     if (activeItem === 'group') {
-        return 'h-[calc(100dvh-2rem)] w-[min(100vw-2rem,92rem)] max-w-full rounded-xl border border-border bg-card px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] text-card-foreground shadow-lg flex flex-col overflow-hidden md:h-[calc(100dvh-3rem)] md:w-[min(100vw-3rem,92rem)] md:rounded-xl md:px-4 md:py-4';
+        return 'h-[calc(100dvh-1rem)] w-[min(100vw-1rem,92rem)] max-w-none rounded-xl border border-border bg-card px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] text-card-foreground shadow-lg flex flex-col overflow-hidden sm:max-w-none md:h-[calc(100dvh-2rem)] md:w-[min(100vw-2rem,92rem)] md:rounded-xl md:px-4 md:py-4';
     }
 
     if (activeItem === 'channel') {
@@ -109,10 +111,12 @@ export function Toolbar() {
     const groupFilter = useToolbarViewOptionsStore((s) => normalizeGroupFilterValue(s.groupFilter));
     const modelFilter = useToolbarViewOptionsStore((s) => s.modelFilter);
     const modelSortMode = useToolbarViewOptionsStore((s) => s.modelSortMode);
+    const modelLatencyUnit = useToolbarViewOptionsStore((s) => s.modelLatencyUnit);
     const setChannelFilter = useToolbarViewOptionsStore((s) => s.setChannelFilter);
     const setGroupFilter = useToolbarViewOptionsStore((s) => s.setGroupFilter);
     const setModelFilter = useToolbarViewOptionsStore((s) => s.setModelFilter);
     const setModelSortMode = useToolbarViewOptionsStore((s) => s.setModelSortMode);
+    const setModelLatencyUnit = useToolbarViewOptionsStore((s) => s.setModelLatencyUnit);
     const [expandedSearchItem, setExpandedSearchItem] = useState<ToolbarPage | null>(null);
     const searchExpanded = expandedSearchItem === toolbarItem;
     const { data: modelMarket } = useModelMarket();
@@ -163,6 +167,12 @@ export function Toolbar() {
         'success-rate': 'popover.filter.model.sort.successRate',
         'request-count': 'popover.filter.model.sort.requestCount',
     };
+    const modelLatencyUnitLabelKeys: Record<ModelLatencyUnit, string> = {
+        auto: 'popover.filter.model.latencyUnit.auto',
+        ms: 'popover.filter.model.latencyUnit.ms',
+        s: 'popover.filter.model.latencyUnit.s',
+        h: 'popover.filter.model.latencyUnit.h',
+    };
 
     const filterOptions = toolbarItem === 'channel'
         ? CHANNEL_FILTER_OPTIONS.map((value) => ({
@@ -212,13 +222,15 @@ export function Toolbar() {
                 animate={lightweightMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
                 exit={lightweightMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
                 transition={{ duration: lightweightMotion ? 0.12 : 0.2 }}
-                className="flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-1.5"
+                className="flex max-w-full items-center gap-1 rounded-xl border border-border bg-card p-1 sm:gap-2 sm:p-1.5"
             >
                 {/* 搜索按钮/展开框 */}
                 <div
                     className={cn(
-                        'relative h-11 transition-[width] duration-300 ease-out',
-                        searchExpanded ? 'w-[min(18rem,calc(100vw-3rem))] sm:w-72' : 'w-11'
+                        'relative h-9 transition-[width] duration-300 ease-out sm:h-11',
+                        searchExpanded
+                            ? 'w-[min(13rem,calc(100vw-5rem))] sm:w-[min(18rem,calc(100vw-3rem))]'
+                            : 'w-9 sm:w-11'
                     )}
                 >
                     {!searchExpanded ? (
@@ -230,7 +242,8 @@ export function Toolbar() {
                             className={cn(
                                 buttonVariants({ variant: "ghost", size: "icon" }),
                                 "absolute inset-0 rounded-lg transition-none",
-                                COMMAND_ICON_BUTTON_CLASS
+                                COMMAND_ICON_BUTTON_CLASS,
+                                "h-9 w-9 sm:h-11 sm:w-11"
                             )}
                         >
                             <motion.span layout="position"><Search className="size-4 transition-colors duration-300" /></motion.span>
@@ -260,7 +273,7 @@ export function Toolbar() {
                                     setSearchTerm(toolbarItem, '');
                                     setExpandedSearchItem(null);
                                 }}
-                                className="grid size-7 shrink-0 place-items-center rounded-full border border-border/30 bg-card text-muted-foreground transition-colors hover:text-foreground"
+                                className="grid size-7 shrink-0 place-items-center rounded-full border border-border/30 bg-card text-muted-foreground transition-colors hover:text-foreground sm:size-7 [-webkit-tap-highlight-color:transparent] before:absolute before:grid before:size-11 before:place-items-center before:rounded-full sm:before:size-7 relative"
                             >
                                 <X className="size-3.5" />
                             </button>
@@ -271,13 +284,14 @@ export function Toolbar() {
                 {toolbarItem === 'group' && (
                     <CCSwitchLinkButton className="hidden sm:inline-flex" />
                 )}
-                <div className="flex h-11 items-center gap-1 rounded-xl border border-border bg-muted/30 p-1">
+                <div className="flex h-9 min-w-0 items-center gap-0.5 rounded-xl border border-border bg-muted/30 p-0.5 sm:h-11 sm:gap-1 sm:p-1">
                     {toolbarItem === 'model' && (
                         <ModelMarketSummary
                             summary={modelSummary}
                             onRefresh={() => updateModelPrice.mutate()}
                             isRefreshing={updateModelPrice.isPending}
-                            triggerClassName="h-9 rounded-md border border-transparent bg-transparent px-3 text-muted-foreground shadow-none transition-[color,background-color,border-color] duration-150 hover:border-border hover:bg-muted hover:text-foreground hover:shadow-none"
+                            compact
+                            triggerClassName="h-8 min-h-8 rounded-md border border-transparent bg-transparent px-1.5 text-muted-foreground shadow-none transition-[color,background-color,border-color] duration-150 hover:border-border hover:bg-muted hover:text-foreground hover:shadow-none sm:h-9 sm:min-h-9 sm:px-3"
                         />
                     )}
                     <Popover>
@@ -287,7 +301,7 @@ export function Toolbar() {
                                 aria-label={t('popover.ariaLabel')}
                                 className={cn(
                                     buttonVariants({ variant: 'ghost', size: 'default' }),
-                                    "h-9 rounded-md border border-transparent bg-transparent px-3 text-muted-foreground shadow-none transition-[color,background-color,border-color] duration-150 hover:border-border hover:bg-muted hover:text-foreground hover:shadow-none"
+                                    "h-8 min-h-8 rounded-md border border-transparent bg-transparent px-1.5 text-muted-foreground shadow-none transition-[color,background-color,border-color] duration-150 hover:border-border hover:bg-muted hover:text-foreground hover:shadow-none sm:h-9 sm:min-h-9 sm:px-3"
                                 )}
                             >
                                 <SlidersHorizontal className="size-4 transition-colors duration-300" />
@@ -296,9 +310,9 @@ export function Toolbar() {
                         </PopoverTrigger>
                         <PopoverContent
                             align="end"
-                            side="bottom"
-                            sideOffset={12}
-                            className="w-72 rounded-xl border border-border bg-popover p-3 shadow-md"
+                            side={isMobile ? "top" : "bottom"}
+                            sideOffset={isMobile ? 8 : 12}
+                            className="w-72 max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-popover p-3 shadow-md"
                         >
                             <div className="grid gap-3">
                                 {showLayoutOptions && (
@@ -395,23 +409,44 @@ export function Toolbar() {
                                     <p className="text-xs font-semibold text-muted-foreground">{t('popover.filter.title')}</p>
                                     <div className="grid max-h-72 gap-2 overflow-y-auto pr-1">
                                         {toolbarItem === 'model' && (
-                                            <div className="grid gap-2 rounded-lg border border-border bg-muted/14 p-2">
-                                                <p className="text-[11px] font-semibold text-muted-foreground">{t('popover.filter.model.sort.title')}</p>
-                                                {MODEL_SORT_OPTIONS.map((option) => (
-                                                    <button
-                                                        key={option}
-                                                        type="button"
-                                                        onClick={() => setModelSortMode(option)}
-                                                        className={cn(
-                                                            OPTION_BUTTON_CLASS,
-                                                            'text-left',
-                                                            modelSortMode === option ? ACTIVE_OPTION_CLASS : INACTIVE_OPTION_CLASS
-                                                        )}
-                                                    >
-                                                        {t(modelSortLabelKeys[option])}
-                                                    </button>
-                                                ))}
-                                            </div>
+                                            <>
+                                                <div className="grid gap-2 rounded-lg border border-border bg-muted/14 p-2">
+                                                    <p className="text-[11px] font-semibold text-muted-foreground">{t('popover.filter.model.sort.title')}</p>
+                                                    {MODEL_SORT_OPTIONS.map((option) => (
+                                                        <button
+                                                            key={option}
+                                                            type="button"
+                                                            onClick={() => setModelSortMode(option)}
+                                                            className={cn(
+                                                                OPTION_BUTTON_CLASS,
+                                                                'text-left',
+                                                                modelSortMode === option ? ACTIVE_OPTION_CLASS : INACTIVE_OPTION_CLASS
+                                                            )}
+                                                        >
+                                                            {t(modelSortLabelKeys[option])}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <div className="grid gap-2 rounded-lg border border-border bg-muted/14 p-2">
+                                                    <p className="text-[11px] font-semibold text-muted-foreground">{t('popover.filter.model.latencyUnit.title')}</p>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        {MODEL_LATENCY_UNIT_OPTIONS.map((option) => (
+                                                            <button
+                                                                key={option}
+                                                                type="button"
+                                                                onClick={() => setModelLatencyUnit(option)}
+                                                                className={cn(
+                                                                    OPTION_BUTTON_CLASS,
+                                                                    'text-center',
+                                                                    modelLatencyUnit === option ? ACTIVE_OPTION_CLASS : INACTIVE_OPTION_CLASS
+                                                                )}
+                                                            >
+                                                                {t(modelLatencyUnitLabelKeys[option])}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </>
                                         )}
                                         {filterOptions.map((option) => (
                                             <button
@@ -442,7 +477,7 @@ export function Toolbar() {
                                 className={cn(
                                     'grid size-8 place-items-center rounded-md transition-[color,background-color,box-shadow] duration-300',
                                         layout === 'grid'
-                                        ? 'bg-primary text-primary-foreground'
+                                        ? 'bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/20'
                                         : 'text-muted-foreground hover:bg-card hover:text-foreground'
                                 )}
                             >
@@ -455,7 +490,7 @@ export function Toolbar() {
                                 className={cn(
                                     'grid size-8 place-items-center rounded-md transition-[color,background-color,box-shadow] duration-300',
                                         layout === 'list'
-                                        ? 'bg-primary text-primary-foreground'
+                                        ? 'bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/20'
                                         : 'text-muted-foreground hover:bg-card hover:text-foreground'
                                 )}
                             >
@@ -465,7 +500,7 @@ export function Toolbar() {
                     )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex items-center gap-1 sm:gap-1.5">
                     {toolbarItem === 'channel' ? (
                         <ChannelGroupManagerDialog className={cn(
                             buttonVariants({ variant: "ghost", size: "default" }),
@@ -480,7 +515,7 @@ export function Toolbar() {
                             className={cn(
                                 buttonVariants({ variant: "ghost", size: "default" }),
                                 COMMAND_TEXT_BUTTON_CLASS,
-                                "bg-primary px-3.5 text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                                "h-9 min-h-9 bg-primary px-2.5 text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground sm:h-11 sm:min-h-11 sm:px-3.5"
                             )}
                         >
                             <Plus className="size-4 transition-colors duration-300" />

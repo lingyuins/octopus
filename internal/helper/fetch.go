@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
+	"github.com/dlclark/regexp2"
 	"github.com/lingyuins/octopus/internal/conf"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/transformer/outbound"
-	"github.com/dlclark/regexp2"
 )
 
 func FetchModels(ctx context.Context, request model.Channel) ([]string, error) {
@@ -22,7 +23,26 @@ func FetchModels(ctx context.Context, request model.Channel) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	return fetchModelsWithClient(client, ctx, request)
+}
+
+// FetchModelsShortTimeout 使用短超时(30s) HTTP 客户端获取模型列表
+// 用于后台同步任务，避免不可达 endpoint 长时间占用连接
+func FetchModelsShortTimeout(ctx context.Context, request model.Channel) ([]string, error) {
+	if conf.IsDevMockSuccess() {
+		return filterDevMockModels(request)
+	}
+
+	client, err := ChannelShortTimeoutHttpClient(&request)
+	if err != nil {
+		return nil, err
+	}
+	return fetchModelsWithClient(client, ctx, request)
+}
+
+func fetchModelsWithClient(client *http.Client, ctx context.Context, request model.Channel) ([]string, error) {
 	fetchModel := make([]string, 0)
+	var err error
 	switch request.Type {
 	case outbound.OutboundTypeAnthropic:
 		fetchModel, err = fetchAnthropicModels(client, ctx, request)
@@ -107,6 +127,14 @@ func fetchOpenAIModels(client *http.Client, ctx context.Context, request model.C
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		message := strings.TrimSpace(string(body))
+		if message == "" {
+			message = resp.Status
+		}
+		return nil, fmt.Errorf("fetch models failed: status %d: %s", resp.StatusCode, message)
+	}
 
 	var result model.OpenAIModelList
 

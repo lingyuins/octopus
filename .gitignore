@@ -6,6 +6,7 @@ static/out/*
 docs/superpowers
 .workbuddy/memory
 AGENTS.md
+CLAUDE.md
 .learnings/
 *.dev.err.log
 *.dev.out.log
@@ -26,6 +27,8 @@ opencode.json
 octopus.exe
 octopus-dev.exe
 octopus-server.exe
+octopus-test.exe
+frontend_dev.log
 backend.dev.restart.log
 backend_err.txt
 backend_out.txt

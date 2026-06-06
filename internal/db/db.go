@@ -86,6 +86,7 @@ func Migrate(conn *gorm.DB) error {
 		&model.StatsModel{},
 		&model.StatsChannel{},
 		&model.StatsAPIKey{},
+		&model.StatsSiteModelHourly{},
 		&model.RelayLog{},
 		&model.AutoStrategyState{},
 		&model.CircuitBreakerState{},
@@ -102,6 +103,14 @@ func Migrate(conn *gorm.DB) error {
 		&model.ModelMapping{},
 		&model.RedemptionRecord{},
 		&model.RemoteUsageRecord{},
+		&model.Site{},
+		&model.SiteAccount{},
+		&model.SiteToken{},
+		&model.SiteUserGroup{},
+		&model.SiteModel{},
+		&model.SiteChannelBinding{},
+		&model.ProxyConfiguration{},
+		&model.WSResponseAffinity{},
 		&migrate.MigrationRecord{},
 	); err != nil {
 		return err

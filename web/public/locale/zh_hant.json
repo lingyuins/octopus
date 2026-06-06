@@ -105,7 +105,8 @@
       "announcement": "公告",
       "redemption": "兌換",
       "usage": "用量歷史",
-      "credential": "憑證"
+      "credential": "憑證",
+      "siteChannels": "站點渠道"
     },
     "title": "遠端站點",
     "addSite": "新增站點",
@@ -321,6 +322,16 @@
   "analytics": {
     "title": "分析中心",
     "subtitle": "聚合 Octopus 目前的統計、利用率與路由健康視角，一期先復用現有統計與日誌能力完成可用分析頁。",
+    "cache": {
+      "title": "快取",
+      "metrics": {
+        "hitRate": "命中率",
+        "entries": "條目數"
+      },
+      "status": {
+        "configuredOff": "未設定"
+      }
+    },
     "cards": {
       "overview": {
         "title": "概述",
@@ -670,6 +681,7 @@
         "servicePoolMode": "服務池模式",
         "enabled": "啟用",
         "disabled": "關閉",
+        "logCountUnit": "條",
         "notConfigured": "目前沒有已設定的 AI 路由服務。"
       }
     },
@@ -930,6 +942,13 @@
             "title": "排序方式",
             "successRate": "按成功率",
             "requestCount": "按呼叫次數"
+          },
+          "latencyUnit": {
+            "title": "平均延遲單位",
+            "auto": "自動",
+            "ms": "ms",
+            "s": "s",
+            "h": "h"
           }
         }
       }
@@ -1136,6 +1155,33 @@
         "placeholder": "請輸入最大冷卻時間"
       },
       "hint": "當渠道連續失敗達到閾值後觸發熔斷，冷卻時間按指數退避增長，上限為最大冷卻時間"
+    },
+    "responseFilter": {
+      "title": "輸出關鍵詞攔截",
+      "description": "對模型輸出結果進行關鍵詞攔截檢查，支持阻斷或替換兩種動作模式。",
+      "enabled": {
+        "label": "啟用輸出關鍵詞攔截"
+      },
+      "action": {
+        "label": "攔截動作",
+        "block": "阻斷",
+        "replace": "替換",
+        "blockHint": "檢測到關鍵詞後立即終止響應，返回錯誤信息。",
+        "replaceHint": "將匹配到的關鍵詞替換為等長度的星號（*），響應繼續正常返回。"
+      },
+      "keywords": {
+        "label": "攔截關鍵詞",
+        "placeholder": "輸入關鍵詞後按 Enter 添加",
+        "add": "添加",
+        "empty": "暫無關鍵詞，請添加需要攔截的關鍵詞。",
+        "duplicate": "該關鍵詞已存在",
+        "removeHint": "點擊移除"
+      },
+      "errorMessage": {
+        "label": "阻斷錯誤信息",
+        "placeholder": "請輸入攔截時返回的錯誤信息",
+        "hint": "當動作設為「阻斷」且檢測到關鍵詞時，返回給客戶端的錯誤提示文字。"
+      }
     },
     "retry": {
       "title": "重試配置",
@@ -1511,7 +1557,8 @@
       },
       "keepPeriod": {
         "label": "日誌保存天數",
-        "placeholder": "請輸入天數"
+        "placeholder": "例如：7",
+        "description": "超過保存天數的日誌將被自動刪除"
       },
       "clear": {
         "label": "清空歷史日誌",
@@ -1519,7 +1566,23 @@
         "clearing": "清空中..."
       },
       "clearSuccess": "日誌已清空",
-      "clearFailed": "清空失敗"
+      "clearFailed": "清空失敗",
+      "keepCount": {
+        "label": "日誌保留條數",
+        "description": "超出設定值時自動刪除最舊的50%日誌，避免頻繁清理影響效能",
+        "placeholder": "例如：1000"
+      },
+      "keepMode": {
+        "label": "保留方式",
+        "count": "按條數",
+        "days": "按天數"
+      },
+      "mode": {
+        "label": "日誌保留模式",
+        "description": "選擇按條數或按天數自動清理歷史日誌",
+        "count": "按條數",
+        "days": "按天數"
+      }
     },
     "navOrder": {
       "title": "頁面順序與顯示",
@@ -1904,7 +1967,8 @@
       "requests": "請求數",
       "channels": "渠道",
       "keys": "Key 數",
-      "latency": "延遲",
+      "latency": "平均延遲",
+      "averageLatency": "平均延遲",
       "successRate": "成功率",
       "expand": "展開詳情",
       "collapse": "收起詳情"
@@ -1964,7 +2028,8 @@
     },
     "list": {
       "empty": "目前沒有任何日誌",
-      "noMore": "沒有更多日誌了"
+      "noMore": "沒有更多日誌了",
+      "loadingMore": "正在載入更多日誌…"
     },
     "card": {
       "error": "錯誤",
@@ -2222,6 +2287,7 @@
         "hint": "會批次測試所有已填寫的端點與 Key 組合，HTTP 200 和 429 都視為通過。",
         "removeFailedKeys": "移除失敗的 Key"
       },
+      "typeOpenAI": "OpenAI",
       "typeOpenAIChat": "OpenAI Chat",
       "typeOpenAIResponse": "OpenAI Response",
       "typeOpenAIEmbedding": "OpenAI Embedding",
@@ -2265,5 +2331,117 @@
     "databaseSchemaOutdatedRestart": "資料庫結構已過期，請重啟服務以套用最新遷移",
     "upstreamServiceUnavailable": "上游服務不可用",
     "unexpectedError": "未預期的錯誤"
+  },
+  "siteChannel": {
+    "card": {
+      "statusEnabled": "已啟用",
+      "statusDisabled": "已禁用",
+      "maskedPending": "{n} 個待處理",
+      "noRouteDistribution": "無模型分佈",
+      "metrics": {
+        "totalRequests": "請求數",
+        "successRequests": "成功",
+        "failedRequests": "失敗",
+        "totalCost": "費用",
+        "lastRequestAt": "最近使用"
+      }
+    },
+    "advanced": {
+      "title": "站點渠道進階設定",
+      "description": "為分組 {group} 下的投影渠道設定參數覆蓋。",
+      "channelList": "投影渠道",
+      "empty": "此分組中沒有投影渠道",
+      "paramOverride": "參數覆蓋 JSON",
+      "paramOverridePlaceholder": "留空清除。非空值必須是有效的 JSON 物件。",
+      "cancel": "取消",
+      "save": "儲存",
+      "saving": "儲存中…",
+      "saved": "進階設定已儲存",
+      "invalidParamOverride": "參數覆蓋必須是有效的 JSON 物件",
+      "saveFailed": "儲存進階設定失敗"
+    }
+  },
+  "system": {
+    "fields": {
+      "logCountUnit": "條"
+    }
+  },
+  "proxyPool": {
+    "site": {
+      "inherit": "繼承站點"
+    },
+    "mode": {
+      "label": "代理模式",
+      "direct": "直連",
+      "system": "系統代理",
+      "pool": "代理池",
+      "inherit": "繼承"
+    },
+    "name": "代理",
+    "selectConfig": "選擇代理…",
+    "disabledSuffix": "（已禁用）",
+    "empty": "未設定代理",
+    "noEnabled": "無啟用的代理",
+    "manage": "管理代理",
+    "disabledSelected": "所選代理目前已禁用。",
+    "dialog": {
+      "title": "代理池",
+      "description": "管理站點和渠道的代理配置。",
+      "searchPlaceholder": "搜尋代理…",
+      "loading": "載入中…",
+      "loadFailed": "載入失敗：{message}",
+      "empty": "暫無代理配置。",
+      "enabled": "已啟用",
+      "disabled": "已禁用",
+      "references": "{count} 個引用",
+      "referencesTitle": "引用列表",
+      "referencesDescription": "使用代理 \"{name}\" 的實體。",
+      "referencesEmpty": "沒有實體引用此代理。",
+      "referenceTypes": {
+        "site": "站點",
+        "siteAccount": "帳號",
+        "managedChannel": "託管渠道",
+        "channel": "渠道",
+        "reference": "實體"
+      },
+      "referenceLocations": {
+        "site": "站點",
+        "siteAccount": "站點帳號",
+        "channel": "渠道",
+        "managedChannel": "託管渠道",
+        "managedChannelUnderSite": "站點：{site}",
+        "archivedSite": "已歸檔站點",
+        "siteNamed": "站點：{name}"
+      },
+      "managedChannelTitle": "渠道：{channel}",
+      "edit": "編輯",
+      "delete": "刪除",
+      "deleteBlocked": "無法刪除——存在引用",
+      "deleteReferenced": "無法刪除——仍被其他實體引用。",
+      "test": "測試",
+      "testDraft": "測試草稿 URL",
+      "testUrl": "測試目標 URL",
+      "testSuccess": "測試通過——HTTP {statusCode}，{durationMs}ms",
+      "testFailed": "測試失敗",
+      "formTitleCreate": "建立代理",
+      "formTitleEdit": "編輯代理",
+      "formDescription": "填寫代理資訊並儲存。",
+      "new": "新增",
+      "name": "名稱",
+      "url": "URL",
+      "remark": "備註",
+      "formRequired": "名稱和 URL 為必填項。",
+      "operationFailed": "操作失敗。",
+      "created": "代理已建立。",
+      "updated": "代理已更新。",
+      "deleted": "代理已刪除。",
+      "submitCreate": "建立",
+      "submitEdit": "儲存修改",
+      "collapseReference": "折疊",
+      "expandReference": "展開",
+      "jumpToReference": "跳轉到引用",
+      "derivedReferences": "+{count} 個託管渠道"
+    },
+    "selectRequired": "請選擇代理配置。"
   }
 }

@@ -122,6 +122,7 @@ type OpsSystemSummary struct {
 	ProxyURL                     string                     `json:"proxy_url"`
 	RelayLogKeepEnabled          bool                       `json:"relay_log_keep_enabled"`
 	RelayLogKeepDays             int                        `json:"relay_log_keep_days"`
+	RelayLogKeepCount            int                        `json:"relay_log_keep_count"`
 	StatsSaveIntervalMinutes     int                        `json:"stats_save_interval_minutes"`
 	SyncLLMIntervalHours         int                        `json:"sync_llm_interval_hours"`
 	ModelInfoUpdateIntervalHours int                        `json:"model_info_update_interval_hours"`

@@ -15,6 +15,7 @@ const (
 	SettingKeyModelInfoUpdateInterval              SettingKey = "model_info_update_interval"               // 模型信息更新间隔(小时)
 	SettingKeySyncLLMInterval                      SettingKey = "sync_llm_interval"                        // LLM 同步间隔(小时)
 	SettingKeyRelayLogKeepPeriod                   SettingKey = "relay_log_keep_period"                    // 日志保存时间范围(天)
+	SettingKeyRelayLogKeepCount                    SettingKey = "relay_log_keep_count"                     // 日志保留条数(0=不按条数)
 	SettingKeyRelayLogKeepEnabled                  SettingKey = "relay_log_keep_enabled"                   // 是否保留历史日志
 	SettingKeyCORSAllowOrigins                     SettingKey = "cors_allow_origins"                       // 跨域白名单(逗号分隔, 如 "example.com,example2.com"). 为空不允许跨域, "*"允许所有
 	SettingKeyRelayRetryCount                      SettingKey = "relay_retry_count"                        // 单个候选渠道内 Key 级最大重试次数
@@ -60,6 +61,14 @@ const (
 	SettingKeyFailureHintTTLRateLimit              SettingKey = "failure_hint_ttl_rate_limit"              // 限流失败提示缓存TTL（秒）
 	SettingKeyFailureHintTTLNetwork                SettingKey = "failure_hint_ttl_network"                 // 网络失败提示缓存TTL（秒）
 	SettingKeyWebDAVConfig                         SettingKey = "webdav_config"                            // WebDAV 云备份配置（JSON）
+	SettingKeySiteSyncInterval                     SettingKey = "site_sync_interval"                       // 站点账号同步间隔（小时）
+	SettingKeySiteCheckinInterval                  SettingKey = "site_checkin_interval"                    // 站点自动签到间隔（小时）
+	SettingKeyStatsSiteModelBackfilled             SettingKey = "stats_site_model_backfilled"              // 站点模型统计回填标记
+	SettingKeyProjectedChannelAutoGroupEnabled     SettingKey = "projected_channel_auto_group_enabled"     // 站点投影渠道自动分组全局开关
+	SettingKeyResponseFilterEnabled                SettingKey = "response_filter_enabled"                  // 输出结果关键词拦截开关
+	SettingKeyResponseFilterKeywords               SettingKey = "response_filter_keywords"                 // 拦截关键词列表(JSON 数组)
+	SettingKeyResponseFilterAction                 SettingKey = "response_filter_action"                   // 拦截动作: block(阻断) / replace(替换为*)
+	SettingKeyResponseFilterErrorMessage           SettingKey = "response_filter_error_message"            // 阻断时返回的错误信息
 )
 
 type Setting struct {
@@ -75,6 +84,7 @@ func DefaultSettings() []Setting {
 		{Key: SettingKeyModelInfoUpdateInterval, Value: "24"},    // 默认24小时更新一次模型信息
 		{Key: SettingKeySyncLLMInterval, Value: "24"},            // 默认24小时同步一次LLM
 		{Key: SettingKeyRelayLogKeepPeriod, Value: "7"},          // 默认日志保存7天
+		{Key: SettingKeyRelayLogKeepCount, Value: "0"},           // 默认不按条数保留(0=禁用)
 		{Key: SettingKeyRelayLogKeepEnabled, Value: "true"},      // 默认保留历史日志
 		{Key: SettingKeyRelayRetryCount, Value: "3"},             // 默认单个渠道内 Key 级重试3次
 		{Key: SettingKeyRelayRouteRetries, Value: "2"},           // 默认路由级重试2次（全部渠道遍历两轮）
@@ -119,12 +129,20 @@ func DefaultSettings() []Setting {
 		{Key: SettingKeyFailureHintTTLRateLimit, Value: "5"},     // 默认5秒
 		{Key: SettingKeyFailureHintTTLNetwork, Value: "2"},       // 默认2秒
 		{Key: SettingKeyWebDAVConfig, Value: `{"enabled":false,"base_url":"","username":"","password":"","remote_path":"/octopus-backup/","interval_hours":6,"include_stats":true,"include_logs":false,"max_backups":10}`},
+		{Key: SettingKeySiteSyncInterval, Value: "12"},
+		{Key: SettingKeySiteCheckinInterval, Value: "24"},
+		{Key: SettingKeyStatsSiteModelBackfilled, Value: "false"},
+		{Key: SettingKeyResponseFilterEnabled, Value: "false"},
+		{Key: SettingKeyResponseFilterKeywords, Value: "[]"},
+		{Key: SettingKeyResponseFilterAction, Value: "block"},
+		{Key: SettingKeyResponseFilterErrorMessage, Value: "The response contains blocked keywords and has been intercepted."},
 	}
 }
 
 func (s *Setting) Validate() error {
 	switch s.Key {
-	case SettingKeyModelInfoUpdateInterval, SettingKeySyncLLMInterval, SettingKeyRelayLogKeepPeriod,
+	case SettingKeyModelInfoUpdateInterval, SettingKeySyncLLMInterval, SettingKeyRelayLogKeepPeriod, SettingKeyRelayLogKeepCount,
+		SettingKeySiteSyncInterval, SettingKeySiteCheckinInterval,
 		SettingKeyRelayRetryCount, SettingKeyRelayRouteRetries, SettingKeyCircuitBreakerThreshold, SettingKeyCircuitBreakerCooldown,
 		SettingKeyCircuitBreakerMaxCooldown, SettingKeyRatelimitCooldown, SettingKeyRelayMaxTotalAttempts,
 		SettingKeySemanticCacheTTL, SettingKeySemanticCacheThreshold, SettingKeySemanticCacheMaxEntries,
@@ -277,6 +295,26 @@ func (s *Setting) Validate() error {
 		if err := json.Unmarshal([]byte(s.Value), &cfg); err != nil {
 			return fmt.Errorf("webdav config must be a valid JSON object")
 		}
+		return nil
+	case SettingKeyResponseFilterEnabled:
+		if s.Value != "true" && s.Value != "false" {
+			return fmt.Errorf("setting value must be true or false")
+		}
+		return nil
+	case SettingKeyResponseFilterKeywords:
+		var keywords []string
+		if err := json.Unmarshal([]byte(s.Value), &keywords); err != nil {
+			return fmt.Errorf("response filter keywords must be a valid JSON array of strings")
+		}
+		return nil
+	case SettingKeyResponseFilterAction:
+		switch s.Value {
+		case "block", "replace":
+			return nil
+		default:
+			return fmt.Errorf("response filter action must be block or replace")
+		}
+	case SettingKeyResponseFilterErrorMessage:
 		return nil
 	}
 

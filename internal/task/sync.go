@@ -18,11 +18,15 @@ import (
 
 var lastSyncModelsTime = time.Now()
 
+// syncFailureTracker 模型同步任务的失败追踪器（进程生命周期内有效）
+var syncFailureTracker = NewFailureTracker()
+
 // SyncModelsTask 同步模型任务
 func SyncModelsTask() {
 	log.Debugf("sync models task started")
 	startTime := time.Now()
 	defer func() {
+		syncFailureTracker.Cleanup()
 		log.Debugf("sync models task finished, sync time: %s", time.Since(startTime))
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
@@ -35,14 +39,20 @@ func SyncModelsTask() {
 	totalNewModels := make([]string, 0, 128)
 	seenTotalNewModels := make(map[string]struct{}, 128)
 	for _, ch := range channels {
-		if !ch.AutoSync {
+		if !ch.Enabled || !ch.AutoSync {
 			continue
 		}
-		fetchModels, err := helper.FetchModels(ctx, ch)
+		if syncFailureTracker.ShouldSkip(ch.ID) {
+			log.Debugf("skipping channel %s (id=%d) — in cooldown", ch.Name, ch.ID)
+			continue
+		}
+		fetchModels, err := helper.FetchModelsShortTimeout(ctx, ch)
 		if err != nil {
 			log.Warnf("failed to fetch models for channel %s: %v", ch.Name, err)
+			syncFailureTracker.RecordFailure(ch.ID, ch.Name)
 			continue
 		}
+		syncFailureTracker.RecordSuccess(ch.ID)
 		oldModels := xstrings.SplitTrimCompact(",", ch.Model)
 		newModels := xstrings.TrimCompact(fetchModels)
 		for _, m := range newModels {

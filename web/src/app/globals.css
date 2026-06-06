@@ -44,14 +44,14 @@
   --shadow-spread: 0px;
   --shadow-opacity: 0.06;
   --shadow-color: #000000;
-  --shadow-2xs: 0 1px 2px rgb(0 0 0 / 0.03);
-  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
-  --shadow: 0 1px 3px rgb(0 0 0 / 0.05);
-  --shadow-md: 0 2px 6px rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 4px 12px rgb(0 0 0 / 0.06);
-  --shadow-xl: 0 8px 20px rgb(0 0 0 / 0.07);
-  --shadow-2xl: 0 12px 32px rgb(0 0 0 / 0.08);
+  --shadow-2xs: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-xs: 0 1px 3px rgb(0 0 0 / 0.06);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.07);
+  --shadow: 0 2px 4px rgb(0 0 0 / 0.08);
+  --shadow-md: 0 4px 8px rgb(0 0 0 / 0.08);
+  --shadow-lg: 0 6px 16px rgb(0 0 0 / 0.10);
+  --shadow-xl: 0 10px 24px rgb(0 0 0 / 0.11);
+  --shadow-2xl: 0 16px 40px rgb(0 0 0 / 0.12);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 }
@@ -91,14 +91,14 @@ html.dark,
   --sidebar-border: oklch(0.32 0.01 90);
   --sidebar-ring: oklch(0.68 0.08 160);
   --radius: 0.375rem;
-  --shadow-2xs: 0 1px 2px rgb(0 0 0 / 0.06);
-  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.08);
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.08);
-  --shadow: 0 1px 3px rgb(0 0 0 / 0.10);
-  --shadow-md: 0 2px 6px rgb(0 0 0 / 0.10);
-  --shadow-lg: 0 4px 12px rgb(0 0 0 / 0.12);
-  --shadow-xl: 0 8px 20px rgb(0 0 0 / 0.14);
-  --shadow-2xl: 0 12px 32px rgb(0 0 0 / 0.16);
+  --shadow-2xs: 0 1px 2px rgb(0 0 0 / 0.20), 0 0 1px rgb(110 180 160 / 0.08);
+  --shadow-xs: 0 1px 3px rgb(0 0 0 / 0.22), 0 0 2px rgb(110 180 160 / 0.10);
+  --shadow-sm: 0 2px 4px rgb(0 0 0 / 0.24), 0 0 2px rgb(110 180 160 / 0.10);
+  --shadow: 0 2px 6px rgb(0 0 0 / 0.26), 0 0 4px rgb(110 180 160 / 0.12);
+  --shadow-md: 0 4px 10px rgb(0 0 0 / 0.28), 0 0 6px rgb(110 180 160 / 0.12);
+  --shadow-lg: 0 8px 18px rgb(0 0 0 / 0.30), 0 0 8px rgb(110 180 160 / 0.14);
+  --shadow-xl: 0 12px 28px rgb(0 0 0 / 0.32), 0 0 12px rgb(110 180 160 / 0.14);
+  --shadow-2xl: 0 18px 44px rgb(0 0 0 / 0.34), 0 0 16px rgb(110 180 160 / 0.16);
 }
 
 @theme inline {
@@ -154,8 +154,47 @@ html.dark,
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+  }
+
+  /* Scrollbar styling - thin and styled on desktop, hidden on mobile */
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgb(0 0 0 / 0.15);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgb(0 0 0 / 0.25);
+  }
+
+  .dark *::-webkit-scrollbar-thumb,
+  html.dark *::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 0.15);
+  }
+
+  .dark *::-webkit-scrollbar-thumb:hover,
+  html.dark *::-webkit-scrollbar-thumb:hover {
+    background: rgb(255 255 255 / 0.25);
+  }
+
+  /* Hide scrollbars on mobile for cleaner look */
+  @media (max-width: 767px) {
+    * {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    *::-webkit-scrollbar {
+      display: none;
+    }
   }
 
   body {
@@ -198,6 +237,86 @@ html.dark,
       currentColor 2px,
       currentColor 3px
     );
+  }
+
+  /* ── Focus-visible 无障碍改进 ── */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) - 1px);
+    transition: outline-offset 0.1s ease;
+  }
+
+  /* 暗色模式下的 focus ring 加微光 */
+  .dark :focus-visible,
+  html.dark :focus-visible {
+    box-shadow: 0 0 0 3px rgb(110 180 160 / 0.12);
+  }
+
+  /* 按钮和交互元素在 focus 时取消 outline-offset 动画，使用 ring 替代 */
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible {
+    outline-offset: 0px;
+  }
+
+  /* ── 文本选区颜色 ── */
+  ::selection {
+    background: oklch(0.62 0.08 160 / 0.2);
+    color: inherit;
+  }
+
+  .dark ::selection,
+  html.dark ::selection {
+    background: oklch(0.68 0.08 160 / 0.25);
+  }
+}
+
+/* ── 交互过渡工具类 ── */
+@layer utilities {
+  /* 通用 hover/active 微过渡 */
+  .transition-interactive {
+    transition-property: background-color, border-color, color, box-shadow, opacity, transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .transition-interactive-fast {
+    transition-property: background-color, border-color, color, box-shadow, opacity, transform;
+    transition-duration: 100ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Hover 微抬效果 —— 用于卡片和可点击元素 */
+  .hover-lift {
+    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-1px);
+  }
+
+  .hover-lift:active {
+    transform: translateY(0px);
+  }
+
+  /* Hover 边框高亮 —— 用于列表项和卡片 */
+  .hover-border {
+    transition: border-color 200ms ease;
+  }
+
+  .hover-border:hover {
+    border-color: var(--primary);
+  }
+
+  /* Active 按压反馈 */
+  .active-press {
+    transition: transform 80ms ease;
+  }
+
+  .active-press:active {
+    transform: scale(0.98);
   }
 }
 

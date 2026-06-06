@@ -234,12 +234,14 @@ export function Rank() {
                         <Leaf className="h-3.5 w-3.5" strokeWidth={1.5} />
                         <span>{t('title')}</span>
                     </div>
-                    <TabsList className="flex w-full flex-wrap rounded-lg border border-border bg-card p-1 lg:w-max">
-                        <TabsTrigger value="cost">{t('sortByCost')}</TabsTrigger>
-                        <TabsTrigger value="count">{t('sortByCount')}</TabsTrigger>
-                        <TabsTrigger value="tokens">{t('sortByTokens')}</TabsTrigger>
-                        <TabsTrigger value="key-usage">{t('sortByKeyUsage')}</TabsTrigger>
-                    </TabsList>
+                    <div className="w-full overflow-x-auto lg:w-auto">
+                        <TabsList className="flex w-max min-w-full flex-nowrap rounded-lg border border-border bg-card p-1 lg:min-w-0">
+                            <TabsTrigger value="cost">{t('sortByCost')}</TabsTrigger>
+                            <TabsTrigger value="count">{t('sortByCount')}</TabsTrigger>
+                            <TabsTrigger value="tokens">{t('sortByTokens')}</TabsTrigger>
+                            <TabsTrigger value="key-usage">{t('sortByKeyUsage')}</TabsTrigger>
+                        </TabsList>
+                    </div>
                 </div>
                 <TabsContents className="relative mt-4">
                     <TabsContent value="cost">

@@ -20,6 +20,7 @@ export const SettingKey = {
     SyncLLMInterval: 'sync_llm_interval',
     RelayLogKeepEnabled: 'relay_log_keep_enabled',
     RelayLogKeepPeriod: 'relay_log_keep_period',
+    RelayLogKeepCount: 'relay_log_keep_count',
     CORSAllowOrigins: 'cors_allow_origins',
     RelayRetryCount: 'relay_retry_count',
     RelayRouteRetries: 'relay_route_retries',
@@ -63,6 +64,13 @@ export const SettingKey = {
     FailureHintTTLRateLimit: 'failure_hint_ttl_rate_limit',
     FailureHintTTLNetwork: 'failure_hint_ttl_network',
     WebDAVConfig: 'webdav_config',
+    SiteSyncInterval: 'site_sync_interval',
+    SiteCheckinInterval: 'site_checkin_interval',
+    ProjectedChannelAutoGroupEnabled: 'projected_channel_auto_group_enabled',
+    ResponseFilterEnabled: 'response_filter_enabled',
+    ResponseFilterKeywords: 'response_filter_keywords',
+    ResponseFilterAction: 'response_filter_action',
+    ResponseFilterErrorMessage: 'response_filter_error_message',
 } as const;
 
 /**

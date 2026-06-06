@@ -170,40 +170,62 @@ export function SitesPanel() {
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Globe className="h-5 w-5" />
-                    <h2 className="text-lg font-semibold">{t('title')}</h2>
-                    <Badge variant="secondary">{sites?.length ?? 0}</Badge>
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                    <Globe className="h-5 w-5 shrink-0" />
+                    <h2 className="text-lg font-semibold truncate">{t('title')}</h2>
+                    <Badge variant="secondary" className="shrink-0">{sites?.length ?? 0}</Badge>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={handleRefreshAll}
                         disabled={refreshAll.isPending}
+                        className="hidden sm:inline-flex"
                     >
                         <RefreshCw className={cn('h-4 w-4 mr-1', refreshAll.isPending && 'animate-spin')} />
                         {t('refreshAll')}
                     </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 sm:hidden"
+                        onClick={handleRefreshAll}
+                        disabled={refreshAll.isPending}
+                        title={t('refreshAll')}
+                    >
+                        <RefreshCw className={cn('h-4 w-4', refreshAll.isPending && 'animate-spin')} />
+                    </Button>
                     <Button size="sm" onClick={handleCreate}>
-                        <Plus className="h-4 w-4 mr-1" />
-                        {t('addSite')}
+                        <Plus className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">{t('addSite')}</span>
                     </Button>
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={handleDiscover}
                         disabled={discoverSites.isPending}
+                        className="hidden sm:inline-flex"
                     >
                         <Search className={cn('h-4 w-4 mr-1', discoverSites.isPending && 'animate-spin')} />
                         {t('discover')}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 sm:hidden"
+                        onClick={handleDiscover}
+                        disabled={discoverSites.isPending}
+                        title={t('discover')}
+                    >
+                        <Search className={cn('h-4 w-4', discoverSites.isPending && 'animate-spin')} />
                     </Button>
                 </div>
             </div>
 
             {sites && sites.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {sites.map((site) => (
                         <SiteCard
                             key={site.id}

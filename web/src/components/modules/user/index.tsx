@@ -24,8 +24,8 @@ function RoleBadge({ role, label }: { role: string; label: string }) {
     }[role] || { icon: ShieldAlert, color: 'text-slate-500 bg-slate-500/10' };
     const Icon = config.icon;
     return (
-        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${config.color}`}>
-            <Icon className="h-3 w-3" />
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1 rounded-full text-xs font-medium border ${config.color}`}>
+            <Icon className="h-3.5 w-3.5" />
             {label}
         </span>
     );
@@ -60,21 +60,21 @@ export function User() {
     if (isLoading) return <Loader className="size-6 animate-spin mx-auto mt-12" />;
 
     return (
-        <PageWrapper className="h-full min-h-0 overflow-y-auto overscroll-contain rounded-t-xl space-y-4 pb-24 md:pb-6">
+        <PageWrapper className="h-full min-h-0 overflow-y-auto overscroll-contain rounded-t-xl space-y-4 pb-3 md:pb-6">
             <div className="rounded-xl border border-border bg-card p-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                    <h2 className="text-lg font-bold text-card-foreground flex items-center gap-2">
+                <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <h2 className="text-base sm:text-lg font-bold text-card-foreground flex items-center gap-2">
                         <Users className="h-5 w-5" />
                         {t('title')}
                     </h2>
 
                     <MorphingDialog>
-                        <MorphingDialogTrigger className={buttonVariants({ variant: 'outline', className: 'rounded-xl min-w-28' })}>
+                        <MorphingDialogTrigger className={buttonVariants({ variant: 'outline', className: 'rounded-xl w-full sm:w-auto sm:min-w-28' })}>
                             <Plus className="mr-2 size-4" />
                             {t('create.open')}
                         </MorphingDialogTrigger>
                         <MorphingDialogContainer>
-                            <MorphingDialogContent className="w-fit max-w-full bg-card text-card-foreground px-6 py-4 rounded-xl max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
+                            <MorphingDialogContent className="w-fit max-w-full bg-card text-card-foreground px-4 sm:px-6 py-4 rounded-xl max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
                                 <CreateDialogContent />
                             </MorphingDialogContent>
                         </MorphingDialogContainer>
@@ -84,7 +84,7 @@ export function User() {
                 <div className="space-y-2">
                     {(users || []).map((user: UserInfo) => (
                         <div key={user.id}
-                            className="flex items-center justify-between gap-4 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors">
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors">
                             <div className="flex items-center gap-3 min-w-0">
                                 <UserCog className="h-5 w-5 text-muted-foreground shrink-0" />
                                 <span className="font-medium text-sm truncate">{user.username}</span>
@@ -93,11 +93,11 @@ export function User() {
 
                             <div className="flex items-center gap-2 shrink-0">
                                 {editingId === user.id ? (
-                                    <div className="flex gap-1">
+                                    <div className="flex flex-wrap gap-1.5">
                                         {roleOptions.map((role) => (
                                             <button key={role}
                                                 onClick={() => handleRoleChange(user.id, role)}
-                                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all active:scale-95
+                                                className={`px-3 py-1.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-medium transition-all active:scale-95
                                                     ${user.role === role
                                                         ? 'bg-primary text-primary-foreground'
                                                         : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
@@ -106,19 +106,19 @@ export function User() {
                                             </button>
                                         ))}
                                         <button onClick={() => setEditingId(null)}
-                                            className="px-2 py-1 rounded-lg text-xs text-muted-foreground hover:bg-muted">
+                                            className="px-3 py-1.5 sm:px-2 sm:py-1 rounded-lg text-xs text-muted-foreground hover:bg-muted">
                                             {t('cancel')}
                                         </button>
                                     </div>
                                 ) : (
                                     <button onClick={() => setEditingId(user.id)}
-                                        className="px-3 py-1.5 rounded-xl text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-all active:scale-95">
+                                        className="px-4 py-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-all active:scale-95">
                                         {t('changeRole')}
                                     </button>
                                 )}
                                 <button onClick={() => handleDelete(user.id)}
                                     disabled={user.id === 1}
-                                    className="p-1.5 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                                    className="p-2 sm:p-1.5 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
                                     title={user.id === 1 ? t('cannotDeletePrimaryAdmin') : t('deleteUser')}>
                                     <Trash2 className="h-4 w-4" />
                                 </button>

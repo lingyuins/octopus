@@ -2,7 +2,12 @@ package relay
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 
 	appmodel "github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/transformer/inbound"
@@ -36,12 +41,29 @@ func TestBuildSemanticCacheText_ChatMessagesOnlyUsesText(t *testing.T) {
 	}
 }
 
-func TestBuildSemanticCacheLookupInput_BypassesStreamRequests(t *testing.T) {
+func TestBuildSemanticCacheLookupInput_AllowsStreamRequests(t *testing.T) {
 	stream := true
-	req := &transmodel.InternalLLMRequest{Model: "gpt-4.1", Stream: &stream}
+	userText := "hello"
+	req := &transmodel.InternalLLMRequest{
+		Model:  "gpt-4.1",
+		Stream: &stream,
+		Messages: []transmodel.Message{{
+			Role: "user",
+			Content: transmodel.MessageContent{
+				Content: &userText,
+			},
+		}},
+	}
 
-	if _, _, ok := buildSemanticCacheLookupInput(1, "chat", req); ok {
-		t.Fatal("expected stream request to bypass semantic cache")
+	namespace, text, ok := buildSemanticCacheLookupInput(1, "chat", req)
+	if !ok {
+		t.Fatal("expected stream request with stable text to use semantic cache")
+	}
+	if namespace != "1:chat:gpt-4.1" {
+		t.Fatalf("namespace = %q", namespace)
+	}
+	if text != "user: hello" {
+		t.Fatalf("text = %q", text)
 	}
 }
 
@@ -113,10 +135,9 @@ func TestBuildSemanticCacheLookupInput_BypassesRequestsWithoutStableText(t *test
 func TestBuildSemanticCacheLookupInput_RecordsBypassStats(t *testing.T) {
 	semantic_cache.ResetRuntimeStats()
 
-	stream := true
-	req := &transmodel.InternalLLMRequest{Model: "gpt-4.1", Stream: &stream}
+	req := &transmodel.InternalLLMRequest{Model: "gpt-4.1"}
 	if _, _, ok := buildSemanticCacheLookupInput(1, "chat", req); ok {
-		t.Fatal("expected stream request to bypass semantic cache")
+		t.Fatal("expected request without stable text to bypass semantic cache")
 	}
 
 	stats := semantic_cache.GetRuntimeStats()
@@ -149,6 +170,28 @@ func TestSemanticCacheRuntimeStatsCounters(t *testing.T) {
 	}
 	if stats.StoredResponses != 1 {
 		t.Fatalf("stored_responses = %d, want 1", stats.StoredResponses)
+	}
+}
+
+func TestServeStreamingCacheHitEmitsSSEChunks(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	payload := []byte(`{"id":"chatcmpl-cache","created":123,"model":"gpt-4.1","choices":[{"index":0,"message":{"role":"assistant","content":"hello cached stream"}}]}`)
+	if err := serveStreamingCacheHit(c, payload, "gpt-4.1"); err != nil {
+		t.Fatalf("serveStreamingCacheHit() error = %v", err)
+	}
+
+	body := recorder.Body.String()
+	if recorder.Header().Get("Content-Type") != "text/event-stream" {
+		t.Fatalf("Content-Type = %q, want text/event-stream", recorder.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(body, "data: ") || !strings.Contains(body, "hello cached stream") {
+		t.Fatalf("body does not contain cached SSE chunk: %s", body)
+	}
+	if !strings.Contains(body, "data: [DONE]") {
+		t.Fatalf("body does not contain done marker: %s", body)
 	}
 }
 

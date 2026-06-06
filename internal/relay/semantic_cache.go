@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -47,10 +48,6 @@ func buildSemanticCacheLookupInput(apiKeyID int, endpointFamily string, req *tra
 		return "", "", false
 	}
 	if strings.TrimSpace(endpointFamily) == "" || strings.TrimSpace(req.Model) == "" {
-		semantic_cache.RecordBypass()
-		return "", "", false
-	}
-	if req.Stream != nil && *req.Stream {
 		semantic_cache.RecordBypass()
 		return "", "", false
 	}
@@ -109,7 +106,15 @@ func maybeServeSemanticCacheHit(c *gin.Context, req *relayRequest, endpointFamil
 			req.internalRequest.TransformerMetadata = make(map[string]string, 1)
 		}
 		req.internalRequest.TransformerMetadata[semanticCacheHitMetadataKey] = "true"
-		c.Data(http.StatusOK, "application/json", payload)
+
+		isStream := req.internalRequest.Stream != nil && *req.internalRequest.Stream
+		if isStream {
+			if err := serveStreamingCacheHit(c, payload, req.internalRequest.Model); err != nil {
+				return false, nil, err
+			}
+		} else {
+			c.Data(http.StatusOK, "application/json", payload)
+		}
 		return true, payload, nil
 	}
 	semantic_cache.RecordMiss()
@@ -121,6 +126,121 @@ func maybeServeSemanticCacheHit(c *gin.Context, req *relayRequest, endpointFamil
 	req.internalRequest.TransformerMetadata[semanticCacheTextMetadataKey] = text
 
 	return false, nil, nil
+}
+
+func serveStreamingCacheHit(c *gin.Context, payload []byte, model string) error {
+	if c == nil || len(payload) == 0 {
+		return nil
+	}
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	var response struct {
+		ID      string `json:"id"`
+		Object  string `json:"object"`
+		Created int64  `json:"created"`
+		Model   string `json:"model"`
+		Choices []struct {
+			Index   int `json:"index"`
+			Message struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+		Usage map[string]interface{} `json:"usage"`
+	}
+
+	if err := json.Unmarshal(payload, &response); err != nil {
+		return sendSSEChunk(c, payload)
+	}
+
+	if response.Model == "" {
+		response.Model = model
+	}
+
+	for _, choice := range response.Choices {
+		content := choice.Message.Content
+		if content == "" {
+			continue
+		}
+
+		// Use rune-based chunking to avoid splitting multi-byte UTF-8 characters
+		runes := []rune(content)
+		chunkSize := 20
+		for i := 0; i < len(runes); i += chunkSize {
+			end := i + chunkSize
+			if end > len(runes) {
+				end = len(runes)
+			}
+
+			chunk := map[string]interface{}{
+				"id":      response.ID,
+				"object":  "chat.completion.chunk",
+				"created": response.Created,
+				"model":   response.Model,
+				"choices": []map[string]interface{}{
+					{
+						"index": choice.Index,
+						"delta": map[string]interface{}{
+							"content": string(runes[i:end]),
+						},
+						"finish_reason": nil,
+					},
+				},
+			}
+
+			chunkJSON, err := json.Marshal(chunk)
+			if err != nil {
+				continue
+			}
+
+			if err := sendSSEChunk(c, chunkJSON); err != nil {
+				return err
+			}
+		}
+
+		finishChunk := map[string]interface{}{
+			"id":      response.ID,
+			"object":  "chat.completion.chunk",
+			"created": response.Created,
+			"model":   response.Model,
+			"choices": []map[string]interface{}{
+				{
+					"index":         choice.Index,
+					"delta":         map[string]interface{}{},
+					"finish_reason": "stop",
+				},
+			},
+		}
+
+		if response.Usage != nil {
+			finishChunk["usage"] = response.Usage
+		}
+
+		finishJSON, err := json.Marshal(finishChunk)
+		if err == nil {
+			if err := sendSSEChunk(c, finishJSON); err != nil {
+				return err
+			}
+		}
+	}
+
+	c.Writer.Write([]byte("data: [DONE]\n\n"))
+	c.Writer.Flush()
+
+	return nil
+}
+
+func sendSSEChunk(c *gin.Context, data []byte) error {
+	_, err := fmt.Fprintf(c.Writer, "data: %s\n\n", data)
+	if err != nil {
+		return err
+	}
+	c.Writer.Flush()
+	return nil
 }
 
 func storeSemanticCacheResponse(ctx context.Context, req *transmodel.InternalLLMRequest, responseJSON []byte) {
@@ -210,9 +330,9 @@ func buildSemanticCacheHitInternalResponse(req *transmodel.InternalLLMRequest, p
 			CreatedAt int64  `json:"created_at"`
 			Model     string `json:"model"`
 			Usage     *struct {
-				InputTokens int64 `json:"input_tokens"`
+				InputTokens  int64 `json:"input_tokens"`
 				OutputTokens int64 `json:"output_tokens"`
-				TotalTokens int64 `json:"total_tokens"`
+				TotalTokens  int64 `json:"total_tokens"`
 				InputTokenDetails *struct {
 					CachedTokens int64 `json:"cached_tokens"`
 				} `json:"input_token_details"`
@@ -303,4 +423,3 @@ func loadSemanticCacheRuntimeConfig() (semantic_cache.RuntimeConfig, bool) {
 func ensureSemanticCacheInitialized(cfg semantic_cache.RuntimeConfig) {
 	semantic_cache.ApplyRuntimeConfig(cfg)
 }
-

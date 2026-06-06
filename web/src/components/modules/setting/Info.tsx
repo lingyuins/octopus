@@ -72,37 +72,37 @@ export function SettingInfo() {
     };
 
     return (
-        <div className="rounded-xl border-border/35 bg-card p-6 space-y-5 text-card-foreground shadow-md ">
+        <div className="rounded-xl border-border/35 bg-card p-4 sm:p-6 space-y-4 sm:space-y-5 text-card-foreground shadow-md ">
             <h2 className="text-lg font-bold text-card-foreground flex items-center gap-2">
                 <Info className="h-5 w-5" />
                 {t('info.title')}
             </h2>
             {/* GitHub 仓库 */}
-            <div className="flex items-center justify-between gap-4 rounded-lg border-border/30 bg-card px-4 py-3 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border-border/30 bg-card px-4 py-3 shadow-sm">
                 <div className="flex items-center gap-3">
-                    <Github className="h-5 w-5 text-muted-foreground" />
+                    <Github className="h-5 w-5 text-muted-foreground shrink-0" />
                     <span className="text-sm font-medium">{t('info.github')}</span>
                 </div>
                 <a
                     href={GITHUB_REPO}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline"
+                    className="text-sm text-primary hover:underline break-all"
                 >
                     {GITHUB_REPO.replace('https://github.com/', '')}
                 </a>
             </div>
             {/* 当前版本 */}
-            <div className="flex items-center justify-between gap-4 rounded-lg border-border/30 bg-card px-4 py-3 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border-border/30 bg-card px-4 py-3 shadow-sm">
                 <div className="flex items-center gap-3">
-                    <Tag className="h-5 w-5 text-muted-foreground" />
+                    <Tag className="h-5 w-5 text-muted-foreground shrink-0" />
                     <span className="text-sm font-medium">{t('info.currentVersion')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                     {nowVersionQuery.isLoading ? (
                         <Loader2 className="size-4 animate-spin text-muted-foreground" />
                     ) : (
-                        <code className="text-sm font-mono text-muted-foreground">
+                        <code className="text-sm font-mono text-muted-foreground break-all">
                             {backendNowVersion || t('info.unknown')}
                         </code>
                     )}
@@ -110,16 +110,16 @@ export function SettingInfo() {
             </div>
 
             {/* 最新版本 */}
-            <div className="flex items-center justify-between gap-4 rounded-lg border-border/30 bg-card px-4 py-3 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-lg border-border/30 bg-card px-4 py-3 shadow-sm">
                 <div className="flex items-center gap-3">
-                    <Download className="h-5 w-5 text-muted-foreground" />
+                    <Download className="h-5 w-5 text-muted-foreground shrink-0" />
                     <span className="text-sm font-medium">{t('info.latestVersion')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                     {latestInfoQuery.isLoading ? (
                         <Loader2 className="size-4 animate-spin text-muted-foreground" />
                     ) : (
-                        <code className="text-sm font-mono text-muted-foreground">
+                        <code className="text-sm font-mono text-muted-foreground break-all">
                             {latestVersion || t('info.unknown')}
                         </code>
                     )}
@@ -131,11 +131,11 @@ export function SettingInfo() {
                 <div className="space-y-2 rounded-lg border border-destructive/20 bg-destructive/10 p-3 shadow-sm">
                     <div className="flex items-start gap-3">
                         <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 space-y-1 min-w-0">
                             <p className="text-sm text-destructive font-medium">
                                 {t('info.versionMismatch')}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground break-words">
                                 {t('info.versionMismatchHint', { frontend: APP_VERSION, backend: backendNowVersion })}
                             </p>
                         </div>
@@ -145,7 +145,7 @@ export function SettingInfo() {
                             variant="destructive"
                             size="sm"
                             onClick={handleForceRefresh}
-                            className="rounded-xl"
+                            className="w-full sm:w-auto rounded-xl"
                         >
                             {t('info.forceRefresh')}
                         </Button>
@@ -158,7 +158,7 @@ export function SettingInfo() {
                 <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/10 p-3 shadow-sm">
                     <div className="flex items-start gap-3">
                         <Download className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 space-y-1 min-w-0">
                             <p className="text-sm text-primary font-medium">
                                 {t('info.newVersionAvailable')}
                             </p>
@@ -173,7 +173,7 @@ export function SettingInfo() {
                             size="sm"
                             onClick={handleUpdate}
                             disabled={updateCore.isPending}
-                            className="rounded-xl"
+                            className="w-full sm:w-auto rounded-xl"
                         >
                             {updateCore.isPending ? t('info.updating') : t('info.updateNow')}
                         </Button>

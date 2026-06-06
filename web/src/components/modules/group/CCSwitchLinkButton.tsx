@@ -326,11 +326,9 @@ export function CCSwitchLinkButton({ className }: { className?: string }) {
                         </div>
                     </MorphingDialogDescription>
 
-                    <div className="mt-4 shrink-0">
-                        <MorphingDialogClose className="w-full">
-                            <Button variant="secondary" className="w-full rounded-lg">
-                                {t('detail.actions.cancel')}
-                            </Button>
+                    <div className="mt-4 flex shrink-0 justify-end">
+                        <MorphingDialogClose className="relative right-0 top-0 inline-flex h-9 items-center justify-center rounded-lg border border-transparent bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground opacity-100 transition-[color,background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out hover:bg-secondary/82 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none active:scale-[0.98]">
+                            {t('detail.actions.cancel')}
                         </MorphingDialogClose>
                     </div>
                 </MorphingDialogContent>

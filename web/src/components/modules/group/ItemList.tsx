@@ -90,7 +90,7 @@ function MemberItem({
             }}
         >
             <div className={cn(
-                'group/item relative flex items-center gap-2 overflow-hidden rounded-lg border border-border/30 bg-card px-3 py-2.5 select-none transition-[opacity,transform,border-color,box-shadow,background-color] duration-200',
+                'group/item relative flex items-center gap-1.5 overflow-hidden rounded-lg border border-border/30 bg-card px-2 py-2 select-none transition-[opacity,transform,border-color,box-shadow,background-color] duration-200 md:gap-2 md:px-3 md:py-2.5',
                 isRemoving && 'opacity-0',
                 isDisabled && 'opacity-60 grayscale',
                 availabilityStatus === 'unavailable' && 'border-destructive/40 bg-destructive/5',
@@ -98,7 +98,7 @@ function MemberItem({
                 isDragging && 'border-primary/30 bg-card'
             )}>
                 <span className={cn(
-                    'relative grid size-7 shrink-0 place-items-center rounded-md text-xs font-bold',
+                    'relative grid size-6 shrink-0 place-items-center rounded-md text-[10px] font-bold md:size-7 md:text-xs',
                     isDisabled ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'
                 )}>
                     {index + 1}
@@ -106,7 +106,7 @@ function MemberItem({
 
                 <div
                     className={cn(
-                        'relative rounded-md p-1 touch-none transition-colors',
+                        'relative rounded-md p-1.5 touch-none transition-colors md:p-1',
                         isDisabled
                             ? 'cursor-grab active:cursor-grabbing hover:bg-muted/60'
                             : 'cursor-grab active:cursor-grabbing hover:bg-primary/8'
@@ -114,7 +114,7 @@ function MemberItem({
                     // eslint-disable-next-line react-hooks/refs
                     {...dnd.dragHandleProps}
                 >
-                    <GripVertical className="size-3.5 text-muted-foreground" />
+                    <GripVertical className="size-4 text-muted-foreground md:size-3.5" />
                 </div>
 
                 <span className={cn('relative', isDisabled && 'opacity-70')}>
@@ -122,10 +122,10 @@ function MemberItem({
                 </span>
 
                 <div className="relative flex min-w-0 flex-1 flex-col">
-                    <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-1.5 md:gap-2">
                         <Tooltip side="top" sideOffset={10} align="start">
                             <TooltipTrigger className={cn(
-                                'min-w-0 text-sm font-medium truncate leading-tight',
+                                'min-w-0 text-xs font-medium truncate leading-tight md:text-sm',
                                 isDisabled && 'text-muted-foreground',
                                 availabilityStatus === 'unavailable' && 'text-destructive'
                             )}>
@@ -160,7 +160,7 @@ function MemberItem({
                         value={member.weight ?? 1}
                         onChange={(e) => onWeightChange?.(member.id, Math.max(1, parseInt(e.target.value) || 1))}
                         className={cn(
-                            'h-7 w-14 rounded-md border border-border/35 bg-card text-center text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-primary',
+                            'h-7 w-12 rounded-md border border-border/35 bg-card text-center text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-primary md:w-14',
                             isDisabled && 'text-muted-foreground'
                         )}
                     />
@@ -171,13 +171,13 @@ function MemberItem({
                         layoutId={`delete-btn-member-${layoutScope ?? 'default'}-${member.id}`}
                         type="button"
                         onClick={() => showConfirmDelete ? setConfirmDelete(true) : onRemove(member.id)}
-                        className="relative rounded-md p-1.5 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        className="relative rounded-md p-2 transition-colors hover:bg-destructive/10 hover:text-destructive md:p-1.5"
                         initial={false}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.15 }}
                         style={{ pointerEvents: 'auto' }}
                     >
-                        <X className="size-3" />
+                        <X className="size-3.5 md:size-3" />
                     </motion.button>
                 )}
 

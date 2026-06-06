@@ -50,20 +50,21 @@ export function AnnouncementPanel() {
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Bell className="h-5 w-5" />
-                    <h2 className="text-lg font-semibold">{t('title')}</h2>
-                    <Badge variant="secondary">{announcements?.length ?? 0}</Badge>
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                    <Bell className="h-5 w-5 shrink-0" />
+                    <h2 className="text-lg font-semibold truncate">{t('title')}</h2>
+                    <Badge variant="secondary" className="shrink-0">{announcements?.length ?? 0}</Badge>
                 </div>
                 <Button
                     variant="outline"
                     size="sm"
                     onClick={handleRefreshAll}
                     disabled={refreshAll.isPending}
+                    className="shrink-0"
                 >
-                    <RefreshCw className={cn('h-4 w-4 mr-1', refreshAll.isPending && 'animate-spin')} />
-                    {t('refreshAll')}
+                    <RefreshCw className={cn('h-4 w-4 sm:mr-1', refreshAll.isPending && 'animate-spin')} />
+                    <span className="hidden sm:inline">{t('refreshAll')}</span>
                 </Button>
             </div>
 

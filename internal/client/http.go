@@ -14,11 +14,18 @@ import (
 	"golang.org/x/net/proxy"
 )
 
+const (
+	// shortTaskTimeout 后台任务使用的短超时时间（延迟探测、模型同步）
+	shortTaskTimeout = 30 * time.Second
+)
+
 var (
-	systemDirectClient *http.Client
-	systemProxyClient  *http.Client
-	systemProxyURL     string
-	clientLock         sync.RWMutex
+	systemDirectClient      *http.Client
+	systemProxyClient       *http.Client
+	systemProxyURL          string
+	shortTimeoutDirectClient *http.Client
+	shortTimeoutProxyClient  *http.Client
+	clientLock              sync.RWMutex
 )
 
 // GetHTTPClientSystemProxy returns a cached http.Client.
@@ -88,6 +95,73 @@ func GetHTTPClientCustomProxy(proxyURL string) (*http.Client, error) {
 	return newHTTPClientCustomProxy(proxyURL)
 }
 
+// GetHTTPClientShortTimeout returns a cached http.Client with short timeout (30s).
+// Used for background tasks like delay probing and model syncing to avoid
+// goroutine/connection accumulation when endpoints are unreachable.
+// - useProxy=false: bypass proxy
+// - useProxy=true: use proxy settings from system/app settings
+func GetHTTPClientShortTimeout(useProxy bool) (*http.Client, error) {
+	if useProxy {
+		currentProxyURL, err := setting.GetString(model.SettingKeyProxyURL)
+		if err != nil {
+			return nil, err
+		}
+		if currentProxyURL == "" {
+			return nil, fmt.Errorf("proxy url is empty")
+		}
+
+		clientLock.RLock()
+		if shortTimeoutProxyClient != nil && systemProxyURL == currentProxyURL {
+			clientLock.RUnlock()
+			return shortTimeoutProxyClient, nil
+		}
+		clientLock.RUnlock()
+
+		clientLock.Lock()
+		defer clientLock.Unlock()
+
+		if shortTimeoutProxyClient != nil && systemProxyURL == currentProxyURL {
+			return shortTimeoutProxyClient, nil
+		}
+
+		client, err := newHTTPClientCustomProxyWithTimeout(currentProxyURL, shortTaskTimeout)
+		if err != nil {
+			return nil, err
+		}
+		shortTimeoutProxyClient = client
+		return shortTimeoutProxyClient, nil
+	}
+
+	clientLock.RLock()
+	if shortTimeoutDirectClient != nil {
+		clientLock.RUnlock()
+		return shortTimeoutDirectClient, nil
+	}
+	clientLock.RUnlock()
+
+	clientLock.Lock()
+	defer clientLock.Unlock()
+
+	if shortTimeoutDirectClient != nil {
+		return shortTimeoutDirectClient, nil
+	}
+	client, err := newHTTPClientNoProxyWithTimeout(shortTaskTimeout)
+	if err != nil {
+		return nil, err
+	}
+	shortTimeoutDirectClient = client
+	return shortTimeoutDirectClient, nil
+}
+
+// GetHTTPClientCustomProxyWithTimeout returns a NEW http.Client with custom timeout.
+// proxyURL supports: http, https, socks, socks5
+func GetHTTPClientCustomProxyWithTimeout(proxyURL string, timeout time.Duration) (*http.Client, error) {
+	if proxyURL == "" {
+		return nil, fmt.Errorf("proxy url is empty")
+	}
+	return newHTTPClientCustomProxyWithTimeout(proxyURL, timeout)
+}
+
 func clonedDefaultTransport() (*http.Transport, error) {
 	transport, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
@@ -97,15 +171,23 @@ func clonedDefaultTransport() (*http.Transport, error) {
 }
 
 func newHTTPClientNoProxy() (*http.Client, error) {
+	return newHTTPClientNoProxyWithTimeout(600 * time.Second)
+}
+
+func newHTTPClientNoProxyWithTimeout(timeout time.Duration) (*http.Client, error) {
 	cloned, err := clonedDefaultTransport()
 	if err != nil {
 		return nil, err
 	}
 	cloned.Proxy = nil
-	return &http.Client{Transport: cloned, Timeout: 600 * time.Second}, nil
+	return &http.Client{Transport: cloned, Timeout: timeout}, nil
 }
 
 func newHTTPClientCustomProxy(proxyURLStr string) (*http.Client, error) {
+	return newHTTPClientCustomProxyWithTimeout(proxyURLStr, 600*time.Second)
+}
+
+func newHTTPClientCustomProxyWithTimeout(proxyURLStr string, timeout time.Duration) (*http.Client, error) {
 	cloned, err := clonedDefaultTransport()
 	if err != nil {
 		return nil, err
@@ -132,5 +214,5 @@ func newHTTPClientCustomProxy(proxyURLStr string) (*http.Client, error) {
 		return nil, fmt.Errorf("unsupported proxy scheme: %s", proxyURL.Scheme)
 	}
 
-	return &http.Client{Transport: cloned, Timeout: 600 * time.Second}, nil
+	return &http.Client{Transport: cloned, Timeout: timeout}, nil
 }

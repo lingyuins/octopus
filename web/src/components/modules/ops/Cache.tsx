@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Activity, Coins, Database, Gauge, HardDrive, Layers3, SlidersHorizontal } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { OpsCacheStatus, OpsProviderPromptCacheProviderItem, OpsProviderPromptCacheSummary } from '@/api/endpoints/ops';
@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MetricCard, QueryState, StatusBadge, formatPercent, formatUnixTime } from '@/components/modules/analytics/shared';
 import { formatProviderPromptCacheCount, getProviderPromptCacheTrendTokens } from './cache-format';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 
 type CacheView = 'semantic' | 'providerPrompt';
 type CacheTranslations = (key: string) => string;
@@ -163,6 +165,46 @@ function ProviderPromptCacheRow({
     );
 }
 
+function formatChartData(trend: Array<{ timestamp: number; cache_read_tokens?: number; cache_write_tokens?: number; request_count?: number }>) {
+    return trend.map((point) => ({
+        time: formatUnixTime(point.timestamp),
+        cache_read_tokens: point.cache_read_tokens ?? 0,
+        cache_write_tokens: point.cache_write_tokens ?? 0,
+        request_count: point.request_count ?? 0,
+    }));
+}
+
+function buildChartConfig(t: CacheTranslations) {
+    return {
+        cache_read_tokens: {
+            label: t('cache.providerPrompt.metrics.cacheReadTokens'),
+            color: 'hsl(var(--chart-1))',
+        },
+        cache_write_tokens: {
+            label: t('cache.providerPrompt.metrics.cacheWriteTokens'),
+            color: 'hsl(var(--chart-2))',
+        },
+    };
+}
+
+function TrendTooltipLabel({ payload }: { payload?: Array<{ payload?: { time?: string } }> }) {
+    if (!payload?.length) return null;
+    const item = payload[0]?.payload;
+    return <div className="font-semibold">{item?.time}</div>;
+}
+
+function TrendTooltipValue({ value, name, t }: { value: number; name: string; t: CacheTranslations }) {
+    const label = name === 'cache_read_tokens'
+        ? t('cache.providerPrompt.metrics.cacheReadTokens')
+        : t('cache.providerPrompt.metrics.cacheWriteTokens');
+    return (
+        <div className="flex items-center justify-between gap-4">
+            <span className="text-muted-foreground">{label}</span>
+            <span className="font-mono font-medium tabular-nums">{formatCount(value)}</span>
+        </div>
+    );
+}
+
 function ProviderPromptCacheView({
     data,
     t,
@@ -171,11 +213,13 @@ function ProviderPromptCacheView({
     t: CacheTranslations;
 }) {
     const trend = data.trend ?? [];
-    const maxTrendTokens = Math.max(...trend.map(getProviderPromptCacheTrendTokens), 1);
     const readTokens = formatProviderPromptCacheCount(data.cache_read_tokens);
     const writeTokens = formatProviderPromptCacheCount(data.cache_write_tokens);
     const hasTrendActivity = trend.some((item) => item.request_count > 0 || item.cache_read_tokens > 0 || item.cache_write_tokens > 0);
     const missingUsageHint = `${t('cache.providerPrompt.providers.empty')} (${data.parsed_log_count}/${data.sampled_log_count})`;
+
+    const chartData = useMemo(() => formatChartData(trend), [trend]);
+    const chartConfig = useMemo(() => buildChartConfig(t), [t]);
 
     return (
         <div className="space-y-4">
@@ -279,26 +323,51 @@ function ProviderPromptCacheView({
                                     {t('cache.providerPrompt.providers.empty')}
                                 </div>
                             ) : (
-                                <div className="max-w-full overflow-x-auto pb-1">
-                                    <div className="flex h-40 min-w-max items-end gap-2 pr-2">
-                                        {trend.map((point) => {
-                                            const trendTokens = getProviderPromptCacheTrendTokens(point);
-                                            const height = `${Math.max(8, (trendTokens / maxTrendTokens) * 100)}%`;
-                                            return (
-                                                <div key={point.timestamp} className="flex w-20 flex-none flex-col items-center gap-2">
-                                                    <div
-                                                        className="w-full rounded-t-md bg-primary/20"
-                                                        style={{ height }}
-                                                        title={`${formatUnixTime(point.timestamp)} | ${formatCount(point.cache_read_tokens)} read / ${formatCount(point.cache_write_tokens)} write`}
-                                                    />
-                                                    <div className="w-full whitespace-nowrap text-center text-[10px] text-muted-foreground">
-                                                        {formatUnixTime(point.timestamp)}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+                                <ChartContainer config={chartConfig} className="h-[16rem] w-full">
+                                    <BarChart
+                                        data={chartData}
+                                        margin={{ top: 16, right: 8, bottom: 0, left: 0 }}
+                                    >
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                        <XAxis
+                                            dataKey="time"
+                                            tickLine={false}
+                                            axisLine={false}
+                                            tick={{ fontSize: 11 }}
+                                        />
+                                        <YAxis
+                                            tickLine={false}
+                                            axisLine={false}
+                                            tick={{ fontSize: 11 }}
+                                            tickFormatter={(v: number) => formatCount(v)}
+                                        />
+                                        <ChartTooltip
+                                            cursor={{ fill: 'hsl(var(--foreground) / 0.06)' }}
+                                            content={
+                                                <ChartTooltipContent
+                                                    indicator="dot"
+                                                    nameKey="time"
+                                                    labelFormatter={(payload) => <TrendTooltipLabel payload={payload as Array<{ payload?: { time?: string } }>} />}
+                                                    formatter={(value, name) => (
+                                                        <TrendTooltipValue value={value as number} name={name as string} t={t} />
+                                                    )}
+                                                />
+                                            }
+                                        />
+                                        <Bar
+                                            dataKey="cache_read_tokens"
+                                            fill="var(--color-cache_read_tokens)"
+                                            radius={[4, 4, 0, 0]}
+                                            maxBarSize={48}
+                                        />
+                                        <Bar
+                                            dataKey="cache_write_tokens"
+                                            fill="var(--color-cache_write_tokens)"
+                                            radius={[4, 4, 0, 0]}
+                                            maxBarSize={48}
+                                        />
+                                    </BarChart>
+                                </ChartContainer>
                             )}
                         </div>
                     </div>

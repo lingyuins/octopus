@@ -150,6 +150,10 @@ func OpsSystemSummaryGet(ctx context.Context) (*model.OpsSystemSummary, error) {
 	if err != nil {
 		return nil, err
 	}
+	relayLogKeepCount, err := setting.GetInt(model.SettingKeyRelayLogKeepCount)
+	if err != nil {
+		return nil, err
+	}
 	statsSaveIntervalMinutes, err := setting.GetInt(model.SettingKeyStatsSaveInterval)
 	if err != nil {
 		return nil, err
@@ -206,6 +210,7 @@ func OpsSystemSummaryGet(ctx context.Context) (*model.OpsSystemSummary, error) {
 		ProxyURL:                     strings.TrimSpace(proxyURL),
 		RelayLogKeepEnabled:          relayLogKeepEnabled,
 		RelayLogKeepDays:             relayLogKeepDays,
+		RelayLogKeepCount:            relayLogKeepCount,
 		StatsSaveIntervalMinutes:     statsSaveIntervalMinutes,
 		SyncLLMIntervalHours:         syncLLMIntervalHours,
 		ModelInfoUpdateIntervalHours: modelInfoUpdateIntervalHours,

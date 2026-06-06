@@ -1,6 +1,6 @@
 {
   "name": "octopus",
-  "version": "2.0.0",
+  "version": "2.0.3",
   "private": true,
   "packageManager": "pnpm@10.22.0",
   "scripts": {
@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:i18n": "node tests/i18n.test.mjs",
-    "test:unit": "node --no-warnings --experimental-strip-types --test src/components/modules/alert/forms.test.ts src/components/modules/channel/ccswitch.test.ts src/components/modules/channel/metric-format.test.ts src/components/modules/group/capabilities.test.ts src/components/modules/group/index.test.ts src/components/modules/home/store.test.ts src/components/modules/log/display.test.ts src/components/modules/model/sort.test.ts src/components/modules/navbar/nav-order.test.ts src/components/modules/navbar/navbar.test.ts src/components/modules/ops/cache-format.test.ts src/components/modules/ops/telemetry-format.test.ts src/components/modules/setting/runtime-settings.test.ts src/components/ui/morphing-dialog-state.test.ts src/lib/clipboard.test.ts src/stores/setting.test.ts src/test-utils/timers.test.ts src/api/endpoints/log.hook.test.ts src/api/endpoints/group-progress.hook.test.ts src/api/endpoints/apikey.test.ts src/lib/time.test.ts",
+    "test:unit": "node --no-warnings --experimental-strip-types --test src/components/modules/alert/forms.test.ts src/components/modules/channel/ccswitch.test.ts src/components/modules/channel/metric-format.test.ts src/components/modules/channel/type-options.test.ts src/components/modules/group/capabilities.test.ts src/components/modules/group/index.test.ts src/components/modules/home/store.test.ts src/components/modules/log/display.test.ts src/components/modules/model/sort.test.ts src/components/modules/model/latency-format.test.ts src/components/modules/navbar/nav-order.test.ts src/components/modules/navbar/navbar.test.ts src/components/modules/ops/cache-format.test.ts src/components/modules/ops/telemetry-format.test.ts src/components/modules/setting/runtime-settings.test.ts src/components/ui/morphing-dialog-state.test.ts src/lib/clipboard.test.ts src/stores/setting.test.ts src/test-utils/timers.test.ts src/api/endpoints/log.hook.test.ts src/api/endpoints/group-progress.hook.test.ts src/api/endpoints/apikey.test.ts src/lib/time.test.ts",
     "check": "pnpm lint && pnpm test:i18n && pnpm test:unit && NEXT_PUBLIC_APP_VERSION=check pnpm build"
   },
   "dependencies": {
@@ -20,6 +20,7 @@
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-hover-card": "^1.1.15",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-progress": "^1.1.8",
