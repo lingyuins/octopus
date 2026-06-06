@@ -65,11 +65,13 @@ func ApplyRuntimeConfig(cfg RuntimeConfig) {
 	}
 
 	ttl := cfg.TTL
-	globalCache = &SemanticCache{
-		entries:    make([]CacheEntry, 0, cfg.MaxEntries),
-		maxEntries: cfg.MaxEntries,
-		threshold:  cfg.Threshold,
-		ttl:        ttl,
+	if globalCache == nil || globalCache.maxEntries != cfg.MaxEntries || globalCache.threshold != cfg.Threshold || globalCache.ttl != ttl {
+		globalCache = &SemanticCache{
+			entries:    make([]CacheEntry, 0, cfg.MaxEntries),
+			maxEntries: cfg.MaxEntries,
+			threshold:  cfg.Threshold,
+			ttl:        ttl,
+		}
 	}
 }
 

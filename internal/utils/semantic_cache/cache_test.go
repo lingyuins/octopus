@@ -60,3 +60,23 @@ func TestLookup_ReturnsResponseCopy(t *testing.T) {
 		t.Fatalf("Lookup() after caller mutation = %s, want original response", string(gotAgain))
 	}
 }
+
+func TestApplyRuntimeConfig_PreservesEntriesWhenUnchanged(t *testing.T) {
+	Reset()
+	t.Cleanup(Reset)
+	cfg := RuntimeConfig{Enabled: true, MaxEntries: 16, Threshold: 0.95, TTL: time.Hour}
+	ApplyRuntimeConfig(cfg)
+
+	embedding := []float64{1, 0}
+	Store("k1:chat:gpt-4.1", "req-a", []byte(`{"id":"resp-a"}`), embedding)
+
+	ApplyRuntimeConfig(cfg)
+
+	got, ok := Lookup("k1:chat:gpt-4.1", embedding)
+	if !ok {
+		t.Fatal("expected cache hit after applying unchanged runtime config")
+	}
+	if !bytes.Equal(got, []byte(`{"id":"resp-a"}`)) {
+		t.Fatalf("Lookup() after unchanged config = %s, want original response", string(got))
+	}
+}
