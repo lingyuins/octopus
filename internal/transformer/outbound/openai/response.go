@@ -171,7 +171,7 @@ func (o *ResponseOutbound) TransformStream(ctx context.Context, eventData []byte
 							ID:    streamEvent.CallID,
 							Type:  "function",
 							Function: model.FunctionCall{
-								Name:      streamEvent.Name,
+								Name: func() string { if streamEvent.Name != "" { return streamEvent.Name }; return "" }(),
 								Arguments: streamEvent.Delta,
 							},
 						},
