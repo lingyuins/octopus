@@ -288,6 +288,12 @@ function MorphingDialogContent({
       if (openPopoverContent) {
         return true;
       }
+      if (target?.closest('[data-slot="dialog-content"]')) {
+        return true;
+      }
+      if (target?.closest('[data-slot="dialog-overlay"]')) {
+        return true;
+      }
       const dialogLayer = target?.closest('[data-slot="morphing-dialog-layer"]') as HTMLElement | null;
       if (dialogLayer && dialogLayer.dataset.dialogId !== uniqueId) {
         return true;
