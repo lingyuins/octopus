@@ -87,6 +87,32 @@ type AnalyticsAPIKeyBreakdownItem struct {
 	AnalyticsMetrics
 }
 
+// AnalyticsChannelModelItem 描述某个 (渠道,模型) 维度的统计，用于"渠道×模型"分析视图。
+// 与 AnalyticsProviderBreakdownItem 的区别：这里是渠道与模型的交叉维度，且失败数
+// 基于单次尝试（relay_log_attempts）聚合，使"渠道A 失败→重试到B 成功"的请求中
+// 渠道A 的失败也能反映到 A 的成功率上（issue #67）。
+type AnalyticsChannelModelItem struct {
+	ChannelID   int    `json:"channel_id"`
+	ChannelName string `json:"channel_name"`
+	ModelName   string `json:"model_name"`
+	Enabled     bool   `json:"enabled"`
+	AnalyticsMetrics
+}
+
+// AutoStrategySnapshotItem 是 Auto 策略运行态某个 (渠道,模型) 维度的实时快照，
+// 反映滑动窗口内的成功率/样本数/延迟。供分组健康中的"Auto 实时表现"展示（issue #67）。
+type AutoStrategySnapshotItem struct {
+	ChannelID     int     `json:"channel_id"`
+	ChannelName   string  `json:"channel_name"`
+	Enabled       bool    `json:"enabled"`
+	ModelName     string  `json:"model_name"`
+	SuccessRate   float64 `json:"success_rate"` // 0-100
+	SampleCount   int     `json:"sample_count"`
+	AvgLatencyMs  float64 `json:"avg_latency_ms"`
+	LastActiveAt  int64   `json:"last_active_at"`  // unix 秒，0 表示无活动
+	MinSamplesMet bool    `json:"min_samples_met"` // 样本数是否达到最小阈值
+}
+
 type AnalyticsUtilization struct {
 	ProviderBreakdown []AnalyticsProviderBreakdownItem `json:"provider_breakdown"`
 	ModelBreakdown    []AnalyticsModelBreakdownItem    `json:"model_breakdown"`
@@ -94,16 +120,27 @@ type AnalyticsUtilization struct {
 }
 
 type AnalyticsGroupHealthItem struct {
-	GroupID           int    `json:"group_id"`
-	GroupName         string `json:"group_name"`
-	EndpointType      string `json:"endpoint_type"`
-	ItemCount         int    `json:"item_count"`
-	EnabledItemCount  int    `json:"enabled_item_count"`
-	DisabledItemCount int    `json:"disabled_item_count"`
-	FailureCount      int64  `json:"failure_count"`
-	LastFailureAt     int64  `json:"last_failure_at"`
-	HealthScore       int    `json:"health_score"`
-	Status            string `json:"status"`
+	GroupID           int                  `json:"group_id"`
+	GroupName         string               `json:"group_name"`
+	EndpointType      string               `json:"endpoint_type"`
+	ItemCount         int                  `json:"item_count"`
+	EnabledItemCount  int                  `json:"enabled_item_count"`
+	DisabledItemCount int                  `json:"disabled_item_count"`
+	FailureCount      int64                `json:"failure_count"`
+	LastFailureAt     int64                `json:"last_failure_at"`
+	HealthScore       int                  `json:"health_score"`
+	Status            string               `json:"status"`
+	FailingChannels   []FailingChannelItem `json:"failing_channels"`
+	Mode              int                  `json:"mode"`
+}
+
+// FailingChannelItem 描述组内某个 (渠道,模型) 维度的失败情况，供分组健康下钻展示。
+type FailingChannelItem struct {
+	ChannelID     int    `json:"channel_id"`
+	ChannelName   string `json:"channel_name"`
+	ModelName     string `json:"model_name"`
+	FailureCount  int64  `json:"failure_count"`
+	LastFailureAt int64  `json:"last_failure_at"`
 }
 
 // LatencyDistribution holds latency and FTUT distribution data for a time range.

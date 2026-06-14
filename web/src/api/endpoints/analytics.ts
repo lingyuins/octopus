@@ -70,6 +70,35 @@ export interface AnalyticsGroupHealthItem {
     last_failure_at: number;
     health_score: number;
     status: 'healthy' | 'warning' | 'degraded' | 'down' | 'empty';
+    failing_channels: FailingChannelItem[];
+    mode: number;
+}
+
+export interface FailingChannelItem {
+    channel_id: number;
+    channel_name: string;
+    model_name: string;
+    failure_count: number;
+    last_failure_at: number;
+}
+
+export interface AnalyticsChannelModelItem extends AnalyticsMetrics {
+    channel_id: number;
+    channel_name: string;
+    model_name: string;
+    enabled: boolean;
+}
+
+export interface AutoStrategySnapshotItem {
+    channel_id: number;
+    channel_name: string;
+    enabled: boolean;
+    model_name: string;
+    success_rate: number;
+    sample_count: number;
+    avg_latency_ms: number;
+    last_active_at: number;
+    min_samples_met: boolean;
 }
 
 export interface AnalyticsEvaluationRuntime {
@@ -229,6 +258,31 @@ export function useAnalyticsLatencyDistribution(range: AnalyticsRange) {
     return useQuery({
         queryKey: ['analytics', 'latency-distribution', range],
         queryFn: async () => apiClient.get<LatencyDistribution>('/api/v1/analytics/latency-distribution', { range }),
+        refetchInterval: REFETCH_INTERVAL_CONFIG,
+        refetchOnMount: 'always',
+    });
+}
+
+export function useAnalyticsChannelModel(range: AnalyticsRange, groupId?: number) {
+    return useQuery({
+        queryKey: ['analytics', 'channel-model', range, groupId ?? null],
+        queryFn: async () =>
+            apiClient.get<AnalyticsChannelModelItem[]>('/api/v1/analytics/channel-model', {
+                range,
+                ...(groupId != null ? { group_id: groupId } : {}),
+            }),
+        refetchInterval: REFETCH_INTERVAL_CONFIG,
+        refetchOnMount: 'always',
+    });
+}
+
+export function useAnalyticsAutoStrategy(groupId?: number) {
+    return useQuery({
+        queryKey: ['analytics', 'auto-strategy', groupId ?? null],
+        queryFn: async () =>
+            apiClient.get<AutoStrategySnapshotItem[]>('/api/v1/analytics/auto-strategy', {
+                ...(groupId != null ? { group_id: groupId } : {}),
+            }),
         refetchInterval: REFETCH_INTERVAL_CONFIG,
         refetchOnMount: 'always',
     });

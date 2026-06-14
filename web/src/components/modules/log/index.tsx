@@ -8,6 +8,7 @@ import { LogCard } from './Item';
 import { Loader2, Search, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { VirtualizedGrid } from '@/components/common/VirtualizedGrid';
+import { useNavHandoff } from '@/lib/nav-handoff';
 import {
     Select,
     SelectContent,
@@ -204,6 +205,17 @@ export function Log() {
     const [filter, setFilter] = useState<LogFilter>(EMPTY_FILTER);
     const { logs, hasMore, isLoading, isLoadingMore, loadMore } = useLogs({ filter });
     const { data: channels = [] } = useChannelList();
+
+    // 消费来自其它模块（分析/分组健康）的待处理筛选，实现"点击失败渠道 → 跳转日志并预填"。
+    const pendingLogFilter = useNavHandoff((s) => s.pendingLogFilter);
+    const consumePendingLogFilter = useNavHandoff((s) => s.consumePendingLogFilter);
+    useEffect(() => {
+        const pending = consumePendingLogFilter();
+        if (pending) {
+            setFilter(pending);
+        }
+    }, [pendingLogFilter, consumePendingLogFilter]);
+
     const channelNameById = useMemo(() => {
         const map = new Map<number, string>();
         for (const item of channels) {

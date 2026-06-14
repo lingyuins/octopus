@@ -17,7 +17,9 @@ import (
 	"github.com/lingyuins/octopus/internal/op/relaylog"
 	"github.com/lingyuins/octopus/internal/op/setting"
 	"github.com/lingyuins/octopus/internal/op/stats"
+	"github.com/lingyuins/octopus/internal/relay/balancer"
 	"github.com/lingyuins/octopus/internal/utils/semantic_cache"
+	"gorm.io/gorm"
 )
 
 const analyticsRouteHealthFailureWindow = 24 * time.Hour
@@ -50,6 +52,13 @@ type analyticsModelAggregateRow struct {
 type analyticsAPIKeyAggregateRow struct {
 	APIKeyID int
 	Name     string
+	analyticsAggregateMetrics
+}
+
+type analyticsChannelModelAggregateRow struct {
+	ChannelID   int
+	ChannelName string
+	ModelName   string
 	analyticsAggregateMetrics
 }
 
@@ -163,6 +172,123 @@ func AnalyticsAPIKeyBreakdownGet(ctx context.Context, r model.AnalyticsRange) ([
 		return nil, err
 	}
 	return buildAPIKeyBreakdown(rows), nil
+}
+
+// AnalyticsChannelModelBreakdownGet 返回 (渠道,模型) 交叉维度的统计。
+// 成功/失败基于单次尝试（relay_log_attempts）聚合，使"渠道A 失败→重试到B 成功"的请求中
+// 渠道A 的失败也反映到 A 的成功率上（issue #67）。token/cost 按请求顶层渠道归属
+// （与 attempts 表的 channel 维度一致时才计入）。groupID 非空时只返回该组包含的
+// (渠道,模型) 组合。
+func AnalyticsChannelModelBreakdownGet(ctx context.Context, r model.AnalyticsRange, groupID *int) ([]model.AnalyticsChannelModelItem, error) {
+	channels, err := channel.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	channelByID := make(map[int]model.Channel, len(channels))
+	for _, ch := range channels {
+		channelByID[ch.ID] = ch
+	}
+
+	// 可选：按分组 scope 过滤 (channelID, modelName) 集合。
+	scope := make(map[string]struct{})
+	if groupID != nil {
+		groups, err := group.GroupList(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, g := range groups {
+			if g.ID != *groupID {
+				continue
+			}
+			for _, it := range g.Items {
+				scope[strconv.Itoa(it.ChannelID)+"\x00"+it.ModelName] = struct{}{}
+			}
+		}
+	}
+
+	rows, err := loadAnalyticsChannelModelRows(ctx, r, scope)
+	if err != nil {
+		return nil, err
+	}
+	return buildChannelModelBreakdown(rows, channelByID), nil
+}
+
+// AnalyticsAutoStrategyGet 返回 Auto 策略运行态快照（滑动窗口内的成功率/样本数/延迟）。
+// groupID 非空时只返回该组包含渠道的条目；为空时返回全部。供"Auto 实时表现"展示（issue #67）。
+func AnalyticsAutoStrategyGet(ctx context.Context, groupID *int) ([]model.AutoStrategySnapshotItem, error) {
+	channels, err := channel.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	channelByID := make(map[int]model.Channel, len(channels))
+	for _, ch := range channels {
+		channelByID[ch.ID] = ch
+	}
+
+	var channelIDs []int
+	if groupID != nil {
+		groups, err := group.GroupList(ctx)
+		if err != nil {
+			return nil, err
+		}
+		seen := make(map[int]struct{})
+		for _, g := range groups {
+			if g.ID != *groupID {
+				continue
+			}
+			for _, it := range g.Items {
+				if _, ok := seen[it.ChannelID]; ok {
+					continue
+				}
+				seen[it.ChannelID] = struct{}{}
+				channelIDs = append(channelIDs, it.ChannelID)
+			}
+		}
+	}
+
+	snapshot := balancer.GetAutoStatsSnapshot(channelIDs)
+	minSamples := balancer.GetAutoStrategyMinSamples()
+
+	items := make([]model.AutoStrategySnapshotItem, 0, len(snapshot))
+	for _, s := range snapshot {
+		var lastActive int64
+		if !s.LastActiveAt.IsZero() {
+			lastActive = s.LastActiveAt.Unix()
+		}
+		chName := ""
+		enabled := false
+		if c, ok := channelByID[s.ChannelID]; ok {
+			chName = c.Name
+			enabled = c.Enabled
+		}
+		items = append(items, model.AutoStrategySnapshotItem{
+			ChannelID:     s.ChannelID,
+			ChannelName:   chName,
+			Enabled:       enabled,
+			ModelName:     s.ModelName,
+			SuccessRate:   s.SuccessRate * 100,
+			SampleCount:   s.SampleCount,
+			AvgLatencyMs:  s.AvgLatencyMs,
+			LastActiveAt:  lastActive,
+			MinSamplesMet: s.SampleCount >= minSamples,
+		})
+	}
+
+	sort.SliceStable(items, func(i, j int) bool {
+		// 成功率低的优先（突出问题渠道），其次样本数、渠道名、模型名。
+		if items[i].SuccessRate != items[j].SuccessRate {
+			return items[i].SuccessRate < items[j].SuccessRate
+		}
+		if items[i].SampleCount != items[j].SampleCount {
+			return items[i].SampleCount > items[j].SampleCount
+		}
+		if items[i].ChannelName != items[j].ChannelName {
+			return items[i].ChannelName < items[j].ChannelName
+		}
+		return items[i].ModelName < items[j].ModelName
+	})
+
+	return items, nil
 }
 
 func AnalyticsGroupHealthGet(ctx context.Context) ([]model.AnalyticsGroupHealthItem, error) {
@@ -428,6 +554,66 @@ func buildAPIKeyBreakdown(rows map[string]*analyticsAPIKeyAggregateRow) []model.
 	return items
 }
 
+func buildChannelModelBreakdown(rows map[string]*analyticsChannelModelAggregateRow, channelByID map[int]model.Channel) []model.AnalyticsChannelModelItem {
+	items := make([]model.AnalyticsChannelModelItem, 0, len(rows))
+	for _, row := range rows {
+		if row == nil {
+			continue
+		}
+		channelName := strings.TrimSpace(row.ChannelName)
+		enabled := false
+		if c, ok := channelByID[row.ChannelID]; ok {
+			if channelName == "" {
+				channelName = c.Name
+			}
+			enabled = c.Enabled
+		}
+		if channelName == "" {
+			channelName = "Unknown Channel"
+		}
+
+		requestCount := row.RequestSuccess + row.RequestFailed
+		successRate := 0.0
+		if requestCount > 0 {
+			successRate = (float64(row.RequestSuccess) / float64(requestCount)) * 100
+		}
+
+		items = append(items, model.AnalyticsChannelModelItem{
+			ChannelID:   row.ChannelID,
+			ChannelName: channelName,
+			ModelName:   row.ModelName,
+			Enabled:     enabled,
+			AnalyticsMetrics: model.AnalyticsMetrics{
+				RequestCount: requestCount,
+				TotalTokens:  row.InputTokens + row.OutputTokens,
+				InputTokens:  row.InputTokens,
+				OutputTokens: row.OutputTokens,
+				TotalCost:    row.TotalCost,
+				SuccessRate:  successRate,
+			},
+		})
+	}
+
+	sort.SliceStable(items, func(i, j int) bool {
+		// 失败数大的优先（突出问题渠道），其次请求数、费用、名称。
+		// 失败数 = round(RequestCount * (1 - SuccessRate/100))。
+		ifailed := int64(float64(items[i].RequestCount) * (1 - items[i].SuccessRate/100))
+		jfailed := int64(float64(items[j].RequestCount) * (1 - items[j].SuccessRate/100))
+		if ifailed != jfailed {
+			return ifailed > jfailed
+		}
+		if items[i].RequestCount != items[j].RequestCount {
+			return items[i].RequestCount > items[j].RequestCount
+		}
+		if items[i].ChannelName != items[j].ChannelName {
+			return items[i].ChannelName < items[j].ChannelName
+		}
+		return items[i].ModelName < items[j].ModelName
+	})
+
+	return items
+}
+
 func buildGroupHealth(groups []model.Group, channelByID map[int]model.Channel, failures map[string]*analyticsFailureAggregateRow) []model.AnalyticsGroupHealthItem {
 	items := make([]model.AnalyticsGroupHealthItem, 0, len(groups))
 	for _, group := range groups {
@@ -437,6 +623,15 @@ func buildGroupHealth(groups []model.Group, channelByID map[int]model.Channel, f
 		failureCount := int64(0)
 		lastFailureAt := int64(0)
 
+		// 按 (channelID,modelName) 聚合失败，供下钻展示。
+		type chanFail struct {
+			ChannelID     int
+			ChannelName   string
+			ModelName     string
+			FailureCount  int64
+			LastFailureAt int64
+		}
+		chanFailures := make(map[string]*chanFail)
 		seenFailureKeys := make(map[string]struct{})
 		for _, item := range group.Items {
 			c, ok := channelByID[item.ChannelID]
@@ -461,6 +656,25 @@ func buildGroupHealth(groups []model.Group, channelByID map[int]model.Channel, f
 				failureCount += failure.FailureCount
 				if failure.LastFailureAt > lastFailureAt {
 					lastFailureAt = failure.LastFailureAt
+				}
+
+				// 按 (channelID, model) 聚合到下钻 map。model 优先用 attempt 的 actual，
+				// 没有则用 item.ModelName。
+				cfKey := strconv.Itoa(item.ChannelID) + "\x00" + item.ModelName
+				cf, ok := chanFailures[cfKey]
+				if !ok {
+					cf = &chanFail{
+						ChannelID: item.ChannelID,
+						ModelName: item.ModelName,
+					}
+					if c, ok := channelByID[item.ChannelID]; ok {
+						cf.ChannelName = c.Name
+					}
+					chanFailures[cfKey] = cf
+				}
+				cf.FailureCount += failure.FailureCount
+				if failure.LastFailureAt > cf.LastFailureAt {
+					cf.LastFailureAt = failure.LastFailureAt
 				}
 			}
 		}
@@ -494,6 +708,30 @@ func buildGroupHealth(groups []model.Group, channelByID map[int]model.Channel, f
 			score = 0
 		}
 
+		// 仅保留有失败的渠道，按失败数降序，取前 10 供下钻展示。
+		failingChannels := make([]model.FailingChannelItem, 0, len(chanFailures))
+		for _, cf := range chanFailures {
+			if cf.FailureCount <= 0 {
+				continue
+			}
+			failingChannels = append(failingChannels, model.FailingChannelItem{
+				ChannelID:     cf.ChannelID,
+				ChannelName:   cf.ChannelName,
+				ModelName:     cf.ModelName,
+				FailureCount:  cf.FailureCount,
+				LastFailureAt: cf.LastFailureAt,
+			})
+		}
+		sort.SliceStable(failingChannels, func(i, j int) bool {
+			if failingChannels[i].FailureCount != failingChannels[j].FailureCount {
+				return failingChannels[i].FailureCount > failingChannels[j].FailureCount
+			}
+			return failingChannels[i].ChannelName < failingChannels[j].ChannelName
+		})
+		if len(failingChannels) > 10 {
+			failingChannels = failingChannels[:10]
+		}
+
 		items = append(items, model.AnalyticsGroupHealthItem{
 			GroupID:           group.ID,
 			GroupName:         group.Name,
@@ -505,6 +743,8 @@ func buildGroupHealth(groups []model.Group, channelByID map[int]model.Channel, f
 			LastFailureAt:     lastFailureAt,
 			HealthScore:       score,
 			Status:            status,
+			Mode:              int(group.Mode),
+			FailingChannels:   failingChannels,
 		})
 	}
 
@@ -559,6 +799,168 @@ func loadAnalyticsSummary(ctx context.Context, r model.AnalyticsRange) (*analyti
 	lock.Unlock()
 
 	return row, nil
+}
+
+// loadAnalyticsChannelModelRows 聚合 (渠道,模型) 维度的成功/失败/token/cost。
+// 成功/失败按单次尝试（relay_log_attempts）统计；token/cost 取自 relay_logs 且仅在
+// 该请求最终成功时计入（避免把整体失败的请求 token 重复计入多个渠道）。
+// scope 非空时只保留其中的 (channelID,modelName) 组合。
+func loadAnalyticsChannelModelRows(ctx context.Context, r model.AnalyticsRange, scope map[string]struct{}) (map[string]*analyticsChannelModelAggregateRow, error) {
+	startUnix := analyticsRangeStartUnix(r, stats.Now())
+	rows := make(map[string]*analyticsChannelModelAggregateRow)
+
+	keepEnabled, err := setting.GetBool(model.SettingKeyRelayLogKeepEnabled)
+	if err != nil {
+		return nil, err
+	}
+
+	inScope := func(channelID int, modelName string) bool {
+		if len(scope) == 0 {
+			return true
+		}
+		_, ok := scope[strconv.Itoa(channelID)+"\x00"+modelName]
+		return ok
+	}
+
+	if keepEnabled {
+		conn := db.GetLogDB()
+		if conn != nil && connHasRelayLogAttempts(conn) {
+			// 成功/失败：按尝试维度聚合。
+			type attRow struct {
+				ChannelID    int     `gorm:"column:channel_id"`
+				ModelName    string  `gorm:"column:model_name"`
+				Success      int64   `gorm:"column:request_success"`
+				Failed       int64   `gorm:"column:request_failed"`
+				InputTokens  int64   `gorm:"column:input_tokens"`
+				OutputTokens int64   `gorm:"column:output_tokens"`
+				TotalCost    float64 `gorm:"column:total_cost"`
+			}
+			var aRows []attRow
+			query := conn.WithContext(ctx).
+				Table("relay_log_attempts AS a").
+				Select(`
+					a.channel_id,
+					COALESCE(NULLIF(a.model_name, ''), l.request_model_name) AS model_name,
+					COALESCE(SUM(CASE WHEN a.status = ? THEN 1 ELSE 0 END), 0) AS request_success,
+					COALESCE(SUM(CASE WHEN a.status = ? THEN 1 ELSE 0 END), 0) AS request_failed,
+					COALESCE(SUM(CASE WHEN a.status = ? THEN l.input_tokens ELSE 0 END), 0) AS input_tokens,
+					COALESCE(SUM(CASE WHEN a.status = ? THEN l.output_tokens ELSE 0 END), 0) AS output_tokens,
+					COALESCE(SUM(CASE WHEN a.status = ? THEN l.cost ELSE 0 END), 0) AS total_cost
+				`, string(model.AttemptSuccess), string(model.AttemptFailed),
+					string(model.AttemptSuccess), string(model.AttemptSuccess), string(model.AttemptSuccess)).
+				Joins("JOIN relay_logs AS l ON l.id = a.relay_log_id").
+				Group("a.channel_id, COALESCE(NULLIF(a.model_name, ''), l.request_model_name)")
+			if startUnix != nil {
+				query = query.Where("a.time >= ?", *startUnix)
+			}
+			if err := query.Scan(&aRows).Error; err != nil {
+				return nil, err
+			}
+			for _, ar := range aRows {
+				if !inScope(ar.ChannelID, ar.ModelName) {
+					continue
+				}
+				key := strconv.Itoa(ar.ChannelID) + "\x00" + ar.ModelName
+				rows[key] = &analyticsChannelModelAggregateRow{
+					ChannelID: ar.ChannelID,
+					ModelName: ar.ModelName,
+					analyticsAggregateMetrics: analyticsAggregateMetrics{
+						InputTokens:    ar.InputTokens,
+						OutputTokens:   ar.OutputTokens,
+						TotalCost:      ar.TotalCost,
+						RequestSuccess: ar.Success,
+						RequestFailed:  ar.Failed,
+					},
+				}
+			}
+		} else {
+			// 回退：无 attempts 表时用顶层列（与历史利用率一致）。
+			mainConn := db.GetDB()
+			if mainConn != nil {
+				var dbRows []analyticsChannelModelAggregateRow
+				modelExpr := "COALESCE(NULLIF(actual_model_name, ''), request_model_name)"
+				query := mainConn.WithContext(ctx).
+					Model(&model.RelayLog{}).
+					Select(`
+						channel_id,
+						channel_name,
+						` + modelExpr + ` AS model_name,
+						COALESCE(SUM(input_tokens), 0) AS input_tokens,
+						COALESCE(SUM(output_tokens), 0) AS output_tokens,
+						COALESCE(SUM(cost), 0) AS total_cost,
+						COALESCE(SUM(CASE WHEN error = '' THEN 1 ELSE 0 END), 0) AS request_success,
+						COALESCE(SUM(CASE WHEN error <> '' THEN 1 ELSE 0 END), 0) AS request_failed
+					`).
+					Group("channel_id, channel_name, " + modelExpr)
+				if startUnix != nil {
+					query = query.Where("time >= ?", *startUnix)
+				}
+				if err := query.Scan(&dbRows).Error; err != nil {
+					return nil, err
+				}
+				for _, row := range dbRows {
+					modelName := strings.TrimSpace(row.ModelName)
+					if modelName == "" || !inScope(row.ChannelID, modelName) {
+						continue
+					}
+					key := strconv.Itoa(row.ChannelID) + "\x00" + modelName
+					rowCopy := row
+					rowCopy.ModelName = modelName
+					rows[key] = &rowCopy
+				}
+			}
+		}
+	}
+
+	// 合并内存缓存（含尚未落库的失败尝试维度）。
+	cache, lock := relaylog.GetCacheAndLock()
+	lock.Lock()
+	for _, logItem := range cache {
+		if startUnix != nil && logItem.Time < *startUnix {
+			continue
+		}
+		success := logItem.Error == ""
+		for _, a := range logItem.Attempts {
+			if a.ChannelID == 0 {
+				continue
+			}
+			modelName := strings.TrimSpace(a.ModelName)
+			if modelName == "" {
+				modelName = strings.TrimSpace(logItem.ActualModelName)
+			}
+			if modelName == "" {
+				modelName = strings.TrimSpace(logItem.RequestModelName)
+			}
+			if !inScope(a.ChannelID, modelName) {
+				continue
+			}
+			key := strconv.Itoa(a.ChannelID) + "\x00" + modelName
+			row, ok := rows[key]
+			if !ok {
+				row = &analyticsChannelModelAggregateRow{ChannelID: a.ChannelID, ModelName: modelName}
+				rows[key] = row
+			}
+			if a.Status == model.AttemptFailed {
+				row.RequestFailed++
+				continue
+			}
+			if a.Status == model.AttemptSuccess {
+				row.RequestSuccess++
+				// token/cost 仅在整体成功时计入该渠道（避免重复计入）。
+				if success {
+					row.InputTokens += int64(logItem.InputTokens)
+					row.OutputTokens += int64(logItem.OutputTokens)
+					row.TotalCost += logItem.Cost
+				}
+			}
+			if row.ChannelName == "" {
+				row.ChannelName = a.ChannelName
+			}
+		}
+	}
+	lock.Unlock()
+
+	return rows, nil
 }
 
 func loadAnalyticsProviderRows(ctx context.Context, r model.AnalyticsRange) (map[int]*analyticsProviderAggregateRow, error) {
@@ -787,53 +1189,120 @@ func loadAnalyticsFailureRows(ctx context.Context, since time.Time) (map[string]
 	}
 
 	if keepEnabled {
-		var dbRows []analyticsFailureAggregateRow
-		query := db.GetDB().WithContext(ctx).
-			Model(&model.RelayLog{}).
-			Select(`
-				channel_id,
-				request_model_name,
-				actual_model_name,
-				COUNT(*) AS failure_count,
-				MAX(time) AS last_failure_at
-			`).
-			Where("error <> ''").
-			Where("time >= ?", startUnix).
-			Group("channel_id, request_model_name, actual_model_name")
-		if err := query.Scan(&dbRows).Error; err != nil {
-			return nil, err
-		}
-		for _, row := range dbRows {
-			key := makeAnalyticsFailureKey(row.ChannelID, row.ActualModelName, row.RequestModelName)
-			rowCopy := row
-			rows[key] = &rowCopy
+		// 优先从 relay_log_attempts 聚合失败尝试，使"渠道A 失败→重试到B 成功"
+		// 的请求中渠道A 的失败也被计入（issue #67）。join relay_logs 取
+		// request_model_name（分组名）以保留与 GroupItem.ModelName 的匹配维度。
+		conn := db.GetLogDB()
+		if conn != nil && connHasRelayLogAttempts(conn) {
+			var dbRows []analyticsFailureAggregateRow
+			query := conn.WithContext(ctx).
+				Table("relay_log_attempts AS a").
+				Select(`
+					a.channel_id,
+					l.request_model_name,
+					a.model_name AS actual_model_name,
+					COUNT(*) AS failure_count,
+					MAX(a.time) AS last_failure_at
+				`).
+				Joins("JOIN relay_logs AS l ON l.id = a.relay_log_id").
+				Where("a.status = ?", string(model.AttemptFailed)).
+				Where("a.time >= ?", startUnix).
+				Group("a.channel_id, l.request_model_name, a.model_name")
+			if err := query.Scan(&dbRows).Error; err != nil {
+				return nil, err
+			}
+			for _, row := range dbRows {
+				key := makeAnalyticsFailureKey(row.ChannelID, row.ActualModelName, row.RequestModelName)
+				rowCopy := row
+				rows[key] = &rowCopy
+			}
+		} else {
+			// 回退：relay_log_attempts 表不存在（旧库未迁移）时用顶层 relay_logs 列。
+			conn := db.GetDB()
+			if conn != nil {
+				var dbRows []analyticsFailureAggregateRow
+				query := conn.WithContext(ctx).
+					Model(&model.RelayLog{}).
+					Select(`
+						channel_id,
+						request_model_name,
+						actual_model_name,
+						COUNT(*) AS failure_count,
+						MAX(time) AS last_failure_at
+					`).
+					Where("error <> ''").
+					Where("time >= ?", startUnix).
+					Group("channel_id, request_model_name, actual_model_name")
+				if err := query.Scan(&dbRows).Error; err != nil {
+					return nil, err
+				}
+				for _, row := range dbRows {
+					key := makeAnalyticsFailureKey(row.ChannelID, row.ActualModelName, row.RequestModelName)
+					rowCopy := row
+					rows[key] = &rowCopy
+				}
+			}
 		}
 	}
 
+	// 内存缓存中尚未落库的失败尝试同样按尝试维度聚合。
 	cache, lock := relaylog.GetCacheAndLock()
 	lock.Lock()
 	for _, logItem := range cache {
-		if logItem.Error == "" || logItem.Time < startUnix {
+		if logItem.Time < startUnix {
 			continue
 		}
-		key := makeAnalyticsFailureKey(logItem.ChannelId, logItem.ActualModelName, logItem.RequestModelName)
-		row, ok := rows[key]
-		if !ok {
-			row = &analyticsFailureAggregateRow{
-				ChannelID:        logItem.ChannelId,
-				RequestModelName: logItem.RequestModelName,
-				ActualModelName:  logItem.ActualModelName,
+		// 整体失败：用顶层渠道记一次（与历史行为一致）。
+		if logItem.Error != "" {
+			key := makeAnalyticsFailureKey(logItem.ChannelId, logItem.ActualModelName, logItem.RequestModelName)
+			row, ok := rows[key]
+			if !ok {
+				row = &analyticsFailureAggregateRow{
+					ChannelID:        logItem.ChannelId,
+					RequestModelName: logItem.RequestModelName,
+					ActualModelName:  logItem.ActualModelName,
+				}
+				rows[key] = row
 			}
-			rows[key] = row
+			row.FailureCount++
+			if logItem.Time > row.LastFailureAt {
+				row.LastFailureAt = logItem.Time
+			}
+			continue
 		}
-		row.FailureCount++
-		if logItem.Time > row.LastFailureAt {
-			row.LastFailureAt = logItem.Time
+		// 整体成功但含失败尝试：把每个失败尝试计入对应渠道（issue #67 关键修复）。
+		for _, a := range logItem.Attempts {
+			if a.Status != model.AttemptFailed || a.ChannelID == 0 {
+				continue
+			}
+			key := makeAnalyticsFailureKey(a.ChannelID, a.ModelName, logItem.RequestModelName)
+			row, ok := rows[key]
+			if !ok {
+				row = &analyticsFailureAggregateRow{
+					ChannelID:        a.ChannelID,
+					RequestModelName: logItem.RequestModelName,
+					ActualModelName:  a.ModelName,
+				}
+				rows[key] = row
+			}
+			row.FailureCount++
+			if logItem.Time > row.LastFailureAt {
+				row.LastFailureAt = logItem.Time
+			}
 		}
 	}
 	lock.Unlock()
 
 	return rows, nil
+}
+
+// connHasRelayLogAttempts 报告连接上是否已存在 relay_log_attempts 表（迁移后才有）。
+// 用于在 DB 与 LogDB 分离、或旧库尚未迁移时优雅回退到顶层列聚合。
+func connHasRelayLogAttempts(conn *gorm.DB) bool {
+	if conn == nil || conn.Migrator() == nil {
+		return false
+	}
+	return conn.Migrator().HasTable(&model.RelayLogAttempt{})
 }
 
 func analyticsRangeStartUnix(r model.AnalyticsRange, now time.Time) *int64 {

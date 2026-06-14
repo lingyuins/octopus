@@ -86,6 +86,9 @@ export interface LogFilter {
     status?: 'success' | 'error';
     start_time?: number;
     end_time?: number;
+    // 是否"穿透"到单次尝试维度：按渠道A 筛选时也能命中"在A 失败、重试到B 成功"
+    // 的请求。后端在指定 channel_id 且未显式传 include_attempts 时默认开启。
+    include_attempts?: boolean;
 }
 
 /**
@@ -167,6 +170,7 @@ export function useLogs(options: { pageSize?: number; filter?: LogFilter } = {})
         filter.status,
         filter.start_time,
         filter.end_time,
+        filter.include_attempts,
     ]);
 
     const logsQuery = useInfiniteQuery({
@@ -183,6 +187,7 @@ export function useLogs(options: { pageSize?: number; filter?: LogFilter } = {})
             if (stableFilter.status) params.set('status', stableFilter.status);
             if (stableFilter.start_time != null) params.set('start_time', String(stableFilter.start_time));
             if (stableFilter.end_time != null) params.set('end_time', String(stableFilter.end_time));
+            if (stableFilter.include_attempts != null) params.set('include_attempts', String(stableFilter.include_attempts));
             const result = await apiClient.get<RelayLog[] | null>(`/api/v1/log/list?${params.toString()}`);
             return result ?? [];
         },
@@ -235,7 +240,7 @@ export function useLogs(options: { pageSize?: number; filter?: LogFilter } = {})
                 }, delayMs);
             });
 
-        const hasActiveFilter = !!(stableFilter.model || stableFilter.channel_id != null || stableFilter.api_key_id != null || stableFilter.endpoint_type || stableFilter.status || stableFilter.start_time != null || stableFilter.end_time != null);
+        const hasActiveFilter = !!(stableFilter.model || stableFilter.channel_id != null || stableFilter.api_key_id != null || stableFilter.endpoint_type || stableFilter.status || stableFilter.start_time != null || stableFilter.end_time != null || stableFilter.include_attempts != null);
 
         const mergeIncomingLog = (log: RelayLog) => {
             // When a filter is active, skip merging SSE logs to avoid showing unfiltered results

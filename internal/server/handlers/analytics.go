@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
@@ -39,6 +40,14 @@ func init() {
 		AddRoute(
 			router.NewRoute("/model-breakdown", http.MethodGet).
 				Handle(getAnalyticsModelBreakdown),
+		).
+		AddRoute(
+			router.NewRoute("/channel-model", http.MethodGet).
+				Handle(getAnalyticsChannelModel),
+		).
+		AddRoute(
+			router.NewRoute("/auto-strategy", http.MethodGet).
+				Handle(getAnalyticsAutoStrategy),
 		).
 		AddRoute(
 			router.NewRoute("/apikey-breakdown", http.MethodGet).
@@ -117,6 +126,48 @@ func getAnalyticsModelBreakdown(c *gin.Context) {
 	}
 
 	data, err := analytics.AnalyticsModelBreakdownGet(c.Request.Context(), analyticsRange)
+	if err != nil {
+		resp.InternalError(c)
+		return
+	}
+	resp.Success(c, data)
+}
+
+func getAnalyticsChannelModel(c *gin.Context) {
+	analyticsRange, ok := parseAnalyticsRange(c)
+	if !ok {
+		return
+	}
+	var groupID *int
+	if v := c.Query("group_id"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			resp.Error(c, http.StatusBadRequest, "invalid group_id")
+			return
+		}
+		groupID = &n
+	}
+
+	data, err := analytics.AnalyticsChannelModelBreakdownGet(c.Request.Context(), analyticsRange, groupID)
+	if err != nil {
+		resp.InternalError(c)
+		return
+	}
+	resp.Success(c, data)
+}
+
+func getAnalyticsAutoStrategy(c *gin.Context) {
+	var groupID *int
+	if v := c.Query("group_id"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			resp.Error(c, http.StatusBadRequest, "invalid group_id")
+			return
+		}
+		groupID = &n
+	}
+
+	data, err := analytics.AnalyticsAutoStrategyGet(c.Request.Context(), groupID)
 	if err != nil {
 		resp.InternalError(c)
 		return

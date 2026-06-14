@@ -355,6 +355,9 @@
       "routeHealth": {
         "title": "路由健康",
         "description": "彙總分組可用性、失敗訊號與路由穩定度。"
+      },
+      "channelModel": {
+        "title": "渠道 × 模型"
       }
     },
     "note": "目前階段先完成頁面殼層與導航接入，真實聚合資料會在下一步接入。",
@@ -419,7 +422,25 @@
         "degraded": "降級",
         "down": "不可用",
         "empty": "空分組"
+      },
+      "failingChannels": {
+        "title": "失敗渠道",
+        "viewLogs": "查看日誌"
+      },
+      "autoStrategy": {
+        "title": "智慧策略即時表現",
+        "disabled": "已停用",
+        "samples": " 樣本",
+        "insufficient": "樣本不足"
       }
+    },
+    "channelModel": {
+      "description": "依渠道 × 模型維度統計。失敗數按單次嘗試統計，因此某渠道失敗後經重試由其它渠道成功的請求，其失敗仍會反映在該渠道上。點擊列可跳轉至對應日誌。",
+      "empty": "所選時間範圍內暫無渠道 × 模型資料",
+      "requests": "次請求",
+      "failed": "次失敗",
+      "disabled": "已停用",
+      "scopeAll": "全部分組"
     },
     "evaluation": {
       "title": "評估",

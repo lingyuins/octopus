@@ -355,6 +355,9 @@
       "routeHealth": {
         "title": "Route Health",
         "description": "Summarize group availability, failure signals, and routing stability."
+      },
+      "channelModel": {
+        "title": "Channel × Model"
       }
     },
     "note": "This phase only establishes the page shell and navigation. Real aggregates are added in the next step.",
@@ -419,7 +422,25 @@
         "degraded": "Degraded",
         "down": "Down",
         "empty": "Empty"
+      },
+      "failingChannels": {
+        "title": "Failing channels",
+        "viewLogs": "View logs"
+      },
+      "autoStrategy": {
+        "title": "Auto strategy (live)",
+        "disabled": "disabled",
+        "samples": " samples",
+        "insufficient": "few samples"
       }
+    },
+    "channelModel": {
+      "description": "Per-channel × per-model breakdown. Failures are counted per attempt, so a channel that fails then succeeds via retry still shows its failures here. Click a row to jump to its logs.",
+      "empty": "No channel × model data in the selected range",
+      "requests": "requests",
+      "failed": "failed",
+      "disabled": "disabled",
+      "scopeAll": "All groups"
     },
     "evaluation": {
       "title": "Evaluation",

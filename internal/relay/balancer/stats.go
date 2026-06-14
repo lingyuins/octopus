@@ -207,6 +207,78 @@ func GetAutoStats(channelID int, modelName string) (successRate float64, totalSa
 	return stats.GetStats(getTimeWindow())
 }
 
+// GetAutoStrategyMinSamples 返回 Auto 策略判定成功率所需的最小样本数阈值。
+// 供分析视图展示"样本是否足够"使用。
+func GetAutoStrategyMinSamples() int {
+	return getMinSamples()
+}
+
+// AutoStatsSnapshotItem 是 Auto 策略运行态某个 (渠道,模型) 维度的快照。
+type AutoStatsSnapshotItem struct {
+	ChannelID    int
+	ModelName    string
+	SuccessRate  float64 // 0-1
+	SampleCount  int
+	AvgLatencyMs float64
+	LastActiveAt time.Time
+}
+
+// GetAutoStatsSnapshot 返回 globalAutoStats 中所有条目的快照。
+// channelIDs 非空时只返回这些渠道的条目；为空时返回全部。
+// 供"Auto 策略实时表现"分析视图使用（issue #67）。
+func GetAutoStatsSnapshot(channelIDs []int) []AutoStatsSnapshotItem {
+	if len(channelIDs) > 0 {
+		allowed := make(map[int]struct{}, len(channelIDs))
+		for _, id := range channelIDs {
+			allowed[id] = struct{}{}
+		}
+		var result []AutoStatsSnapshotItem
+		globalAutoStats.Range(func(key, value any) bool {
+			channelID, modelName, ok := parseAutoStatsKey(key.(string))
+			if !ok || channelID == 0 {
+				return true
+			}
+			if _, ok := allowed[channelID]; !ok {
+				return true
+			}
+			stats, ok := value.(*ChannelStats)
+			if !ok {
+				return true
+			}
+			result = append(result, snapshotFromStats(channelID, modelName, stats))
+			return true
+		})
+		return result
+	}
+
+	var result []AutoStatsSnapshotItem
+	globalAutoStats.Range(func(key, value any) bool {
+		channelID, modelName, ok := parseAutoStatsKey(key.(string))
+		if !ok || channelID == 0 {
+			return true
+		}
+		stats, ok := value.(*ChannelStats)
+		if !ok {
+			return true
+		}
+		result = append(result, snapshotFromStats(channelID, modelName, stats))
+		return true
+	})
+	return result
+}
+
+func snapshotFromStats(channelID int, modelName string, stats *ChannelStats) AutoStatsSnapshotItem {
+	successRate, samples := stats.GetStats(getTimeWindow())
+	return AutoStatsSnapshotItem{
+		ChannelID:    channelID,
+		ModelName:    modelName,
+		SuccessRate:  successRate,
+		SampleCount:  samples,
+		AvgLatencyMs: stats.GetLatency(),
+		LastActiveAt: stats.lastActivity(),
+	}
+}
+
 // RemoveChannelStats deletes all auto-strategy statistics entries for the given channel.
 // Called when a channel is deleted to prevent globalAutoStats from growing unbounded.
 func RemoveChannelStats(channelID int) {

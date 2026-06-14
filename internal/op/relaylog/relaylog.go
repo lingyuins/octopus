@@ -252,6 +252,54 @@ func RelayLogAdd(ctx context.Context, relayLog model.RelayLog) error {
 	return nil
 }
 
+// RelayLogAttemptsAdd 把一条 RelayLog 的各次尝试写入 relay_log_attempts 关联表，
+// 使失败尝试（尤其"渠道A 失败→重试到B 成功"中的渠道A）可被按 channel_id 过滤/聚合。
+// 日志关闭时不写（enabled=false）。写入走日志库连接，SQLite 下排队进写队列避免争用。
+// relayLogID 必须已分配（即 RelayLogAdd 之后调用）。返回错误仅供记录，调用方通常忽略。
+func RelayLogAttemptsAdd(ctx context.Context, relayLogID int64, attempts []model.ChannelAttempt, logTime int64) error {
+	if len(attempts) == 0 {
+		return nil
+	}
+	enabled, err := setting.GetBool(model.SettingKeyRelayLogKeepEnabled)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		return nil
+	}
+	rows := make([]model.RelayLogAttempt, 0, len(attempts))
+	for _, a := range attempts {
+		if a.ChannelID == 0 {
+			continue // 跳过无渠道归属的占位尝试
+		}
+		rows = append(rows, model.RelayLogAttempt{
+			RelayLogID:  relayLogID,
+			ChannelID:   a.ChannelID,
+			ChannelName: a.ChannelName,
+			ModelName:   a.ModelName,
+			Status:      string(a.Status),
+			Duration:    a.Duration,
+			Time:        logTime,
+		})
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+
+	write := func(c context.Context) error {
+		conn := db.GetLogDB()
+		if conn == nil {
+			return nil
+		}
+		return conn.WithContext(c).Create(&rows).Error
+	}
+	if db.IsLogSQLite() {
+		db.EnqueueWrite(db.WriteJob{Name: "relay_log_attempts", Fn: write})
+		return nil
+	}
+	return write(ctx)
+}
+
 func RelayLogSaveDBTask(ctx context.Context) error {
 	log.Debugf("relay log save db task started")
 	startTime := time.Now()
@@ -431,6 +479,31 @@ type LogFilter struct {
 	APIKeyID     *int
 	EndpointType string
 	HasError     *bool // nil=全部, false=仅成功, true=仅失败
+	// IncludeAttempts 控制 channel_id / HasError 过滤是否"穿透"到单次尝试维度。
+	// 为 true 时，"在渠道A 失败→重试到B 成功"的请求也会被 ChannelID=A 命中，
+	// HasError=true 也会命中整体成功但含失败尝试的请求（issue #67）。
+	IncludeAttempts bool
+}
+
+// logHasFailedAttempt 报告该日志是否存在任意一次失败的渠道尝试。
+func logHasFailedAttempt(l model.RelayLog) bool {
+	for _, a := range l.Attempts {
+		if a.Status == model.AttemptFailed {
+			return true
+		}
+	}
+	return false
+}
+
+// logMatchesAttemptChannel 报告该日志是否在指定渠道上有过尝试（任意状态）。
+// 成败维度由调用方经 HasError 单独判定，避免 ChannelID 与 HasError 语义耦合。
+func logMatchesAttemptChannel(l model.RelayLog, channelID int) bool {
+	for _, a := range l.Attempts {
+		if a.ChannelID == channelID {
+			return true
+		}
+	}
+	return false
 }
 
 // RelayLogList 查询日志列表，支持可选的筛选条件
@@ -464,8 +537,14 @@ func RelayLogList(ctx context.Context, filter LogFilter, page, pageSize int) ([]
 				return false
 			}
 		}
-		if filter.ChannelID != nil && log.ChannelId != *filter.ChannelID {
-			return false
+		if filter.ChannelID != nil {
+			if log.ChannelId == *filter.ChannelID {
+				// 顶层渠道命中，直接通过
+			} else if filter.IncludeAttempts && logMatchesAttemptChannel(log, *filter.ChannelID) {
+				// 该请求在某次尝试中用到了目标渠道，命中（成败由 HasError 单独判定）
+			} else {
+				return false
+			}
 		}
 		if filter.APIKeyID != nil && log.RequestAPIKeyID != *filter.APIKeyID {
 			return false
@@ -474,9 +553,19 @@ func RelayLogList(ctx context.Context, filter LogFilter, page, pageSize int) ([]
 			return false
 		}
 		if filter.HasError != nil {
-			hasErr := log.Error != ""
-			if *filter.HasError != hasErr {
-				return false
+			if *filter.HasError {
+				// 只看"失败"：整体失败 或（开启穿透时）任一次尝试失败
+				if log.Error == "" && !(filter.IncludeAttempts && logHasFailedAttempt(log)) {
+					return false
+				}
+			} else {
+				// 只看"成功"：整体成功 且（开启穿透时）不含失败尝试
+				if log.Error != "" {
+					return false
+				}
+				if filter.IncludeAttempts && logHasFailedAttempt(log) {
+					return false
+				}
 			}
 		}
 		return true
@@ -557,7 +646,15 @@ func RelayLogList(ctx context.Context, filter LogFilter, page, pageSize int) ([]
 				query = query.Where("LOWER(request_model_name) LIKE ? OR LOWER(actual_model_name) LIKE ?", modelPattern, modelPattern)
 			}
 			if filter.ChannelID != nil {
-				query = query.Where("channel_id = ?", *filter.ChannelID)
+				if filter.IncludeAttempts {
+					// 顶层渠道 或 该请求在目标渠道上有过任意尝试（成败由 HasError 单独判定）
+					query = query.Where(
+						"channel_id = ? OR id IN (SELECT relay_log_id FROM relay_log_attempts WHERE channel_id = ?)",
+						*filter.ChannelID, *filter.ChannelID,
+					)
+				} else {
+					query = query.Where("channel_id = ?", *filter.ChannelID)
+				}
 			}
 			if filter.APIKeyID != nil {
 				query = query.Where("request_api_key_id = ?", *filter.APIKeyID)
@@ -567,9 +664,19 @@ func RelayLogList(ctx context.Context, filter LogFilter, page, pageSize int) ([]
 			}
 			if filter.HasError != nil {
 				if *filter.HasError {
-					query = query.Where("error != ''")
+					if filter.IncludeAttempts {
+						// 整体失败 或 含任意失败尝试
+						query = query.Where("error != '' OR id IN (SELECT relay_log_id FROM relay_log_attempts WHERE status = ?)", string(model.AttemptFailed))
+					} else {
+						query = query.Where("error != ''")
+					}
 				} else {
-					query = query.Where("error = '' OR error IS NULL")
+					if filter.IncludeAttempts {
+						// 整体成功 且 不含任何失败尝试
+						query = query.Where("(error = '' OR error IS NULL) AND id NOT IN (SELECT relay_log_id FROM relay_log_attempts WHERE status = ?)", string(model.AttemptFailed))
+					} else {
+						query = query.Where("error = '' OR error IS NULL")
+					}
 				}
 			}
 

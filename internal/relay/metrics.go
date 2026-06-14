@@ -272,6 +272,12 @@ func (m *RelayMetrics) saveLog(ctx context.Context, err error, duration time.Dur
 	if logErr := relaylog.RelayLogAdd(ctx, relayLog); logErr != nil {
 		log.Warnf("failed to save relay log: %v", logErr)
 	}
+
+	// 把每次尝试（含失败）落表，使失败渠道可按 channel_id 检索（issue #67）。
+	// relayLog.ID 已由 RelayLogAdd 分配。
+	if attemptsErr := relaylog.RelayLogAttemptsAdd(ctx, relayLog.ID, attempts, relayLog.Time); attemptsErr != nil {
+		log.Warnf("failed to save relay log attempts: %v", attemptsErr)
+	}
 }
 
 func opRelayLogCacheReadTokens(responseContent string) int {

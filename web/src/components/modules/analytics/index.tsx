@@ -7,6 +7,7 @@ import { Tabs, TabsContents, TabsContent, TabsList, TabsTrigger } from '@/compon
 import type { AnalyticsRange } from '@/api/endpoints/analytics';
 import { Utilization } from './Utilization';
 import { GroupHealth } from './GroupHealth';
+import { ChannelModel } from './ChannelModel';
 import { Evaluation } from './Evaluation';
 import { LatencyDistribution } from './LatencyDistribution';
 import { ShareSnapshot } from './ShareSnapshot';
@@ -15,7 +16,7 @@ import { useAnalyticsOverview, useAnalyticsEvaluationSummary } from '@/api/endpo
 import { formatCount, formatMoney } from '@/lib/utils';
 import { formatPercent } from './shared';
 
-type AnalyticsTab = 'utilization' | 'route-health' | 'cache' | 'evaluation' | 'latency';
+type AnalyticsTab = 'utilization' | 'route-health' | 'channel-model' | 'cache' | 'evaluation' | 'latency';
 
 const RANGE_OPTIONS: AnalyticsRange[] = ['1d', '7d', '30d', '90d', 'ytd', 'all'];
 
@@ -37,6 +38,7 @@ export function Analytics() {
                                 <TabsTrigger value="cache">{opsT('tabs.cache')}</TabsTrigger>
                                 <TabsTrigger value="utilization">{t('cards.utilization.title')}</TabsTrigger>
                                 <TabsTrigger value="route-health">{t('cards.routeHealth.title')}</TabsTrigger>
+                                <TabsTrigger value="channel-model">{t('cards.channelModel.title')}</TabsTrigger>
                                 <TabsTrigger value="evaluation">{t('evaluation.title')}</TabsTrigger>
                                 <TabsTrigger value="latency">{t('latency.title')}</TabsTrigger>
                             </TabsList>
@@ -83,6 +85,9 @@ export function Analytics() {
                     </TabsContent>
                     <TabsContent value="route-health">
                         <GroupHealth />
+                    </TabsContent>
+                    <TabsContent value="channel-model">
+                        <ChannelModel range={range} />
                     </TabsContent>
                     <TabsContent value="evaluation">
                         <Evaluation />

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -44,6 +45,23 @@ func listLog(c *gin.Context) {
 
 	filter := relaylog.LogFilter{}
 
+	// include_attempts 默认：显式传 "false" 才关闭；否则当筛选了 channel_id 时默认开启，
+	// 让"在渠道A 失败→重试到B 成功"的请求也能被渠道A 命中（issue #67）。
+	includeAttemptsExplicit := false
+	if v := c.Query("include_attempts"); v != "" {
+		switch strings.ToLower(v) {
+		case "true", "1":
+			filter.IncludeAttempts = true
+			includeAttemptsExplicit = true
+		case "false", "0":
+			filter.IncludeAttempts = false
+			includeAttemptsExplicit = true
+		default:
+			resp.Error(c, http.StatusBadRequest, "invalid include_attempts (must be 'true' or 'false')")
+			return
+		}
+	}
+
 	if v := c.Query("start_time"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil {
@@ -70,6 +88,10 @@ func listLog(c *gin.Context) {
 			return
 		}
 		filter.ChannelID = &n
+		// 未显式指定 include_attempts 时，按渠道筛选默认穿透尝试维度（issue #67）。
+		if !includeAttemptsExplicit {
+			filter.IncludeAttempts = true
+		}
 	}
 	if v := c.Query("api_key_id"); v != "" {
 		n, err := strconv.Atoi(v)

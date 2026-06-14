@@ -73,6 +73,23 @@ type RelayLogListItem struct {
 	TotalAttempts     int              `json:"total_attempts" gorm:"column:total_attempts"`
 }
 
+// RelayLogAttempt 是 relay_log_attempts 关联表的一行，把单次渠道尝试从 RelayLog.Attempts
+// JSON 数组中抽出为可索引行。这样"渠道A 失败 → 重试到渠道B 成功"的请求中，渠道A 的失败
+// 才能被按 channel_id 过滤/聚合（issue #67）。Time 取自所属 RelayLog 的完成时间，
+// 用于窗口聚合。仅对修复部署后的新请求生效，不回填历史日志。
+type RelayLogAttempt struct {
+	ID          int64  `json:"id" gorm:"primaryKey;autoIncrement"`
+	RelayLogID  int64  `json:"relay_log_id" gorm:"column:relay_log_id;index:idx_rla_log"`
+	ChannelID   int    `json:"channel_id" gorm:"column:channel_id;index:idx_rla_channel;index:idx_rla_chan_model_time,priority:1"`
+	ChannelName string `json:"channel_name" gorm:"column:channel_name"`
+	ModelName   string `json:"model_name" gorm:"column:model_name;index:idx_rla_chan_model_time,priority:2"`
+	Status      string `json:"status" gorm:"column:status"` // success | failed | circuit_break | skipped
+	Duration    int    `json:"duration" gorm:"column:duration"`
+	Time        int64  `json:"time" gorm:"column:time;index:idx_rla_time;index:idx_rla_chan_model_time,priority:3"`
+}
+
+func (RelayLogAttempt) TableName() string { return "relay_log_attempts" }
+
 // TableName explicitly returns "-" for DTO structs to prevent GORM auto-mapping.
 func (ChannelAttempt) TableName() string { return "-" }
 

@@ -109,9 +109,9 @@ func InitLogDB(logType, logPath string, debug bool) error {
 	return nil
 }
 
-// MigrateLogDB 仅迁移日志库需要的表结构（relay_logs）。
+// MigrateLogDB 仅迁移日志库需要的表结构（relay_logs + relay_log_attempts）。
 func MigrateLogDB(conn *gorm.DB) error {
-	if err := conn.AutoMigrate(&model.RelayLog{}); err != nil {
+	if err := conn.AutoMigrate(&model.RelayLog{}, &model.RelayLogAttempt{}); err != nil {
 		return err
 	}
 	if conn.Dialector != nil && conn.Dialector.Name() == "postgres" {
@@ -233,6 +233,7 @@ func Migrate(conn *gorm.DB) error {
 		&model.StatsAPIKey{},
 		&model.StatsSiteModelHourly{},
 		&model.RelayLog{},
+		&model.RelayLogAttempt{},
 		&model.AutoStrategyState{},
 		&model.CircuitBreakerState{},
 		&model.AlertRule{},
