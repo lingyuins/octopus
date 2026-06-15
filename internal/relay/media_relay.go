@@ -524,6 +524,13 @@ func forwardMediaRequestJSON(
 
 	copyMediaForwardHeaders(req, c, channel, key, "application/json", streamRequested)
 
+	// MiMo Chat Completions API only accepts application/json, but the
+	// upstream TTS client (e.g. OpenAI SDK) sends Accept: audio/mpeg.
+	// Override after copyMediaForwardHeaders to prevent 406 responses.
+	if strings.EqualFold(strings.TrimSpace(group.EndpointProvider), "mimo") && cfg.UpstreamPath == "/v1/chat/completions" {
+		req.Header.Set("Accept", "application/json")
+	}
+
 	// Send request
 	httpClient, err := helper.ChannelHttpClient(channel)
 	if err != nil {
