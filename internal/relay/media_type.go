@@ -24,6 +24,8 @@ type mediaEndpointConfig struct {
 	BinaryResponse bool
 	// MultipartInput indicates the inbound request uses multipart/form-data.
 	MultipartInput bool
+	// AudioFormat carries the resolved audio format for MiMo TTS responses.
+	AudioFormat string
 }
 
 // mediaEndpointConfigs maps each media endpoint type to its configuration.

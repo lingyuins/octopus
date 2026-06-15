@@ -399,3 +399,26 @@ func TestRewriteAudioSpeechRequestByProvider_Defaults(t *testing.T) {
 		t.Fatalf("audio.voice = %v, want default mimo_default", audio["voice"])
 	}
 }
+
+func TestRewriteAudioSpeechRequestByProvider_OpusClampedToMp3(t *testing.T) {
+	group := dbmodel.Group{EndpointProvider: "mimo"}
+	body := []byte(`{"model":"mimo-v2.5-tts","input":"Hello","voice":"Chloe","response_format":"opus"}`)
+	cfg := mediaEndpointConfig{UpstreamPath: "/v1/audio/speech", BinaryResponse: true}
+
+	gotBody, gotCfg := rewriteAudioSpeechRequestByProvider(group, cfg, body)
+	if gotCfg.UpstreamPath != "/v1/chat/completions" {
+		t.Fatalf("UpstreamPath = %q, want %q", gotCfg.UpstreamPath, "/v1/chat/completions")
+	}
+	if gotCfg.AudioFormat != "mp3" {
+		t.Fatalf("AudioFormat = %q, want mp3", gotCfg.AudioFormat)
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(gotBody, &raw); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
+	}
+	audio := raw["audio"].(map[string]any)
+	if audio["format"] != "mp3" {
+		t.Fatalf("audio.format = %v, want mp3", audio["format"])
+	}
+}
