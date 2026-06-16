@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type ToolbarLayout = 'grid' | 'list';
+export type ToolbarLayout = 'grid' | 'list' | 'compact';
 export type ToolbarSortOrder = 'asc' | 'desc';
 export type ToolbarSortField = 'name' | 'created';
 export type SiteToolbarSortField = 'default' | 'name' | 'created' | 'balance';

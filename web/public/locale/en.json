@@ -937,6 +937,7 @@
       "sort": "Sort",
       "grid": "Grid",
       "list": "List",
+      "compact": "Compact",
       "nameAsc": "Name Asc",
       "nameDesc": "Name Desc",
       "createdAsc": "Time Asc",

@@ -17,7 +17,7 @@ import { useSettingStore } from '@/stores/setting';
 
 interface ModelItemProps {
     model: ModelMarketItem;
-    layout?: 'grid' | 'list';
+    layout?: 'grid' | 'list' | 'compact';
     latencyUnit?: LatencyUnitMode;
 }
 

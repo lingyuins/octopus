@@ -15,13 +15,14 @@ import { toast } from '@/components/common/Toast';
 import { Badge } from '@/components/ui/badge';
 import { getChannelMetricDisplayParts } from './metric-format';
 
-export function Card({ channel, stats, layout = 'grid' }: { channel: Channel; stats: StatsMetricsFormatted; layout?: 'grid' | 'list' }) {
+export function Card({ channel, stats, layout = 'grid' }: { channel: Channel; stats: StatsMetricsFormatted; layout?: 'grid' | 'list' | 'compact' }) {
     const t = useTranslations('channel.card');
     const tForm = useTranslations('channel.form');
     const tSections = useTranslations('channel.detail.sections');
     const tMetrics = useTranslations('channel.detail.metrics');
     const enableChannel = useEnableChannel();
     const isListLayout = layout === 'list';
+    const isCompactLayout = layout === 'compact';
 
     const splitModels = (models: string) =>
         models
@@ -52,6 +53,73 @@ export function Card({ channel, stats, layout = 'grid' }: { channel: Channel; st
         );
     };
 
+    // ── Compact layout: single-line row ──────────────────────────────────
+    if (isCompactLayout) {
+        const successRaw = stats.request_success.raw;
+        const failedRaw = stats.request_failed.raw;
+        const totalRaw = successRaw + failedRaw;
+        const successRate = totalRaw > 0 ? ((successRaw / totalRaw) * 100).toFixed(1) : '0.0';
+        const failRate = totalRaw > 0 ? ((failedRaw / totalRaw) * 100).toFixed(1) : '0.0';
+
+        return (
+            <MorphingDialog>
+                <MorphingDialogTrigger
+                    className="group w-full rounded-lg border border-border bg-card px-3 py-2 text-card-foreground transition-all duration-150 hover:border-border/80 hover:bg-muted/20 active:scale-[0.998]"
+                >
+                    {/* Line 1: status dot + name + key badge + toggle */}
+                    <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${channel.enabled ? 'bg-emerald-500' : 'bg-destructive'}`} />
+                        <div className="min-w-0 flex-1">
+                            <Tooltip side="top" sideOffset={8}>
+                                <TooltipTrigger asChild>
+                                    <span className="truncate text-sm font-medium">{channel.name}</span>
+                                </TooltipTrigger>
+                                <TooltipContent key={channel.name}>{channel.name}</TooltipContent>
+                            </Tooltip>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0 text-[0.6rem] tabular-nums">
+                            #{channel.id} · {enabledKeyCount}/{channel.keys.length}
+                        </Badge>
+                        <Switch
+                            checked={channel.enabled}
+                            onCheckedChange={handleEnableChange}
+                            disabled={enableChannel.isPending}
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                            className="shrink-0"
+                        />
+                    </div>
+
+                    {/* Line 2: metrics row */}
+                    <div className="mt-1.5 flex items-center gap-3 pl-4 text-xs text-muted-foreground">
+                        <span className="tabular-nums">
+                            <MessageSquare className="mr-1 inline-block size-3 text-primary/60" strokeWidth={1.5} />
+                            {stats.request_count.formatted.value}
+                            {stats.request_count.formatted.unit ? <span className="ml-0.5 text-[0.6rem]">{stats.request_count.formatted.unit}</span> : null}
+                        </span>
+                        <span className="tabular-nums">
+                            <span className="text-emerald-500">{successRate}%</span>
+                            <span className="mx-0.5">/</span>
+                            <span className="text-destructive">{failRate}%</span>
+                        </span>
+                        <span className="tabular-nums font-medium text-foreground/80">
+                            <DollarSign className="mr-0.5 inline-block size-3 text-primary/60" strokeWidth={1.5} />
+                            {stats.total_cost.formatted.value}
+                            {stats.total_cost.formatted.unit ? <span className="ml-0.5 text-[0.6rem] text-muted-foreground">{stats.total_cost.formatted.unit}</span> : null}
+                        </span>
+                    </div>
+                </MorphingDialogTrigger>
+
+                <MorphingDialogContainer>
+                    <MorphingDialogContent className="relative flex max-h-[calc(100dvh-2rem)] min-h-0 w-[min(100vw-1rem,56rem)] max-w-full flex-col overflow-hidden rounded-xl border border-border bg-card px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] text-card-foreground md:px-6 md:py-5">
+                        <CardContent channel={channel} stats={stats} />
+                    </MorphingDialogContent>
+                </MorphingDialogContainer>
+            </MorphingDialog>
+        );
+    }
+
+    // ── Grid / List layout ────────────────────────────────────────────────
     return (
         <MorphingDialog>
             <MorphingDialogTrigger

@@ -109,9 +109,11 @@ export function Channel() {
         filterPredicate: (item, f) => createChannelFilterPredicate(f as 'all' | 'enabled' | 'disabled')(item.raw),
     });
 
-    const channelGridClassName = layout === 'list'
-        ? 'grid grid-cols-1 gap-4'
-        : 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3';
+    const channelGridClassName = layout === 'compact'
+        ? 'flex flex-col gap-1'
+        : layout === 'list'
+            ? 'grid grid-cols-1 gap-4'
+            : 'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3';
 
     return (
         <section className="relative flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain rounded-t-xl pb-3 md:pb-4" aria-label={pageKey}>

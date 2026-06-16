@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowUpAZ, Clock3, LayoutGrid, List, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowUpAZ, Clock3, LayoutGrid, List, Rows3, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
     MorphingDialog,
@@ -318,7 +318,7 @@ export function Toolbar() {
                                 {showLayoutOptions && (
                                     <div className="grid gap-2 rounded-lg border border-border bg-muted/20 p-2.5">
                                         <p className="text-xs font-semibold text-muted-foreground">{t('popover.layout')}</p>
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-3 gap-2">
                                             <button
                                                 type="button"
                                                 onClick={() => setLayout(toolbarItem, 'grid')}
@@ -342,6 +342,18 @@ export function Toolbar() {
                                             >
                                                 <List className="size-3.5" />
                                                 {t('popover.list')}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setLayout(toolbarItem, 'compact')}
+                                                className={cn(
+                                                    OPTION_BUTTON_CLASS,
+                                                    'inline-flex items-center justify-center gap-1.5',
+                                                    layout === 'compact' ? ACTIVE_OPTION_CLASS : INACTIVE_OPTION_CLASS
+                                                )}
+                                            >
+                                                <Rows3 className="size-3.5" />
+                                                {t('popover.compact')}
                                             </button>
                                         </div>
                                     </div>

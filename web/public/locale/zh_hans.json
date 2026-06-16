@@ -937,6 +937,7 @@
       "sort": "排序",
       "grid": "网格",
       "list": "列表",
+      "compact": "紧凑",
       "nameAsc": "名称正序",
       "nameDesc": "名称倒序",
       "createdAsc": "时间正序",

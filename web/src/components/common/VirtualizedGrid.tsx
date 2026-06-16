@@ -25,7 +25,7 @@ type ColumnConfig = ResponsiveColumns | ((width: number) => number);
 
 interface VirtualizedGridProps<T> {
     items: T[];
-    layout?: 'grid' | 'list';
+    layout?: 'grid' | 'list' | 'compact';
     columns: ColumnConfig;
     estimateItemHeight: number;
     gap?: number;
@@ -96,7 +96,7 @@ export function VirtualizedGrid<T>({
     }, []);
 
     const columnCount = useMemo(() => {
-        if (layout === 'list') return 1;
+        if (layout === 'list' || layout === 'compact') return 1;
         return Math.max(1, getColumnsForWidth(containerWidth, columns));
     }, [layout, containerWidth, columns]);
     const effectiveOverscan = containerWidth < BREAKPOINTS.md ? Math.min(overscan, 2) : overscan;
