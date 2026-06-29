@@ -28,6 +28,38 @@ func TestConfigureConnectionPoolLimitsSQLiteConnections(t *testing.T) {
 	}
 }
 
+func TestConfigureConnectionPoolLimitsPostgresConnections(t *testing.T) {
+	sqlDB, err := sql.Open("sqlite", "file::memory:?cache=shared")
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+	defer sqlDB.Close()
+
+	configureConnectionPool(sqlDB, "postgres")
+
+	stats := sqlDB.Stats()
+	if stats.MaxOpenConnections != 5 {
+		t.Fatalf("MaxOpenConnections = %d, want 5", stats.MaxOpenConnections)
+	}
+}
+
+func TestConfigureConnectionPoolUsesPostgresEnvOverride(t *testing.T) {
+	t.Setenv("OCTOPUS_DB_MAX_OPEN_CONNS", "3")
+
+	sqlDB, err := sql.Open("sqlite", "file::memory:?cache=shared")
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+	defer sqlDB.Close()
+
+	configureConnectionPool(sqlDB, "postgresql")
+
+	stats := sqlDB.Stats()
+	if stats.MaxOpenConnections != 3 {
+		t.Fatalf("MaxOpenConnections = %d, want 3", stats.MaxOpenConnections)
+	}
+}
+
 func TestInitSQLiteCreatesParentDir(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "nested", "octopus.db")
 

@@ -345,10 +345,32 @@ func configureConnectionPool(sqlDB *sql.DB, dbType string) {
 		return
 	}
 
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
+	maxIdleConns := 10
+	maxOpenConns := 100
+	if dbType == "postgres" || dbType == "postgresql" {
+		maxIdleConns = readPositiveIntEnv("OCTOPUS_DB_MAX_IDLE_CONNS", 2)
+		maxOpenConns = readPositiveIntEnv("OCTOPUS_DB_MAX_OPEN_CONNS", 5)
+		if maxIdleConns > maxOpenConns {
+			maxIdleConns = maxOpenConns
+		}
+	}
+
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetMaxOpenConns(maxOpenConns)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 	sqlDB.SetConnMaxIdleTime(10 * time.Minute)
+}
+
+func readPositiveIntEnv(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
 }
 
 // sqlitePragmaParams 根据 SQLiteOptions 生成 glebarez/go-sqlite 驱动认识的 DSN
