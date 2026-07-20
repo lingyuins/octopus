@@ -3,6 +3,7 @@ package channel
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/lingyuins/octopus/internal/db"
@@ -46,6 +47,9 @@ func Create(ch *model.Channel, ctx context.Context) error {
 		if err := ch.RequestRewrite.Validate(ch.Type); err != nil {
 			return err
 		}
+		if err := normalizeChannelProxyFields(ch); err != nil {
+			return err
+		}
 		if ch.GroupID == 0 {
 			defaultGroupID, err := GroupDefaultID(ctx)
 			if err != nil {
@@ -68,6 +72,72 @@ func Create(ch *model.Channel, ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// normalizeChannelProxyFields 把 ProxyMode / ProxyConfigID / 旧 Proxy+ChannelProxy
+// 统一成可持久化的一致状态：
+// - ProxyMode 为空时从旧字段推导
+// - pool 模式必须带 ProxyConfigID 或 ChannelProxy
+// - 非 pool 模式清空 ProxyConfigID
+// - Proxy 布尔值与 ProxyMode 同步
+func normalizeChannelProxyFields(ch *model.Channel) error {
+	if ch == nil {
+		return nil
+	}
+
+	customProxy := ""
+	if ch.ChannelProxy != nil {
+		customProxy = strings.TrimSpace(*ch.ChannelProxy)
+		if customProxy == "" {
+			ch.ChannelProxy = nil
+		} else {
+			ch.ChannelProxy = &customProxy
+		}
+	}
+
+	mode := ch.ProxyMode
+	if strings.TrimSpace(string(mode)) == "" {
+		mode, ch.ProxyConfigID = deriveProxyModeFromLegacy(ch.Proxy, ch.ChannelProxy)
+	}
+	if err := mode.Validate(false); err != nil {
+		return err
+	}
+
+	switch mode {
+	case model.ProxyUsageModeDirect:
+		ch.ProxyMode = model.ProxyUsageModeDirect
+		ch.ProxyConfigID = nil
+		ch.Proxy = false
+		// direct 模式下运行时不会使用 ChannelProxy，但仍允许 UI 暂存自定义地址。
+	case model.ProxyUsageModeSystem:
+		ch.ProxyMode = model.ProxyUsageModeSystem
+		ch.ProxyConfigID = nil
+		ch.Proxy = true
+	case model.ProxyUsageModePool:
+		ch.ProxyMode = model.ProxyUsageModePool
+		ch.Proxy = true
+		if ch.ProxyConfigID != nil && *ch.ProxyConfigID <= 0 {
+			ch.ProxyConfigID = nil
+		}
+		// 投影渠道/代理池：必须有 config id；旧自定义 URL 可无 config id
+		if (ch.ProxyConfigID == nil || *ch.ProxyConfigID <= 0) && customProxy == "" {
+			return fmt.Errorf("proxy config id is required when proxy mode is pool")
+		}
+	default:
+		return fmt.Errorf("unsupported proxy mode: %s", mode)
+	}
+	return nil
+}
+
+func deriveProxyModeFromLegacy(proxy bool, channelProxy *string) (model.ProxyUsageMode, *int) {
+	if !proxy {
+		return model.ProxyUsageModeDirect, nil
+	}
+	if channelProxy != nil && strings.TrimSpace(*channelProxy) != "" {
+		// 旧自定义代理 URL：没有 proxy_config_id，运行时直接使用 ChannelProxy
+		return model.ProxyUsageModePool, nil
+	}
+	return model.ProxyUsageModeSystem, nil
 }
 
 func KeyUpdate(key model.ChannelKey) error {
@@ -249,45 +319,46 @@ func Update(req *model.ChannelUpdateRequest, ctx context.Context) (*model.Channe
 		selectFields = append(selectFields, "custom_model")
 		updates.CustomModel = *req.CustomModel
 	}
-	if req.Proxy != nil {
-		selectFields = append(selectFields, "proxy")
-		updates.Proxy = *req.Proxy
-	}
-	if req.AutoSync != nil {
-		selectFields = append(selectFields, "auto_sync")
-		updates.AutoSync = *req.AutoSync
-	}
-	if req.SkipModelTest != nil {
-		selectFields = append(selectFields, "skip_model_test")
-		updates.SkipModelTest = *req.SkipModelTest
-	}
-	if req.Disposable != nil {
-		selectFields = append(selectFields, "disposable")
-		updates.Disposable = *req.Disposable
-	}
-	if req.ExpireAt != nil {
-		selectFields = append(selectFields, "expire_at")
-		updates.ExpireAt = req.ExpireAt
-	}
-	if req.NotifChannelID != nil {
-		selectFields = append(selectFields, "notif_channel_id")
-		updates.NotifChannelID = req.NotifChannelID
-	}
-	if req.KeySelectionStrategy != nil {
-		selectFields = append(selectFields, "key_selection_strategy")
-		updates.KeySelectionStrategy = *req.KeySelectionStrategy
-	}
-	if req.AutoGroup != nil {
-		selectFields = append(selectFields, "auto_group")
-		updates.AutoGroup = *req.AutoGroup
-	}
-	if req.CustomHeader != nil {
-		selectFields = append(selectFields, "custom_header")
-		updates.CustomHeader = *req.CustomHeader
-	}
-	if req.ChannelProxy != nil {
-		selectFields = append(selectFields, "channel_proxy")
-		updates.ChannelProxy = req.ChannelProxy
+	if req.ProxyMode != nil || req.ProxyConfigID != nil || req.Proxy != nil || req.ChannelProxy != nil {
+		mode := current.ProxyMode
+		configID := current.ProxyConfigID
+		legacyProxy := current.Proxy
+		legacyChannelProxy := current.ChannelProxy
+
+		if req.ProxyMode != nil {
+			mode = *req.ProxyMode
+		}
+		if req.ProxyConfigID != nil {
+			configID = req.ProxyConfigID
+		}
+		if req.Proxy != nil {
+			legacyProxy = *req.Proxy
+		}
+		if req.ChannelProxy != nil {
+			legacyChannelProxy = req.ChannelProxy
+		}
+
+		// 仅传旧字段时，从 legacy 推导新模式
+		if req.ProxyMode == nil && (req.Proxy != nil || req.ChannelProxy != nil) {
+			mode, configID = deriveProxyModeFromLegacy(legacyProxy, legacyChannelProxy)
+		}
+
+		tmp := model.Channel{
+			ProxyMode:     mode,
+			ProxyConfigID: configID,
+			Proxy:         legacyProxy,
+			ChannelProxy:  legacyChannelProxy,
+		}
+		if err := normalizeChannelProxyFields(&tmp); err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+
+		selectFields = append(selectFields, "proxy_mode", "proxy_config_id", "proxy", "channel_proxy")
+		updates.ProxyMode = tmp.ProxyMode
+		updates.ProxyConfigID = tmp.ProxyConfigID
+		updates.Proxy = tmp.Proxy
+		updates.ChannelProxy = tmp.ChannelProxy
 	}
 	if req.ParamOverride != nil {
 		selectFields = append(selectFields, "param_override")

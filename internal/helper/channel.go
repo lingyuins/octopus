@@ -8,40 +8,118 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dlclark/regexp2"
 	"github.com/lingyuins/octopus/internal/client"
 	"github.com/lingyuins/octopus/internal/model"
 	ch "github.com/lingyuins/octopus/internal/op/channel"
 	grp "github.com/lingyuins/octopus/internal/op/group"
 	"github.com/lingyuins/octopus/internal/utils/log"
 	"github.com/lingyuins/octopus/internal/utils/xstrings"
-	"github.com/dlclark/regexp2"
 )
 
+// ProxyURLByConfigFunc 由 op 包在启动时注入，用于按代理池配置 ID 解析 URL。
+// helper 不能直接 import op（op/notification 反向依赖 helper，会形成循环）。
+// 未注入时 pool 模式只能依赖 channel.ChannelProxy 自定义 URL。
+var ProxyURLByConfigFunc func(id int, ctx context.Context) (string, error)
+
+// ChannelHttpClient 按渠道代理配置返回转发用 HTTP 客户端。
+// 优先使用 ProxyMode/ProxyConfigID（站点投影与代理池）；
+// 兼容旧字段 Proxy + ChannelProxy。
 func ChannelHttpClient(channel *model.Channel) (*http.Client, error) {
+	return channelHTTPClient(channel, 0)
+}
+
+// ChannelShortTimeoutHttpClient 返回短超时(30s)的 HTTP 客户端。
+// 用于后台任务(延迟探测、模型同步)，避免在 endpoint 不可达时 goroutine 堆积。
+func ChannelShortTimeoutHttpClient(channel *model.Channel) (*http.Client, error) {
+	return channelHTTPClient(channel, 30*time.Second)
+}
+
+func channelHTTPClient(channel *model.Channel, timeout time.Duration) (*http.Client, error) {
 	if channel == nil {
 		return nil, errors.New("channel is nil")
 	}
-	if !channel.Proxy {
+
+	mode, proxyConfigID, customProxyURL := resolveChannelProxy(channel)
+	short := timeout > 0 && timeout <= 30*time.Second
+
+	switch mode {
+	case model.ProxyUsageModeDirect:
+		if short {
+			return client.GetHTTPClientShortTimeout(false)
+		}
 		return client.GetHTTPClientSystemProxy(false)
-	} else if channel.ChannelProxy == nil || strings.TrimSpace(*channel.ChannelProxy) == "" {
+	case model.ProxyUsageModeSystem:
+		if short {
+			return client.GetHTTPClientShortTimeout(true)
+		}
 		return client.GetHTTPClientSystemProxy(true)
-	} else {
-		return client.GetHTTPClientCustomProxy(strings.TrimSpace(*channel.ChannelProxy))
+	case model.ProxyUsageModePool:
+		proxyURL := strings.TrimSpace(customProxyURL)
+		if proxyURL == "" {
+			if proxyConfigID == nil || *proxyConfigID <= 0 {
+				return nil, fmt.Errorf("proxy config id is required when proxy mode is pool")
+			}
+			if ProxyURLByConfigFunc == nil {
+				return nil, fmt.Errorf("proxy configuration resolver is not initialized")
+			}
+			resolved, err := ProxyURLByConfigFunc(*proxyConfigID, context.Background())
+			if err != nil {
+				return nil, err
+			}
+			proxyURL = resolved
+		}
+		if short {
+			return client.GetHTTPClientCustomProxyWithTimeout(proxyURL, 30*time.Second)
+		}
+		return client.GetHTTPClientCustomProxy(proxyURL)
+	default:
+		return nil, fmt.Errorf("unsupported proxy mode: %s", mode)
 	}
 }
 
-// ChannelShortTimeoutHttpClient 返回一个短超时(30s)的 HTTP 客户端
-// 用于后台任务(延迟探测、模型同步)，避免在 endpoint 不可达时 goroutine 堆积
-func ChannelShortTimeoutHttpClient(channel *model.Channel) (*http.Client, error) {
+// resolveChannelProxy 解析渠道实际代理模式。
+// 兼容路径：
+// 1) 新模型 ProxyMode=system/pool（含 ProxyConfigID）
+// 2) 旧模型仅 Proxy + ChannelProxy
+// 3) 迁移后 ProxyMode 默认 direct，但 Proxy 仍为 true 的历史数据
+func resolveChannelProxy(channel *model.Channel) (model.ProxyUsageMode, *int, string) {
 	if channel == nil {
-		return nil, errors.New("channel is nil")
+		return model.ProxyUsageModeDirect, nil, ""
 	}
-	if !channel.Proxy {
-		return client.GetHTTPClientShortTimeout(false)
-	} else if channel.ChannelProxy == nil || strings.TrimSpace(*channel.ChannelProxy) == "" {
-		return client.GetHTTPClientShortTimeout(true)
-	} else {
-		return client.GetHTTPClientCustomProxyWithTimeout(strings.TrimSpace(*channel.ChannelProxy), 30*time.Second)
+
+	customProxyURL := ""
+	if channel.ChannelProxy != nil {
+		customProxyURL = strings.TrimSpace(*channel.ChannelProxy)
+	}
+
+	mode := channel.ProxyMode
+	// 历史数据：GORM 给 proxy_mode 默认值 direct，但旧 proxy 布尔可能仍为 true。
+	// 此时必须回退到 legacy 字段，否则系统代理/自定义代理会静默失效。
+	if mode == "" || mode == model.ProxyUsageModeDirect {
+		if !channel.Proxy {
+			return model.ProxyUsageModeDirect, nil, ""
+		}
+		if customProxyURL != "" {
+			return model.ProxyUsageModePool, nil, customProxyURL
+		}
+		return model.ProxyUsageModeSystem, nil, ""
+	}
+
+	switch mode {
+	case model.ProxyUsageModeSystem:
+		// 系统代理模式下若仍残留 channel_proxy，优先走自定义 URL（兼容迁移中途数据）
+		if customProxyURL != "" {
+			return model.ProxyUsageModePool, nil, customProxyURL
+		}
+		return model.ProxyUsageModeSystem, nil, ""
+	case model.ProxyUsageModePool:
+		if customProxyURL != "" && (channel.ProxyConfigID == nil || *channel.ProxyConfigID <= 0) {
+			return model.ProxyUsageModePool, nil, customProxyURL
+		}
+		return model.ProxyUsageModePool, channel.ProxyConfigID, ""
+	default:
+		return mode, channel.ProxyConfigID, customProxyURL
 	}
 }
 

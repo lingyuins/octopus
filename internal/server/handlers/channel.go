@@ -412,6 +412,17 @@ func (p channelRequestPayload) toChannel() model.Channel {
 			Remark:     key.Remark,
 		})
 	}
+
+	// 兼容旧前端：proxy + channel_proxy；新前端可直接传 proxy_mode/proxy_config_id。
+	// 这里先写入旧字段，Create 内 normalizeChannelProxyFields 会推导 ProxyMode。
+	var channelProxy *string
+	if p.ChannelProxy != nil {
+		trimmed := strings.TrimSpace(*p.ChannelProxy)
+		if trimmed != "" {
+			channelProxy = &trimmed
+		}
+	}
+
 	return model.Channel{
 		Name:                 p.Name,
 		GroupID:              p.GroupID,
@@ -431,7 +442,7 @@ func (p channelRequestPayload) toChannel() model.Channel {
 		AutoGroup:            p.AutoGroup,
 		CustomHeader:         p.CustomHeader,
 		ParamOverride:        p.ParamOverride,
-		ChannelProxy:         p.ChannelProxy,
+		ChannelProxy:         channelProxy,
 		RequestRewrite:       p.RequestRewrite,
 		MatchRegex:           p.MatchRegex,
 	}

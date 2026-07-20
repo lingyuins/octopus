@@ -3,6 +3,7 @@ package op
 import (
 	"context"
 
+	"github.com/lingyuins/octopus/internal/helper"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op/channel"
 	"github.com/lingyuins/octopus/internal/op/stats"
@@ -24,6 +25,8 @@ func init() {
 	channel.GroupGet = func(id int, ctx context.Context) (*model.ChannelGroup, error) {
 		return ChannelGroupGet(id, ctx)
 	}
+	// 注入代理池 URL 解析器，避免 helper 反向 import op 造成循环依赖。
+	helper.ProxyURLByConfigFunc = ProxyURLForConfig
 }
 
 // Deprecated: Use channel.List from internal/op/channel instead.
