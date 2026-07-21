@@ -6,7 +6,7 @@ import { AUTO_STRATEGY_FIELDS, RETRY_FIELDS } from './runtime-settings.ts';
 test('retry fields expose count, route retries, total attempts and cooldown in order', () => {
     assert.deepEqual(
         RETRY_FIELDS.map((field) => field.key),
-        ['relay_retry_count', 'relay_route_retries', 'relay_max_total_attempts', 'ratelimit_cooldown']
+        ['relay_retry_count', 'relay_route_retries', 'relay_max_total_attempts', 'ratelimit_cooldown', 'rate_limit_hold_interval', 'rate_limit_hold_max_wait']
     );
 });
 

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🚀 Features
+- **Relay**: optional 429 channel hold — when enabled, rate-limit responses retry the current channel at a configurable interval (default 10s) until the max wait (default 60s) elapses, instead of immediately failing over. Disabled by default to preserve historical behavior.
+
+
 ## [v2.4.0] - 2026-07-15
 
 ### 🚀 Features

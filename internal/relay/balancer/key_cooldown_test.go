@@ -124,3 +124,15 @@ func TestRemoveChannelKeyCooldownsScopedByChannel(t *testing.T) {
 		t.Fatal("channel 2 model-c should remain")
 	}
 }
+
+func TestClearKeyCooldownAllowsReuse(t *testing.T) {
+	resetKeyCooldown()
+	RecordKeyCooldown(1, 2, "gpt-4o", http.StatusTooManyRequests)
+	if !IsKeyOnCooldown(1, 2, "gpt-4o") {
+		t.Fatal("expected cooldown after record")
+	}
+	ClearKeyCooldown(1, 2, "gpt-4o")
+	if IsKeyOnCooldown(1, 2, "gpt-4o") {
+		t.Fatal("expected cooldown cleared")
+	}
+}

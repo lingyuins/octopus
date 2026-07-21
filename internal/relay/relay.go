@@ -1157,6 +1157,7 @@ func handleClientDisconnect(req *relayRequest, allAttempts []dbmodel.ChannelAtte
 func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, maxKeyRetriesPerRoute int, maxRouteRetries int, ratelimitCooldown int, maxTotalAttempts int) (*inflightRelayResult, error) {
 	var allAttempts []dbmodel.ChannelAttempt
 	var lastErr error
+	rateLimitHoldCfg := getRateLimitHoldConfig()
 
 	// forwardedBase 记录进入当前路由轮次之前已经发生的真实转发次数（跨轮次累加）。
 	// 最大总尝试次数的检查使用 forwardedBase + 当前迭代器的 ForwardedAttempts()，
@@ -1250,6 +1251,7 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 
 			req.internalRequest.Model = resolvedModelName
 			var failedKeyIDs []int
+			rateLimitHoldWaited := time.Duration(0)
 			for keyRound := 1; keyRound <= maxKeyRetriesPerRoute; keyRound++ {
 				if reachedMaxTotalAttempts(routeIter) {
 					lastErr = fmt.Errorf("reached relay max total attempts: %d", maxTotalAttempts)
@@ -1351,7 +1353,13 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 					return nil, result.Err
 				}
 
-				recordFailureHint(channel.ID, usedKey.ID, resolvedModelName, result.Decision, result.Err, ratelimitCooldown)
+				// hold 路径：本轮 429 会立刻再试同一渠道，不写 failure hint / 不记 failedKey，
+				// 并清掉 attempt() 里刚写入的 key 冷却，避免间隔到期后仍被挡住。
+				holdingRateLimit := shouldHoldOnRateLimit(rateLimitHoldCfg, result.Decision) &&
+					canContinueRateLimitHold(rateLimitHoldCfg, rateLimitHoldWaited)
+				if !holdingRateLimit {
+					recordFailureHint(channel.ID, usedKey.ID, resolvedModelName, result.Decision, result.Err, ratelimitCooldown)
+				}
 				switch result.Decision.Scope {
 				case ScopeNone:
 					lastErr = result.Err
@@ -1364,6 +1372,30 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 					return nil, result.Err
 				case ScopeSameChannel:
 					lastErr = result.Err
+					// 可选：429 时在当前渠道内延时重试，而不是立刻换 Key/渠道。
+					// 默认关闭，保持历史「马上 failover」行为。
+					if shouldHoldOnRateLimit(rateLimitHoldCfg, result.Decision) {
+						if canContinueRateLimitHold(rateLimitHoldCfg, rateLimitHoldWaited) {
+							balancer.ClearKeyCooldown(channel.ID, usedKey.ID, resolvedModelName)
+							holdCtx := req.clientCtx
+							if holdCtx == nil {
+								holdCtx = req.operationCtx
+							}
+							if !waitRateLimitHold(holdCtx, rateLimitHoldCfg, channel.Name, rateLimitHoldWaited) {
+								return nil, handleClientDisconnect(req, currentAttempts)
+							}
+							rateLimitHoldWaited += rateLimitHoldCfg.Interval
+							if rateLimitHoldWaited > rateLimitHoldCfg.MaxWait {
+								rateLimitHoldWaited = rateLimitHoldCfg.MaxWait
+							}
+							// 不消耗 keyRound 配额：这是时间维度的坚持，不是换 Key。
+							keyRound--
+							continue
+						}
+						// 等待预算耗尽：结束本渠道，转下一渠道。
+						failedKeyIDs = append(failedKeyIDs, usedKey.ID)
+						break
+					}
 					failedKeyIDs = append(failedKeyIDs, usedKey.ID)
 				case ScopeNextChannel:
 					lastErr = result.Err

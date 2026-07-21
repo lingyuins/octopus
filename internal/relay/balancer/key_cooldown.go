@@ -121,6 +121,18 @@ func RecordKeyCooldown(channelID, keyID int, modelName string, statusCode int) {
 	})
 }
 
+// ClearKeyCooldown 清除指定 (channelID, keyID, modelName) 的冷却。
+// 用于「429 渠道内延时重试」：等待间隔到期后允许再次选中同一 Key。
+func ClearKeyCooldown(channelID, keyID int, modelName string) {
+	if keyID == 0 || strings.TrimSpace(modelName) == "" {
+		return
+	}
+	if store.Enabled() {
+		_ = store.GetKV().Del(context.Background(), cooldownKVKey(channelID, keyID, modelName))
+	}
+	globalKeyCooldown.Delete(cooldownKey(channelID, keyID, modelName))
+}
+
 // PurgeExpiredKeyCooldowns 清理所有已过期的冷却条目，防止 map 无界增长。
 // 由 relay log flush 定时任务周期性调用，与 PurgeFailureHintCache 同点清理。
 // Redis 模式下 TTL 自动过期，此处为 no-op。

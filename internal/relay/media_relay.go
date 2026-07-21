@@ -140,6 +140,7 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 	maxRouteRetries := getMaxRouteRetries()
 	ratelimitCooldown := getRatelimitCooldown()
 	maxTotalAttempts := getMaxTotalAttempts()
+	rateLimitHoldCfg := getRateLimitHoldConfig()
 
 	var allAttempts []dbmodel.ChannelAttempt
 	var lastErr error
@@ -205,6 +206,7 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 
 			// 渠道内 Key 级重试
 			var failedKeyIDs []int
+			rateLimitHoldWaited := time.Duration(0)
 			for keyRound := 1; keyRound <= maxKeyRetriesPerRoute; keyRound++ {
 				if maxTotalAttempts > 0 && len(allAttempts) >= maxTotalAttempts {
 					lastErr = fmt.Errorf("reached relay max total attempts: %d", maxTotalAttempts)
@@ -324,6 +326,36 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 					return
 				case ScopeSameChannel:
 					lastErr = fwdErr
+					if shouldHoldOnRateLimit(rateLimitHoldCfg, decision) {
+						if canContinueRateLimitHold(rateLimitHoldCfg, rateLimitHoldWaited) {
+							// attempt 路径已写 key 冷却；hold 再试前清掉，避免立刻被跳过。
+							balancer.ClearKeyCooldown(channel.ID, usedKey.ID, resolvedModel)
+							// 客户端断开或 operationCtx 结束时停止等待。
+							holdCtx, cancel := context.WithCancel(c.Request.Context())
+							stop := context.AfterFunc(operationCtx, cancel)
+							ok := waitRateLimitHold(holdCtx, rateLimitHoldCfg, channel.Name, rateLimitHoldWaited)
+							stop()
+							cancel()
+							if !ok {
+								lastErr = c.Request.Context().Err()
+								if lastErr == nil {
+									lastErr = operationCtx.Err()
+								}
+								if lastErr == nil {
+									lastErr = context.Canceled
+								}
+								goto mediaExhausted
+							}
+							rateLimitHoldWaited += rateLimitHoldCfg.Interval
+							if rateLimitHoldWaited > rateLimitHoldCfg.MaxWait {
+								rateLimitHoldWaited = rateLimitHoldCfg.MaxWait
+							}
+							keyRound--
+							continue
+						}
+						failedKeyIDs = append(failedKeyIDs, usedKey.ID)
+						break
+					}
 					failedKeyIDs = append(failedKeyIDs, usedKey.ID)
 				case ScopeNextChannel:
 					lastErr = fwdErr

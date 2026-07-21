@@ -1399,6 +1399,21 @@
         "notifyCooldown": "通知冷卻（秒）",
         "notifyEnabled": "失敗通知",
         "recoveryNotify": "恢復通知"
+      },
+      "rateLimitHold": {
+        "label": "429 限流渠道內延時重試",
+        "hint": "開啟後，上游回傳 429 時不會立刻換渠道，而是依設定間隔在目前渠道內重試，直到超過總等待上限才切換下一渠道。預設關閉，行為與歷史一致。",
+        "enabledDetail": "下方「重試間隔」與「總等待上限」僅在開啟後生效。",
+        "interval": {
+          "label": "429 重試間隔（秒）",
+          "hint": "每次 429 後等待多久再試目前渠道。",
+          "placeholder": "10"
+        },
+        "maxWait": {
+          "label": "429 總等待上限（秒）",
+          "hint": "在同一渠道內累計等待超過該時長後，才切換到下一渠道。",
+          "placeholder": "60"
+        }
       }
     },
     "autoStrategy": {

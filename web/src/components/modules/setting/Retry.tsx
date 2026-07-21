@@ -27,6 +27,7 @@ export function SettingRetry() {
         }, {});
         nextValues[SettingKey.KeySelectionStrategy] = settings.find((item) => item.key === SettingKey.KeySelectionStrategy)?.value ?? 'cost';
         nextValues[SettingKey.RetryEmptyOutput] = settings.find((item) => item.key === SettingKey.RetryEmptyOutput)?.value ?? 'true';
+        nextValues[SettingKey.RateLimitHoldEnabled] = settings.find((item) => item.key === SettingKey.RateLimitHoldEnabled)?.value ?? 'false';
         nextValues[SettingKey.KeyHealthCheckEnabled] = settings.find((item) => item.key === SettingKey.KeyHealthCheckEnabled)?.value ?? 'false';
         nextValues[SettingKey.KeyHealthCheckInterval] = settings.find((item) => item.key === SettingKey.KeyHealthCheckInterval)?.value ?? '30';
         nextValues[SettingKey.KeyHealthCheckFailThreshold] = settings.find((item) => item.key === SettingKey.KeyHealthCheckFailThreshold)?.value ?? '3';
@@ -113,6 +114,39 @@ export function SettingRetry() {
                         );
                     }}
                 />
+            </div>
+
+            <div className="space-y-4 rounded-lg border-border/30 bg-card p-4 shadow-sm">
+                <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0 flex flex-col gap-1">
+                        <span className="text-sm font-medium">{t('retry.rateLimitHold.label')}</span>
+                        <span className="text-xs text-muted-foreground">{t('retry.rateLimitHold.hint')}</span>
+                    </div>
+                    <Switch
+                        checked={values[SettingKey.RateLimitHoldEnabled] === 'true'}
+                        onCheckedChange={(checked) => {
+                            const value = checked ? 'true' : 'false';
+                            setValues((prev) => ({ ...prev, [SettingKey.RateLimitHoldEnabled]: value }));
+                            setSetting.mutate(
+                                { key: SettingKey.RateLimitHoldEnabled, value },
+                                {
+                                    onSuccess: () => {
+                                        toast.success(t('saved'));
+                                        initialValues.current = {
+                                            ...initialValues.current,
+                                            [SettingKey.RateLimitHoldEnabled]: value,
+                                        };
+                                    },
+                                },
+                            );
+                        }}
+                    />
+                </div>
+                {values[SettingKey.RateLimitHoldEnabled] === 'true' ? (
+                    <div className="text-xs text-muted-foreground">
+                        {t('retry.rateLimitHold.enabledDetail')}
+                    </div>
+                ) : null}
             </div>
             <div className="flex min-w-0 flex-col gap-3 rounded-lg border-border/30 bg-card p-4 shadow-sm md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0 flex flex-col gap-1">

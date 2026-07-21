@@ -243,6 +243,16 @@ func (c *failureHintCache) get(channelID, keyID int, modelName string) (failureH
 	return entry, true
 }
 
+// delete 移除指定 (channel,key,model) 的失败提示，供 429 hold 再试前清理。
+func (c *failureHintCache) delete(channelID, keyID int, modelName string) {
+	if store.Enabled() {
+		_ = store.GetKV().Del(context.Background(), failureHintKVKey(channelID, keyID, modelName))
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.entries, failureHintKey(channelID, keyID, modelName))
+}
+
 // purgeExpired 主动清理所有已过期的条目，防止 map 无限增长。
 // 由定时任务周期性调用。Redis 模式下 TTL 自动过期，此处为 no-op。
 func (c *failureHintCache) purgeExpired() {
