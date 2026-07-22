@@ -303,12 +303,8 @@ export function StatsChart() {
                         cursor={false}
                         content={
                             <ChartTooltipContent
-                                indicator="dot"
-                                labelFormatter={(_value, payload) => {
-                                    const date = payload?.[0]?.payload?.date;
-                                    return typeof date === 'string' ? date : '';
-                                }}
-                                formatter={(value) => {
+                                indicator="line"
+                                valueFormatter={(value) => {
                                     const primary = chartMetrics[0] ?? 'cost';
                                     if (primary === 'cost') return costAxisFormatter(Number(value));
                                     if (primary === 'success-rate') return `${Number(value).toFixed(2)}%`;
