@@ -2,6 +2,7 @@ package passthrough
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"strings"
 	"testing"
@@ -90,6 +91,59 @@ func TestTransformRequestAnthropicUsesRawBodyAndMessagesPath(t *testing.T) {
 	}
 	if got := req.Header.Get("Accept"); got != "text/event-stream" {
 		t.Fatalf("Accept = %q", got)
+	}
+}
+
+func TestTransformRequestRewritesResolvedUpstreamModel(t *testing.T) {
+	raw := []byte(`{"model":"group-name","messages":[{"role":"user","content":"hello"}],"max_tokens":32,"custom":true}`)
+	stream := false
+	req, err := (&Outbound{}).TransformRequest(context.Background(), &model.InternalLLMRequest{
+		Model:        "claude-sonnet-4-20250514",
+		RawRequest:   raw,
+		RawAPIFormat: model.APIFormatAnthropicMessage,
+		Stream:       &stream,
+	}, "https://anthropic.example.com/api", "sk-ant")
+	if err != nil {
+		t.Fatalf("TransformRequest error: %v", err)
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("unmarshal body: %v", err)
+	}
+	if got["model"] != "claude-sonnet-4-20250514" {
+		t.Fatalf("model = %#v, want rewritten upstream model", got["model"])
+	}
+	if got["custom"] != true {
+		t.Fatalf("custom field should be preserved, got %#v", got["custom"])
+	}
+	if req.URL.String() != "https://anthropic.example.com/api/messages" {
+		t.Fatalf("url = %s", req.URL.String())
+	}
+}
+
+func TestTransformRequestKeepsBodyWhenModelUnchanged(t *testing.T) {
+	raw := []byte(`{"model":"client-model","messages":[{"role":"user","content":"hello"}],"custom":true}`)
+	req, err := (&Outbound{}).TransformRequest(context.Background(), &model.InternalLLMRequest{
+		Model:        "client-model",
+		RawRequest:   raw,
+		RawAPIFormat: model.APIFormatOpenAIChatCompletion,
+	}, "https://example.com/api", "sk-test")
+	if err != nil {
+		t.Fatalf("TransformRequest error: %v", err)
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		t.Fatalf("read body: %v", err)
+	}
+	if string(body) != string(raw) {
+		t.Fatalf("body should remain byte-identical when model is unchanged:\n got %s\nwant %s", string(body), string(raw))
 	}
 }
 

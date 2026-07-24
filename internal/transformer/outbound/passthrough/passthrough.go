@@ -3,6 +3,7 @@ package passthrough
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -32,8 +33,12 @@ func (o *Outbound) TransformRequest(ctx context.Context, request *model.Internal
 		return nil, err
 	}
 	o.delegate = delegate
+	body, err := rewritePassthroughModel(request.RawRequest, request.Model)
+	if err != nil {
+		return nil, fmt.Errorf("failed to rewrite passthrough model: %w", err)
+	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "", bytes.NewReader(request.RawRequest))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "", bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create passthrough request: %w", err)
 	}
@@ -101,6 +106,28 @@ func delegateAndEndpointForFormat(format model.APIFormat) (model.Outbound, strin
 	default:
 		return nil, "", fmt.Errorf("passthrough does not support raw api format %q", format)
 	}
+}
+
+// rewritePassthroughModel rewrites the top-level "model" field in the original
+// inbound JSON body to the resolved upstream model name. Format conversion is
+// intentionally skipped in passthrough mode, but group/channel model mapping
+// must still apply — otherwise the group name would be sent upstream as-is.
+func rewritePassthroughModel(raw []byte, modelName string) ([]byte, error) {
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" || len(raw) == 0 {
+		return raw, nil
+	}
+
+	var obj map[string]any
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		// Keep the original body when it is not a JSON object (defensive).
+		return raw, nil
+	}
+	if current, ok := obj["model"].(string); ok && current == modelName {
+		return raw, nil
+	}
+	obj["model"] = modelName
+	return json.Marshal(obj)
 }
 
 func buildPassthroughURL(baseURL, endpointPath string, query url.Values, format model.APIFormat) (string, error) {

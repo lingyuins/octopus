@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Backup (issue #158)**: 数据导入性能优化——大表分批插入（每批 1000 行），避免单次超大事务超时/内存溢出；导入大小上限从 64 MB 提升至 256 MB，前端导入页增加大小提示。
 
 ### 🐛 Bug Fixes
+- **Group/Relay**: Anthropic 入站请求现在会正确应用分组出站格式（`messages` / `messages_only` 等）；此前 `isLLMRequestFormat` 漏判 Anthropic Messages，导致强制退回渠道原生 OpenAI Chat。
+- **Passthrough**: 原始透传会把分组解析后的上游模型名写回请求体 `model` 字段，不再把分组名原样发给上游。
 - **Relay**: 上游 400 类客户端错误（如 `context_length_exceeded`）不再被 adapter 回退链路改写成换渠道，也不再吞成管理端 502；原样把上游状态码与错误体回给下游，便于 omp 等客户端识别溢出并自动压缩上下文。
 - **Transformer**: Anthropic streaming now attaches usage on `message_delta` chunks so relay logs keep input/output tokens when `message_stop` is missing.
 - **Transformer**: preserve OpenAI `reasoning_effort` values `minimal`/`xhigh`/`max` instead of collapsing them to `high`; Anthropic/Gemini budget mapping now covers `xhigh`/`max`.

@@ -130,7 +130,7 @@ func outboundAttemptTypes(channelType outbound.OutboundType, request *model.Inte
 
 func isLLMRequestFormat(request *model.InternalLLMRequest) bool {
 	switch request.RawAPIFormat {
-	case model.APIFormatOpenAIChatCompletion, model.APIFormatOpenAIResponse:
+	case model.APIFormatOpenAIChatCompletion, model.APIFormatOpenAIResponse, model.APIFormatAnthropicMessage:
 		return true
 	default:
 		return false

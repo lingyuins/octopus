@@ -199,6 +199,72 @@ func TestOutboundAttemptTypesPassthroughDisablesFallback(t *testing.T) {
 	}
 }
 
+func TestOutboundAttemptTypesAnthropicMessagesOnlyUsesAnthropic(t *testing.T) {
+	req := &model.InternalLLMRequest{RawAPIFormat: model.APIFormatAnthropicMessage}
+
+	got := outboundAttemptTypes(outbound.OutboundTypeOpenAIChat, req, "messages_only")
+	want := []outbound.OutboundType{outbound.OutboundTypeAnthropic}
+
+	if len(got) != len(want) {
+		t.Fatalf("attempt types len = %d, want %d: %#v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("attempt types = %#v, want %#v", got, want)
+		}
+	}
+}
+
+func TestOutboundAttemptTypesAnthropicMessagesPrefersAnthropicFirst(t *testing.T) {
+	req := &model.InternalLLMRequest{RawAPIFormat: model.APIFormatAnthropicMessage}
+
+	got := outboundAttemptTypes(outbound.OutboundTypeOpenAIChat, req, "messages")
+	want := []outbound.OutboundType{outbound.OutboundTypeAnthropic, outbound.OutboundTypeOpenAIChat, outbound.OutboundTypeOpenAIResponse}
+
+	if len(got) != len(want) {
+		t.Fatalf("attempt types len = %d, want %d: %#v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("attempt types = %#v, want %#v", got, want)
+		}
+	}
+}
+
+func TestOutboundAttemptTypesAnthropicPassthroughDisablesFallback(t *testing.T) {
+	req := &model.InternalLLMRequest{RawAPIFormat: model.APIFormatAnthropicMessage}
+
+	got := outboundAttemptTypes(outbound.OutboundTypeOpenAIChat, req, "passthrough")
+	want := []outbound.OutboundType{outbound.OutboundTypePassthrough}
+
+	if len(got) != len(want) {
+		t.Fatalf("attempt types len = %d, want %d: %#v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("attempt types = %#v, want %#v", got, want)
+		}
+	}
+}
+
+func TestOutboundAttemptTypesAnthropicAutoStillPrefersChatFallbackChain(t *testing.T) {
+	// Anthropic inbound + auto format on an OpenAI-compatible channel should still
+	// enter the LLM adapter-selection path instead of hard-coding channel type.
+	req := &model.InternalLLMRequest{RawAPIFormat: model.APIFormatAnthropicMessage}
+
+	got := outboundAttemptTypes(outbound.OutboundTypeOpenAIChat, req, "")
+	want := []outbound.OutboundType{outbound.OutboundTypeOpenAIChat, outbound.OutboundTypeOpenAIResponse}
+
+	if len(got) != len(want) {
+		t.Fatalf("attempt types len = %d, want %d: %#v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("attempt types = %#v, want %#v", got, want)
+		}
+	}
+}
+
 // Unknown format values fall back to the default auto behavior so a stale or
 // mistyped setting never disables routing entirely.
 func TestOutboundAttemptTypesUnknownFormatFallsBackToAuto(t *testing.T) {
