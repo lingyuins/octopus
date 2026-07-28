@@ -36,6 +36,20 @@ export const RETRY_FIELDS: RuntimeSettingField[] = [
         hintKey: 'retry.ratelimitCooldown.hint',
         min: '0',
     },
+    {
+        key: 'rate_limit_hold_interval',
+        labelKey: 'retry.rateLimitHold.interval.label',
+        placeholderKey: 'retry.rateLimitHold.interval.placeholder',
+        hintKey: 'retry.rateLimitHold.interval.hint',
+        min: '1',
+    },
+    {
+        key: 'rate_limit_hold_max_wait',
+        labelKey: 'retry.rateLimitHold.maxWait.label',
+        placeholderKey: 'retry.rateLimitHold.maxWait.placeholder',
+        hintKey: 'retry.rateLimitHold.maxWait.hint',
+        min: '1',
+    },
 ];
 
 export const AUTO_STRATEGY_FIELDS: RuntimeSettingField[] = [

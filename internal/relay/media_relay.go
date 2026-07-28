@@ -140,6 +140,7 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 	maxRouteRetries := getMaxRouteRetries()
 	ratelimitCooldown := getRatelimitCooldown()
 	maxTotalAttempts := getMaxTotalAttempts()
+	rateLimitHoldCfg := getRateLimitHoldConfig()
 
 	var allAttempts []dbmodel.ChannelAttempt
 	var lastErr error
@@ -205,6 +206,7 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 
 			// 渠道内 Key 级重试
 			var failedKeyIDs []int
+			rateLimitHoldWaited := time.Duration(0)
 			for keyRound := 1; keyRound <= maxKeyRetriesPerRoute; keyRound++ {
 				if maxTotalAttempts > 0 && len(allAttempts) >= maxTotalAttempts {
 					lastErr = fmt.Errorf("reached relay max total attempts: %d", maxTotalAttempts)
@@ -325,6 +327,29 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 					return
 				case ScopeSameChannel:
 					lastErr = fwdErr
+					// 可选：429 时在当前渠道内延时重试，而不是立刻换 Key/渠道。
+					// 默认关闭，保持历史「马上 failover」行为。
+					if shouldHoldOnRateLimit(rateLimitHoldCfg, decision) {
+						if canContinueRateLimitHold(rateLimitHoldCfg, rateLimitHoldWaited) {
+							// 上方已写 key 冷却；hold 再试前清掉，避免间隔到期后仍被跳过。
+							balancer.ClearKeyCooldown(channel.ID, usedKey.ID, resolvedModel)
+							if !waitRateLimitHold(c.Request.Context(), rateLimitHoldCfg, channel.Name, rateLimitHoldWaited) {
+								lastErr = c.Request.Context().Err()
+								log.Infof("request context canceled during rate limit hold, stopping media key retry")
+								goto mediaExhausted
+							}
+							rateLimitHoldWaited += rateLimitHoldCfg.Interval
+							if rateLimitHoldWaited > rateLimitHoldCfg.MaxWait {
+								rateLimitHoldWaited = rateLimitHoldCfg.MaxWait
+							}
+							// 不消耗 keyRound 配额：这是时间维度的坚持，不是换 Key。
+							keyRound--
+							continue
+						}
+						// 等待预算耗尽：结束本渠道，转下一渠道。
+						failedKeyIDs = append(failedKeyIDs, usedKey.ID)
+						break
+					}
 					failedKeyIDs = append(failedKeyIDs, usedKey.ID)
 				case ScopeNextChannel:
 					lastErr = fwdErr

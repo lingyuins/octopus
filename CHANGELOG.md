@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Log**: show effective outbound reasoning effort and upstream reasoning tokens on log cards (hidden when empty; field toggles default on).
 - **Log**: when official reasoning tokens are absent, fall back to thinking text character count (UTF-8 runes) and display as "思考 XXt" / "思考 XX字".
 - **Backup (issue #158)**: 数据导入性能优化——大表分批插入（每批 1000 行），避免单次超大事务超时/内存溢出；导入大小上限从 64 MB 提升至 256 MB，前端导入页增加大小提示。
+- **Relay/Setting (issue #153)**: 「429 限流渠道内延时重试」补全可用性——三项设置（开关/重试间隔/总等待上限）接入设置页重试面板，此前仅有后端实现、面板无入口，只能改数据库开启。媒体端点（图片/音频/嵌入等）链路同步接入 hold，此前仅 LLM 链路生效。
 
 ### 🐛 Bug Fixes
 - **Group/Relay**: Anthropic 入站请求现在会正确应用分组出站格式（`messages` / `messages_only` 等）；此前 `isLLMRequestFormat` 漏判 Anthropic Messages，导致强制退回渠道原生 OpenAI Chat。
@@ -20,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Relay**: 上游 400 类客户端错误（如 `context_length_exceeded`）不再被 adapter 回退链路改写成换渠道，也不再吞成管理端 502；原样把上游状态码与错误体回给下游，便于 omp 等客户端识别溢出并自动压缩上下文。
 - **Transformer**: Anthropic streaming now attaches usage on `message_delta` chunks so relay logs keep input/output tokens when `message_stop` is missing.
 - **Transformer**: preserve OpenAI `reasoning_effort` values `minimal`/`xhigh`/`max` instead of collapsing them to `high`; Anthropic/Gemini budget mapping now covers `xhigh`/`max`.
+- **Relay**: 429 延时重试的等待改为可被客户端断连中断（`waitRateLimitHold` + `select ctx.Done()`），此前 `executeRelay` 内联裸 `time.Sleep`，客户端在等待窗口内断开仍会睡满整个间隔才醒；同时移除内联逻辑与 `rate_limit_hold.go` 中同语义 helper 的重复实现。
 
 ## [v2.4.0] - 2026-07-15
 

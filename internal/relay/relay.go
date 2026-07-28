@@ -1621,7 +1621,11 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 					return nil, result.Err
 				}
 
-				if channel.PoolID == 0 {
+				// hold 路径：本轮 429 会立刻再试同一渠道，不写 failure hint / 不记 failedKey，
+				// 并清掉 attempt() 里刚写入的 key 冷却，避免间隔到期后仍被挡住。
+				holdingRateLimit := shouldHoldOnRateLimit(rateLimitHoldCfg, result.Decision) &&
+					canContinueRateLimitHold(rateLimitHoldCfg, rateLimitHoldWaited)
+				if channel.PoolID == 0 && !holdingRateLimit {
 					recordFailureHint(channel.ID, usedKey.ID, resolvedModelName, result.Decision, result.Err, ratelimitCooldown)
 				}
 				switch result.Decision.Scope {
@@ -1638,24 +1642,33 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 					return nil, result.Err
 				case ScopeSameChannel:
 					lastErr = result.Err
-					failedKeyIDs = append(failedKeyIDs, usedKey.ID)
-					// 429 渠道内延时重试：符合条件时等待后清除冷却再重试下一个 Key
-					if result.Decision.Code == http.StatusTooManyRequests &&
-						rateLimitHoldCfg.Enabled &&
-						rateLimitHoldWaited < rateLimitHoldCfg.MaxWait &&
-						keyRound < maxKeyRetriesPerRoute {
-						waitDuration := rateLimitHoldCfg.Interval
-						if waitDuration > rateLimitHoldCfg.MaxWait-rateLimitHoldWaited {
-							waitDuration = rateLimitHoldCfg.MaxWait - rateLimitHoldWaited
+					// 可选：429 时在当前渠道内延时重试，而不是立刻换 Key/渠道。
+					// 默认关闭，保持历史「马上 failover」行为。
+					if shouldHoldOnRateLimit(rateLimitHoldCfg, result.Decision) {
+						if canContinueRateLimitHold(rateLimitHoldCfg, rateLimitHoldWaited) {
+							if channel.PoolID == 0 {
+								balancer.ClearKeyCooldown(channel.ID, usedKey.ID, resolvedModelName)
+							}
+							holdCtx := req.clientCtx
+							if holdCtx == nil {
+								holdCtx = req.operationCtx
+							}
+							if !waitRateLimitHold(holdCtx, rateLimitHoldCfg, channel.Name, rateLimitHoldWaited) {
+								return nil, handleClientDisconnect(req, currentAttempts)
+							}
+							rateLimitHoldWaited += rateLimitHoldCfg.Interval
+							if rateLimitHoldWaited > rateLimitHoldCfg.MaxWait {
+								rateLimitHoldWaited = rateLimitHoldCfg.MaxWait
+							}
+							// 不消耗 keyRound 配额：这是时间维度的坚持，不是换 Key。
+							keyRound--
+							continue
 						}
-						log.Infof("429 rate-limit hold: waiting %v before retry (channel %s key %d model %s)",
-							waitDuration, channel.Name, usedKey.ID, resolvedModelName)
-						time.Sleep(waitDuration)
-						rateLimitHoldWaited += waitDuration
-						if channel.PoolID == 0 {
-							balancer.ClearKeyCooldown(channel.ID, usedKey.ID, resolvedModelName)
-						}
+						// 等待预算耗尽：结束本渠道，转下一渠道。
+						failedKeyIDs = append(failedKeyIDs, usedKey.ID)
+						break
 					}
+					failedKeyIDs = append(failedKeyIDs, usedKey.ID)
 				case ScopeNextChannel:
 					lastErr = result.Err
 					failedKeyIDs = append(failedKeyIDs, usedKey.ID)

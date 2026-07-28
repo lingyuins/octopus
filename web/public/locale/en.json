@@ -1445,6 +1445,21 @@
         "hint": "Caps real forwarded attempts across all candidate channels for one request. Skipped (cooldown) and circuit-broken attempts do not count. 0 means unlimited.",
         "placeholder": "Enter max total attempts"
       },
+      "rateLimitHold": {
+        "label": "Hold channel on 429 rate limit",
+        "hint": "When enabled, a 429 does not immediately fail over to the next channel. Octopus retries the current channel at the configured interval until the max wait is exceeded. Disabled by default to keep the historical immediate-failover behavior.",
+        "enabledDetail": "The interval and max-wait fields below apply only while this option is enabled.",
+        "interval": {
+          "label": "429 retry interval (seconds)",
+          "hint": "How long to wait after a 429 before retrying the current channel.",
+          "placeholder": "10"
+        },
+        "maxWait": {
+          "label": "429 max wait (seconds)",
+          "hint": "Cumulative wait budget on the current channel before switching to the next one.",
+          "placeholder": "60"
+        }
+      },
       "emptyOutput": {
         "label": "Retry on empty output",
         "hint": "Automatically retry when the upstream returns success but output is empty (non-streaming: CompletionTokens=0 and no content; streaming: no valid data chunks)."
