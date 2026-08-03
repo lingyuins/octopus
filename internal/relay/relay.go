@@ -960,10 +960,37 @@ func (ra *relayAttempt) applyParamOverride(outboundRequest *http.Request) error 
 
 // copyHeaders 复制请求头，过滤 hop-by-hop 头
 func (ra *relayAttempt) copyHeaders(outboundRequest *http.Request) {
+	headerPassThrough, _ := op.SettingGetString(dbmodel.SettingKeyHeaderPassThroughEnabled)
+	headerPassThroughAllowed := headerPassThrough == "true"
+	var headerAllowlist map[string]bool
+	if headerPassThroughAllowed {
+		if raw, err := op.SettingGetString(dbmodel.SettingKeyHeaderPassThroughAllowlist); err == nil && raw != "" {
+			headerAllowlist = make(map[string]bool, 8)
+			for _, name := range strings.Split(raw, ",") {
+				name = strings.TrimSpace(name)
+				if name == "" {
+					continue
+				}
+				headerAllowlist[strings.ToLower(name)] = true
+			}
+		}
+	}
+	uaPassThrough, _ := op.SettingGetString(dbmodel.SettingKeyUserAgentPassThrough)
+	uaPassThroughEnabled := uaPassThrough == "true"
+
 	if ra.c != nil {
 		for key, values := range ra.c.Request.Header {
 			lowerKey := strings.ToLower(key)
 			if hopByHopHeaders[lowerKey] {
+				continue
+			}
+			if !headerPassThroughAllowed {
+				continue
+			}
+			if headerAllowlist != nil && !headerAllowlist[lowerKey] && lowerKey != "user-agent" {
+				continue
+			}
+			if headerAllowlist == nil && lowerKey != "user-agent" {
 				continue
 			}
 			// anthropic-beta 需要与出站默认值合并去重，避免覆盖掉
@@ -983,8 +1010,17 @@ func (ra *relayAttempt) copyHeaders(outboundRequest *http.Request) {
 			}
 		}
 	}
+	// 1) 全局默认 UA 兜底（如果全局 UA 非空）
 	if outboundRequest.Header.Get("User-Agent") == "" {
-		outboundRequest.Header.Set("User-Agent", "")
+		if defaultUA, err := op.SettingGetString(dbmodel.SettingKeyDefaultUserAgent); err == nil && defaultUA != "" {
+			outboundRequest.Header.Set("User-Agent", defaultUA)
+		} else if !uaPassThroughEnabled {
+			// 关闭透传且全局 UA 为空：使用本地客户端标记（便于上游识别中转，不至于空 UA 触发 412）
+			outboundRequest.Header.Set("User-Agent", "Octopus/0.8.40")
+		}
+	}
+	if len(ra.channel.CustomHeaderOps) > 0 {
+		applyHeaderOps(outboundRequest, ra.channel.CustomHeaderOps)
 	}
 	if len(ra.channel.CustomHeader) > 0 {
 		for _, header := range ra.channel.CustomHeader {

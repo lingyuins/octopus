@@ -40,6 +40,10 @@ const (
 	SettingKeyOutlierReapMinutes               SettingKey = "outlier_reap_minutes"                 // POR 窗口内存回收 TTL(分钟)
 	SettingKeyOutlierCFRecoverMinutes          SettingKey = "outlier_cf_recover_minutes"           // POR CF 退役渠道恢复探活冷却(分钟)
 	SettingKeyApiBaseUrl                       SettingKey = "api_base_url"                         // 对外服务基础地址，用于一键导出客户端配置，为空时不显示导出入口
+	SettingKeyDefaultUserAgent                 SettingKey = "default_user_agent"                    // 全局默认 User-Agent（出站请求兜底 UA，为空时使用客户端透传的 UA）
+	SettingKeyUserAgentPassThrough             SettingKey = "user_agent_pass_through"               // 是否将客户端 UA 透传给上游（true=透传/false=总是使用全局默认 UA）
+	SettingKeyHeaderPassThroughEnabled         SettingKey = "header_pass_through_enabled"           // 是否启用客户端 header 透传（受 denylist 过滤）
+	SettingKeyHeaderPassThroughAllowlist       SettingKey = "header_pass_through_allowlist"         // 客户端 header 透传白名单（逗号分隔，大小写不敏感），为空时仅透传 User-Agent
 )
 
 type Setting struct {
@@ -80,6 +84,10 @@ func DefaultSettings() []Setting {
 		{Key: SettingKeyOutlierReapMinutes, Value: "30"},      // 窗口 30 分钟无流量回收
 		{Key: SettingKeyOutlierCFRecoverMinutes, Value: "30"}, // CF 退役渠道 30 分钟后才探活恢复
 		{Key: SettingKeyApiBaseUrl, Value: ""},                // 默认为空，不显示客户端导出入口
+		{Key: SettingKeyDefaultUserAgent, Value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"}, // 全局默认 UA（Chrome 桌面，绕过多数 Cloudflare WAF）
+		{Key: SettingKeyUserAgentPassThrough, Value: "false"},  // 默认不透传客户端 UA，统一使用全局默认
+		{Key: SettingKeyHeaderPassThroughEnabled, Value: "false"}, // 默认关闭 header 透传（安全）
+		{Key: SettingKeyHeaderPassThroughAllowlist, Value: ""},    // 透传白名单（空 = 仅 UA）
 	}
 }
 
@@ -164,6 +172,14 @@ func (s *Setting) Validate() error {
 		if parsedURL.Host == "" {
 			return fmt.Errorf("api base URL must have a host")
 		}
+		return nil
+	case SettingKeyUserAgentPassThrough, SettingKeyHeaderPassThroughEnabled:
+		if s.Value != "true" && s.Value != "false" {
+			return fmt.Errorf("setting value must be true or false")
+		}
+		return nil
+	case SettingKeyDefaultUserAgent, SettingKeyHeaderPassThroughAllowlist:
+		// 任意非空字符串均接受；header 白名单按逗号分隔
 		return nil
 	}
 

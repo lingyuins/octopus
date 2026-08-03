@@ -74,6 +74,7 @@ type Channel struct {
 	AutoSync      bool                  `json:"auto_sync" gorm:"default:false"`
 	AutoGroup     AutoGroupType         `json:"auto_group" gorm:"default:0"`
 	CustomHeader  []CustomHeader        `json:"custom_header" gorm:"serializer:json"`
+	CustomHeaderOps []HeaderOp                `json:"custom_header_ops" gorm:"serializer:json"`
 	WSMode        ChannelWSMode         `json:"ws_mode" gorm:"type:varchar(16);not null;default:'inherit'"`
 	ParamOverride *string               `json:"param_override"`
 	ChannelProxy  *string               `json:"-" gorm:"column:channel_proxy"`
@@ -119,6 +120,21 @@ type CustomHeader struct {
 	HeaderValue string `json:"header_value"`
 }
 
+// HeaderOp 单条 header 改写指令。
+// Op 类型：
+//   - set    : 覆盖（outbound 中已有则覆盖；不存在则新增）  args: name, value
+//   - add    : 追加（同一 header 名允许多值）                args: name, value
+//   - delete : 移除整个 header                              args: name
+//   - rename : 改名（保留 value 不变）                      args: name(原), to(新)
+//   - copy   : 复制另一 header 的值到本名（目标已存在则覆盖） args: name(目标), from(源)
+type HeaderOp struct {
+	Op    string `json:"op"`
+	Name  string `json:"name,omitempty"`
+	Value string `json:"value,omitempty"`
+	To    string `json:"to,omitempty"`
+	From  string `json:"from,omitempty"`
+}
+
 type ChannelKey struct {
 	ID               int     `json:"id" gorm:"primaryKey"`
 	ChannelID        int     `json:"channel_id"`
@@ -150,6 +166,7 @@ type ChannelUpdateRequest struct {
 	AutoSync      *bool                  `json:"auto_sync,omitempty"`
 	AutoGroup     *AutoGroupType         `json:"auto_group,omitempty"`
 	CustomHeader  *[]CustomHeader        `json:"custom_header,omitempty"`
+	CustomHeaderOps *[]HeaderOp                `json:"custom_header_ops,omitempty"`
 	WSMode        *ChannelWSMode         `json:"ws_mode,omitempty"`
 	ChannelProxy  *string                `json:"-"`
 	ParamOverride *string                `json:"param_override,omitempty"`

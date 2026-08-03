@@ -2,6 +2,7 @@ package op
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -261,6 +262,16 @@ func ChannelUpdate(req *model.ChannelUpdateRequest, ctx context.Context) (*model
 	if req.CustomHeader != nil {
 		selectFields = append(selectFields, "custom_header")
 		updates.CustomHeader = *req.CustomHeader
+	}
+	if req.CustomHeaderOps != nil {
+		// serializer:json 的 struct 字段在 Updates(struct) 下被识别为零值跳过；
+		// 这里用 tx.Exec 直接 SQL 写 TEXT 列，绕过 gorm struct tag 序列化
+		opsJSON, _ := json.Marshal(*req.CustomHeaderOps)
+		opsStr := string(opsJSON)
+		if err := tx.Exec("UPDATE channels SET custom_header_ops = ? WHERE id = ?", opsStr, req.ID).Error; err != nil {
+			tx.Rollback()
+			return nil, fmt.Errorf("failed to update custom_header_ops: %w", err)
+		}
 	}
 	if req.WSMode != nil {
 		selectFields = append(selectFields, "ws_mode")
