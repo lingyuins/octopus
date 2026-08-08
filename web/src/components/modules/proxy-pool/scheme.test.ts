@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
     detectProxyScheme,
+    maskProxyURL,
     buildSchemeTemplate,
     schemeLabel,
     PROXY_SCHEMES,
@@ -55,4 +56,25 @@ test('schemeLabel returns a display name', () => {
     assert.equal(schemeLabel('socks5'), 'SOCKS5');
     assert.equal(schemeLabel('ss'), 'SS');
     assert.equal(schemeLabel('vmess'), 'VMess');
+});
+
+test('maskProxyURL masks credentials in the username slot (trojan/ss/vless)', () => {
+    assert.ok(!maskProxyURL('trojan://secret-pass@example.com:443').includes('secret-pass'));
+    assert.ok(!maskProxyURL('ss://YWVzLTI1Ni1nY206cGFzc3dvcmQ@example.com:8388').includes('YWVzLTI1Ni1nY206cGFzc3dvcmQ'));
+    assert.ok(!maskProxyURL('vless://11111111-2222-3333-4444-555555555555@example.com:443').includes('11111111'));
+    // host 仍可见，便于辨认条目。
+    assert.ok(maskProxyURL('trojan://secret-pass@example.com:443').includes('example.com'));
+});
+
+test('maskProxyURL masks the whole vmess payload and userinfo-less ss links', () => {
+    assert.equal(maskProxyURL('vmess://eyJhZGQiOiJleGFtcGxlLmNvbSIsImlkIjoidXVpZCJ9'), 'vmess://***');
+    assert.equal(maskProxyURL('ss://YWVzOnBhc3NAZXhhbXBsZS5jb206ODM4OA=='), 'ss://***');
+});
+
+test('maskProxyURL keeps masking http/socks5 passwords, preserves username', () => {
+    const masked = maskProxyURL('http://user:secret@127.0.0.1:7890');
+    assert.ok(!masked.includes('secret'));
+    assert.ok(masked.includes('user'));
+    assert.equal(maskProxyURL('socks5://127.0.0.1:1080'), 'socks5://127.0.0.1:1080');
+    assert.equal(maskProxyURL('not a url'), 'not a url');
 });

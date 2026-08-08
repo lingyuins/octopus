@@ -28,6 +28,7 @@ import {
     PROXY_SCHEME_PLACEHOLDERS,
     buildSchemeTemplate,
     detectProxyScheme,
+    maskProxyURL,
     schemeBadgeClass,
     schemeLabel,
     type ProxyScheme,
@@ -57,16 +58,6 @@ const emptyForm: FormState = {
 };
 
 const DEFAULT_TEST_URL = 'https://api.openai.com/v1/models';
-
-function maskProxyURL(value: string) {
-    try {
-        const parsed = new URL(value);
-        if (parsed.password) parsed.password = '***';
-        return parsed.toString();
-    } catch {
-        return value;
-    }
-}
 
 function errorMessage(error: unknown, fallback: string) {
     if (error instanceof Error) return error.message;

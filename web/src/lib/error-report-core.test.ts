@@ -40,4 +40,20 @@ describe('ErrorReportDedupe', () => {
         dedupe.reset();
         assert.equal(dedupe.isDuplicate('TypeError: boom', 'stack-1'), false);
     });
+
+    it('alternating errors are still deduped within the window', () => {
+        // 单槽位实现下 A/B 交替会互相顶掉，每次都判为新错误。
+        assert.equal(dedupe.isDuplicate('ErrorA', 'stack-a'), false);
+        assert.equal(dedupe.isDuplicate('ErrorB', 'stack-b'), false);
+        assert.equal(dedupe.isDuplicate('ErrorA', 'stack-a'), true);
+        assert.equal(dedupe.isDuplicate('ErrorB', 'stack-b'), true);
+    });
+
+    it('entry count stays bounded under many distinct errors', () => {
+        for (let i = 0; i < 500; i++) {
+            dedupe.isDuplicate(`Error-${i}`, 'stack');
+        }
+        // 最新条目仍在窗口内应判重，且不会因容量淘汰而误报新错误。
+        assert.equal(dedupe.isDuplicate('Error-499', 'stack'), true);
+    });
 });

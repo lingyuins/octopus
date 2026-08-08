@@ -52,6 +52,33 @@ export function buildSchemeTemplate(scheme: ProxyScheme): string {
     return PROXY_SCHEME_PLACEHOLDERS[scheme];
 }
 
+/** 凭据位于 userinfo 用户名位的 scheme：trojan://密码@host、ss://base64(加密法:密码)@host、vless://UUID@host。 */
+const USERNAME_SECRET_SCHEMES = new Set(['trojan', 'ss', 'vless']);
+
+/**
+ * 打码代理 URL 中的凭据用于列表展示。
+ * 只打码 URL password 位不够：trojan/ss/vless 的密钥在用户名位，
+ * vmess 整个 payload 是含 UUID 的 base64(JSON)，无法局部打码。
+ */
+export function maskProxyURL(value: string): string {
+    const scheme = detectProxyScheme(value);
+    if (scheme === 'vmess') return 'vmess://***';
+    if (scheme === 'ss' && !value.includes('@')) {
+        // 全 base64 形式 ss://base64(method:pass@host:port)，密码在 payload 里。
+        return 'ss://***';
+    }
+    try {
+        const parsed = new URL(value);
+        if (scheme && USERNAME_SECRET_SCHEMES.has(scheme) && parsed.username) {
+            parsed.username = '***';
+        }
+        if (parsed.password) parsed.password = '***';
+        return parsed.toString();
+    } catch {
+        return value;
+    }
+}
+
 /** 协议徽章样式：按 scheme 返回 Tailwind 类。 */
 export function schemeBadgeClass(scheme: ProxyScheme): string {
     switch (scheme) {

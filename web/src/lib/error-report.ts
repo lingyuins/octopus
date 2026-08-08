@@ -6,14 +6,15 @@
  * 2. unhandledrejection —— 未处理的 Promise 拒绝
  * 3. React 渲染错误（ErrorBoundary 单独调用 reportError 上报）
  *
- * 上报到后端 /api/v1/error-log/report（需登录态，apiClient 自动携带 JWT）。
+ * 上报到后端 /api/v1/error-log/report（需登录态，手动携带 JWT；不走 apiClient
+ * 以避免其 401 全局处理把用户强制登出）。
  * 策略：
  * - 去重：相同 message+stack 在 DEDUP_WINDOW_MS 内只上报一次，避免循环错误刷屏
  * - 静默：上报失败不抛错、不打断用户操作（console.warn 记录）
  * - 有 token 才上报（未登录崩溃无诊断上下文，避免无效请求）
  */
 
-import { apiClient } from '@/api/client';
+import { API_BASE_URL } from '@/api/client';
 import { useAuthStore } from '@/api/endpoints/user';
 import { useNavStore } from '@/components/modules/navbar';
 import { APP_VERSION } from '@/lib/info';
@@ -61,15 +62,25 @@ export async function reportError(payload: ErrorReportPayload): Promise<void> {
         if (!message || dedupe.isDuplicate(message, payload.stack)) return;
 
         // 未登录（无 JWT）时不上报：report 端点需要登录态，避免无效请求。
-        if (!useAuthStore.getState().token) return;
+        const token = useAuthStore.getState().token;
+        if (!token) return;
 
-        await apiClient.post('/api/v1/error-log/report', {
-            level: payload.level,
-            message,
-            stack: payload.stack ?? '',
-            page_url: payload.page_url ?? window.location.href,
-            route_id: payload.route_id ?? currentRouteId(),
-            version: payload.version ?? APP_VERSION,
+        // 用裸 fetch 而非 apiClient：apiClient 的全局错误处理对 401 会强制
+        // logout。上报是零交互的后台行为，token 恰好过期时不应把用户登出。
+        await fetch(`${API_BASE_URL}/api/v1/error-log/report`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                level: payload.level,
+                message,
+                stack: payload.stack ?? '',
+                page_url: payload.page_url ?? window.location.href,
+                route_id: payload.route_id ?? currentRouteId(),
+                version: payload.version ?? APP_VERSION,
+            }),
         });
     } catch (e) {
         console.warn('[error-report] failed to report error:', e);
