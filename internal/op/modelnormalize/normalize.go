@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op/setting"
@@ -151,7 +152,7 @@ func stripFunctionalSuffixes(name string, rules Rules) string {
 			if suffix == "" {
 				continue
 			}
-			if n, ok := matchSuffixCandidate(lower, suffix); ok && len(result) > n {
+			if n, ok := matchSuffixCandidate(lower, suffix); ok && n > 0 && len(result) > n {
 				result = result[:len(result)-n]
 				changed = true
 				break
@@ -163,8 +164,9 @@ func stripFunctionalSuffixes(name string, rules Rules) string {
 
 // matchSuffixCandidate 尝试字面变体与正则变体，返回匹配的字符数。
 func matchSuffixCandidate(lower, suffix string) (int, bool) {
-	// 字面候选：原样、-: → :、-( → (。
-	for _, cand := range literalSuffixCandidates(suffix) {
+	// 字面候选：原样、-: → :、-( → (。lower 已小写，候选也需小写才能命中
+	// 用户配置的含大写后缀（如 -Thinking）。
+	for _, cand := range literalSuffixCandidates(strings.ToLower(suffix)) {
 		if strings.HasSuffix(lower, cand) && len(lower) > len(cand) {
 			return len(cand), true
 		}
@@ -176,7 +178,9 @@ func matchSuffixCandidate(lower, suffix string) (int, bool) {
 			if re == nil {
 				continue
 			}
-			if loc := re.FindStringIndex(lower); loc != nil {
+			// loc[0] == len(lower) 表示只匹配到空串（如 -*、(x)? 这类可空 pattern），
+			// 剥离长度为 0，放行会让外层循环永不收敛。
+			if loc := re.FindStringIndex(lower); loc != nil && loc[0] < len(lower) {
 				return len(lower) - loc[0], true
 			}
 		}
@@ -185,11 +189,14 @@ func matchSuffixCandidate(lower, suffix string) (int, bool) {
 }
 
 // getSuffixRegex 返回锚定结尾的正则（带编译缓存）。
+// pattern 包进 (?:...) 再锚定，避免含 | 的 pattern（如 -32k|-64k）只有
+// 最后一个分支被 $ 锚定、其余分支从字符串中间命中；(?i) 与字面候选的
+// 大小写不敏感语义保持一致（待匹配串已小写）。
 func getSuffixRegex(pattern string) *regexp.Regexp {
 	if v, ok := suffixRegexCache.Load(pattern); ok {
 		return v.(*regexp.Regexp)
 	}
-	re, err := regexp.Compile(pattern + "$")
+	re, err := regexp.Compile("(?i)(?:" + pattern + ")$")
 	if err != nil {
 		return nil
 	}
@@ -247,9 +254,12 @@ func stripPathAndRouterPrefix(name string, rules Rules) string {
 			break
 		}
 		// 去尾 - 变体（[官B]- → [官B] 匹配 [官B]claude-opus-4-6）。
+		// 仅当 base 以非字母数字结尾（]、) 等括号类标记）才启用：
+		// agent-/anthropic- 这类字母结尾的前缀去尾后会从单词中间误剥
+		// （agentic-coder → ic-coder、anthropic.claude-x → .claude-x）。
 		if strings.HasSuffix(prefix, "-") {
 			base := strings.TrimSuffix(prefix, "-")
-			if base != "" && strings.HasPrefix(lower, strings.ToLower(base)) {
+			if base != "" && !endsWithAlphanumeric(base) && strings.HasPrefix(lower, strings.ToLower(base)) {
 				result = result[len(base):]
 				// 若原名字带 -（dmxapi-kimi → 剥 dmxapi 剩 -kimi），去掉。
 				result = strings.TrimLeft(result, "-")
@@ -258,6 +268,16 @@ func stripPathAndRouterPrefix(name string, rules Rules) string {
 		}
 	}
 	return result
+}
+
+// endsWithAlphanumeric 报告字符串最后一个 rune 是否为字母或数字。
+func endsWithAlphanumeric(s string) bool {
+	runes := []rune(s)
+	if len(runes) == 0 {
+		return false
+	}
+	last := runes[len(runes)-1]
+	return unicode.IsLetter(last) || unicode.IsDigit(last)
 }
 
 func loadRules() Rules {
