@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync/atomic"
 
 	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
@@ -13,10 +14,9 @@ import (
 // priceCategoryCache 缓存启用且按 sort_order 排序的分类，供 price.GetLLMPrice
 // 兜底匹配热点路径使用，避免每次查询都访问 DB。与 modelCache 类似的全局内存缓存，
 // 由 Create/Update/Delete/RefreshPriceCategoryCache 维护。
-var priceCategoryCache = modelPriceCategoryList(nil)
-
-// modelPriceCategoryList 是只读的快照切片类型，便于并发安全地整体替换。
-type modelPriceCategoryList []model.ModelPriceCategory
+// atomic.Pointer：RefreshPriceCategoryCache 与热路径 PriceCategoryMatch 并发读写，
+// 普通赋值存在数据竞争（slice 头非原子）。
+var priceCategoryCache atomic.Pointer[[]model.ModelPriceCategory]
 
 // ListPriceCategories 返回全部分类（含禁用），按 sort_order 升序。
 func ListPriceCategories(ctx context.Context) ([]model.ModelPriceCategory, error) {
@@ -27,12 +27,12 @@ func ListPriceCategories(ctx context.Context) ([]model.ModelPriceCategory, error
 	return rows, nil
 }
 
-// listEnabledPriceCategories 返回启用的分类快照（复制，避免调用方持有全局切片引用）。
+// listEnabledPriceCategories 返回启用的分类快照。快照切片替换后只读，可直接共享。
 func listEnabledPriceCategories() []model.ModelPriceCategory {
-	c := priceCategoryCache
-	out := make([]model.ModelPriceCategory, len(c))
-	copy(out, c)
-	return out
+	if c := priceCategoryCache.Load(); c != nil {
+		return *c
+	}
+	return nil
 }
 
 // RefreshPriceCategoryCache 从 DB 重载启用分类进内存缓存。
@@ -44,7 +44,7 @@ func RefreshPriceCategoryCache(ctx context.Context) error {
 		Find(&rows).Error; err != nil {
 		return err
 	}
-	priceCategoryCache = modelPriceCategoryList(rows)
+	priceCategoryCache.Store(&rows)
 	return nil
 }
 
@@ -120,9 +120,15 @@ func validatePriceCategory(c model.ModelPriceCategory) error {
 }
 
 // categoryMatches 判断 modelName（小写后）是否命中分类规则。
+// RuleValue 需在此小写并去空白：modelName 已小写，历史数据/用户录入的
+// 大写或带空格规则值否则永远无法命中（与 model/price_category.go 声称的
+// 忽略大小写语义保持一致）。
 func categoryMatches(c model.ModelPriceCategory, modelName string) bool {
 	rule := model.ModelPriceCategoryRule(c.RuleType)
-	v := c.RuleValue
+	v := strings.ToLower(strings.TrimSpace(c.RuleValue))
+	if v == "" {
+		return false
+	}
 	switch rule {
 	case model.ModelPriceCategoryRuleExact:
 		return modelName == v

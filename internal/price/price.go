@@ -106,14 +106,16 @@ func GetLastUpdateTime() time.Time {
 func GetLLMPrice(modelName string) *model.LLMPrice {
 	modelName = strings.ToLower(modelName)
 	price, err := llm.Get(modelName)
-	if err == nil {
+	// 渠道同步（LLMPriceAddToDB）会给未知价模型插入四价全 0 的行，DB 命中
+	// 不能无条件短路，否则分类兜底恰好对它设计要覆盖的"同步过但没匹配到
+	// 价格"的模型不生效。0 价行继续走兜底链。
+	if err == nil && !isZeroPrice(price) {
 		return &price
 	}
 	llmPriceLock.RLock()
 	defer llmPriceLock.RUnlock()
-	price, ok := llmPrice[modelName]
-	if ok {
-		return &price
+	if p, ok := llmPrice[modelName]; ok {
+		return &p
 	}
 	// 分类表兜底：按规则匹配的模型价格分类（优先级高于整词子串兜底）。
 	if cat := llm.PriceCategoryMatch(modelName); cat != nil {
@@ -123,7 +125,16 @@ func GetLLMPrice(modelName string) *model.LLMPrice {
 	if fallback := matchFallbackPrice(modelName); fallback != nil {
 		return fallback
 	}
+	if err == nil {
+		// DB 有 0 价行且所有兜底都未命中：维持原语义，返回 DB 行（0 价）。
+		return &price
+	}
 	return nil
+}
+
+// isZeroPrice 报告四项价格是否全为 0（渠道同步为未知价模型写入的占位行）。
+func isZeroPrice(p model.LLMPrice) bool {
+	return p.Input == 0 && p.Output == 0 && p.CacheRead == 0 && p.CacheWrite == 0
 }
 
 // GetLLMPriceFromUpstream 仅从同步价格源（外部价格文件 + presets.go +
