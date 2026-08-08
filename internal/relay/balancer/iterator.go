@@ -22,8 +22,27 @@ type Iterator struct {
 	modelName  string // 请求模型名（用于熔断检查）
 
 	// 内嵌追踪
-	attempts []model.ChannelAttempt
-	count    int
+	attempts     []model.ChannelAttempt
+	count        int
+	skipCount    int // 已保留明细的跳过/熔断记录数
+	omittedSkips int // 超出 maxSkipAttemptRecords 后未保留明细的跳过记录数
+}
+
+// maxSkipAttemptRecords 限制单个迭代器保留的跳过/熔断明细条数。跳过记录不发起
+// 真实请求，异常场景下（如重试逻辑缺陷、大量渠道同时熔断）可能高频产生；
+// 无上限时曾出现单条 relay log 数百 MB、写爆数据库的事故（issue #192）。
+// 超限后只累计条数，Attempts() 以一条汇总记录补充说明。真实转发记录不受限
+// （其数量受路由轮次 × 渠道数 × Key 重试数约束），ForwardedAttempts 语义不变。
+const maxSkipAttemptRecords = 200
+
+// appendSkipAttempt 追加一条跳过类记录，超限后只计数不存明细。
+func (it *Iterator) appendSkipAttempt(attempt model.ChannelAttempt) {
+	if it.skipCount >= maxSkipAttemptRecords {
+		it.omittedSkips++
+		return
+	}
+	it.skipCount++
+	it.attempts = append(it.attempts, attempt)
 }
 
 // NewIterator 创建负载均衡迭代器
@@ -111,7 +130,7 @@ func (it *Iterator) Index() int {
 // Skip 记录当前通道被跳过（通道禁用、无Key、类型不兼容等）
 func (it *Iterator) Skip(channelID, channelKeyID int, channelName, msg string) {
 	it.count++
-	it.attempts = append(it.attempts, model.ChannelAttempt{
+	it.appendSkipAttempt(model.ChannelAttempt{
 		ChannelID:    channelID,
 		ChannelKeyID: channelKeyID,
 		ChannelName:  channelName,
@@ -134,7 +153,7 @@ func (it *Iterator) SkipCircuitBreak(channelID, channelKeyID int, channelName, m
 		msg = fmt.Sprintf("circuit breaker tripped, remaining cooldown: %ds", int(remaining.Seconds()))
 	}
 	it.count++
-	it.attempts = append(it.attempts, model.ChannelAttempt{
+	it.appendSkipAttempt(model.ChannelAttempt{
 		ChannelID:    channelID,
 		ChannelKeyID: channelKeyID,
 		ChannelName:  channelName,
@@ -164,9 +183,19 @@ func (it *Iterator) StartAttempt(channelID, channelKeyID int, channelName, model
 	}
 }
 
-// Attempts 返回所有决策记录（交给日志模块持久化）
+// Attempts 返回所有决策记录（交给日志模块持久化）。
+// 跳过明细超限时追加一条汇总记录说明省略数量，保证日志读者知道有截断。
 func (it *Iterator) Attempts() []model.ChannelAttempt {
-	return it.attempts
+	if it.omittedSkips == 0 {
+		return it.attempts
+	}
+	out := make([]model.ChannelAttempt, len(it.attempts), len(it.attempts)+1)
+	copy(out, it.attempts)
+	return append(out, model.ChannelAttempt{
+		AttemptNum: it.count,
+		Status:     model.AttemptSkipped,
+		Msg:        fmt.Sprintf("%d skip/circuit-break records omitted (cap %d per route round)", it.omittedSkips, maxSkipAttemptRecords),
+	})
 }
 
 // ForwardedAttempts 返回真实发往上游的尝试次数，不包含跳过和熔断拒绝。
