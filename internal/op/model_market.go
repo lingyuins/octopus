@@ -62,12 +62,17 @@ func ModelMarketGet(ctx context.Context, lastUpdateTime time.Time) (model.ModelM
 
 	// 缓存 miss：合并并发重算，避免多请求各自全量执行（DB 查询 + 聚合）。
 	result, err, _ := marketSingleFlight.Do("market", func() (any, error) {
-		models, err := LLMList(ctx)
+		// singleflight 的执行结果由所有并发等待者共享，不能绑定首个进入者的
+		// 请求 ctx——该客户端断开会让其余等待者一起收到 context.Canceled。
+		sfCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		models, err := LLMList(sfCtx)
 		if err != nil {
 			return model.ModelMarketResponse{}, err
 		}
 
-		modelChannels, err := ChannelLLMList(ctx)
+		modelChannels, err := ChannelLLMList(sfCtx)
 		if err != nil {
 			return model.ModelMarketResponse{}, err
 		}
