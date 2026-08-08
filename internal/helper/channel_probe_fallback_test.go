@@ -158,7 +158,7 @@ func TestPerformChannelModelFallback_OpenAIResponseFallsBackToChat(t *testing.T)
 		Model:    "gpt-4o-mini",
 	}
 
-	statusCode, _, _, err := performChannelModelFallback(context.Background(), channel, server.URL, "sk-test")
+	statusCode, _, _, err := performChannelModelFallback(context.Background(), channel, probeBaseURL{url: server.URL}, "sk-test")
 	if err != nil {
 		t.Fatalf("performChannelModelFallback() error = %v", err)
 	}
