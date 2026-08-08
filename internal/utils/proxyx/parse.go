@@ -236,7 +236,12 @@ type vmessParsed struct {
 
 // parseVMess parses a VMess share link: vmess://base64(JSON).
 func parseVMess(raw string) (*vmessParsed, error) {
-	payload := strings.TrimPrefix(raw, "vmess://")
+	// Scheme 大小写不敏感：校验层（NormalizeProxyURL）与其余协议的解析
+	// （url.Parse / parseSS 的 Index）都接受 VMESS://，此处保持一致。
+	payload := raw
+	if len(raw) >= len("vmess://") && strings.EqualFold(raw[:len("vmess://")], "vmess://") {
+		payload = raw[len("vmess://"):]
+	}
 	// Some clients emit vmess:// with an extra slash or URL-encoded payload.
 	payload = strings.TrimPrefix(payload, "/")
 	if idx := strings.Index(payload, "#"); idx >= 0 {
