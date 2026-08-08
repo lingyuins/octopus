@@ -102,13 +102,10 @@ func reportErrorLog(c *gin.Context) {
 		resp.Success(c, nil)
 		return
 	}
-	if len(message) > 8192 {
-		message = message[:8192]
-	}
-	stack := req.Stack
-	if len(stack) > 65536 {
-		stack = stack[:65536]
-	}
+	// 按 rune 截断：字节切片会切坏 UTF-8 多字节字符，MySQL/PostgreSQL
+	// 会拒绝写入非法编码，导致含中文/emoji 的超长堆栈永远记录不进库。
+	message = truncateStr(message, 8192)
+	stack := truncateStr(req.Stack, 65536)
 	level := strings.TrimSpace(req.Level)
 	if level == "" {
 		level = "error"

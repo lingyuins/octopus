@@ -58,7 +58,11 @@ func Start() error {
 			UserAgent:     c.Request.UserAgent(),
 			Version:       conf.Version,
 		}
-		if err := errorlog.Add(c.Request.Context(), entry); err != nil {
+		// 不用 c.Request.Context()：客户端断连（流式请求中途断开正是最常见的
+		// panic 诱因）会取消请求 ctx，导致最需要的崩溃记录恰好写库失败。
+		writeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := errorlog.Add(writeCtx, entry); err != nil {
 			log.Errorf("failed to record panic error log: %v", err)
 		}
 		log.Errorf("panic recovered: %v\n%s", recovered, stack)
