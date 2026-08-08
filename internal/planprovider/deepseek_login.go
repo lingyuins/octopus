@@ -160,7 +160,11 @@ func ensureDeepSeekSession(ctx context.Context, provider *model.PlanProvider) (s
 	}
 	token, err := deepseekPlatformLogin(ctx, provider.LoginUsername, pw)
 	if err != nil {
-		entry.nextRetry = now.Add(deepseekLoginCooldown)
+		// ctx 取消（用户刷新/离开页面中断 ListProviders）不是登录失败，
+		// 不触发冷却，否则一次页面刷新就让官方用量静默降级 5 分钟。
+		if !errors.Is(err, context.Canceled) {
+			entry.nextRetry = now.Add(deepseekLoginCooldown)
+		}
 		return "", err
 	}
 	entry.s = &deepseekSession{token: token, expiresAt: now.Add(deepseekSessionTTL)}
