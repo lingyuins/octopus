@@ -1532,7 +1532,12 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 						Priority:   acct.Priority,
 					}
 				} else {
-					if keyRound == 1 {
+					// keyRound == 1 但 failedKeyIDs 非空 = 失败提示/熔断跳过后的重选
+					// （跳过分支 keyRound-- 不消耗配额）。此时必须走排除路径：
+					// 无排除的选 key 是确定性的，会选回刚被跳过的同一个 key，
+					// 造成「跳过 → 重选同 key → 再跳过」的死循环，attempts 记录
+					// 无限增长（issue #192，实测单条 relay log 440 万条记录）。
+					if keyRound == 1 && len(failedKeyIDs) == 0 {
 						usedKey = channel.GetChannelKeyWithCooldown(resolvedModelName, ratelimitCooldown)
 					} else {
 						usedKey, _ = PrepareCandidateForRetry(channel, failedKeyIDs, routeIter, ratelimitCooldown, resolvedModelName)

@@ -226,7 +226,10 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 				}
 
 				var usedKey dbmodel.ChannelKey
-				if keyRound == 1 {
+				// keyRound == 1 但 failedKeyIDs 非空 = 熔断跳过后的重选（跳过分支
+				// keyRound-- 不消耗配额），必须排除已失败 key，否则确定性选 key
+				// 会选回同一个 key 造成死循环（issue #192，与 relay.go 同因）。
+				if keyRound == 1 && len(failedKeyIDs) == 0 {
 					usedKey = channel.GetChannelKeyWithCooldown(resolvedModel, ratelimitCooldown)
 				} else {
 					usedKey = channel.GetChannelKeyExcludingWithCooldown(failedKeyIDs, resolvedModel, ratelimitCooldown)
