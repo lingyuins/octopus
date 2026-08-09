@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/lingyuins/octopus/internal/pkg/geminicli"
 	"github.com/lingyuins/octopus/internal/transformer/model"
 	"github.com/lingyuins/octopus/internal/utils/log"
 	"github.com/lingyuins/octopus/internal/utils/xurl"
@@ -21,6 +22,11 @@ type MessagesOutbound struct{}
 func (o *MessagesOutbound) TransformRequest(ctx context.Context, request *model.InternalLLMRequest, baseUrl, key string) (*http.Request, error) {
 	if request == nil {
 		return nil, fmt.Errorf("request is nil")
+	}
+
+	// OAuth（Gemini CLI）凭据走 Cloud Code Assist：报文/路径/鉴权与官方 API 均不同。
+	if cred, ok := geminicli.ParseCodeAssistCredential(key); ok {
+		return transformCodeAssistRequest(ctx, request, baseUrl, cred)
 	}
 
 	// Convert internal request to Gemini format
@@ -109,7 +115,7 @@ func (o *MessagesOutbound) TransformResponse(ctx context.Context, response *http
 	}
 
 	var geminiResp model.GeminiGenerateContentResponse
-	if err := transformer.Unmarshal(body, &geminiResp); err != nil {
+	if err := transformer.Unmarshal(unwrapCodeAssistPayload(body), &geminiResp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal gemini response: %w", err)
 	}
 
@@ -127,7 +133,7 @@ func (o *MessagesOutbound) TransformStream(ctx context.Context, eventData []byte
 
 	// Parse Gemini streaming response
 	var geminiResp model.GeminiGenerateContentResponse
-	if err := transformer.Unmarshal(eventData, &geminiResp); err != nil {
+	if err := transformer.Unmarshal(unwrapCodeAssistPayload(eventData), &geminiResp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal gemini stream chunk: %w", err)
 	}
 

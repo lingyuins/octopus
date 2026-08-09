@@ -106,7 +106,7 @@ func quotaSupported(platform, ctype string) bool {
 func quotaSupportedForAccount(acct *model.PoolAccount) bool {
 	if acct.Platform == model.PoolPlatformGemini {
 		extra := acct.GetExtra()
-		if extra.OAuthType == "code_assist" {
+		if extra.OAuthType == model.OAuthTypeCodeAssist {
 			return false
 		}
 	}

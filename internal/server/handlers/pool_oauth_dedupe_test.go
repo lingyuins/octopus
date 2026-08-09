@@ -179,7 +179,7 @@ func TestRefreshExistingOAuthAccount_ResetsState(t *testing.T) {
 	newCredJSON := `{"access_token":"new-token","refresh_token":"new-refresh","id_token":"` +
 		makeJWT(t, map[string]interface{}{"sub": "user-1"}) + `"}`
 	expiresAt := int64(2000000000)
-	if err := refreshExistingOAuthAccount(poolObj.ID, acct.ID, newCredJSON, expiresAt); err != nil {
+	if err := refreshExistingOAuthAccount(poolObj.ID, acct.ID, newCredJSON, expiresAt, nil); err != nil {
 		t.Fatalf("refresh existing: %v", err)
 	}
 

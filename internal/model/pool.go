@@ -90,6 +90,10 @@ const (
 	PoolTypeSetupToken = "setup-token"
 )
 
+// OAuthTypeCodeAssist 是 PoolAccountExtra.OAuthType 的取值，标记 gemini OAuth
+// 账号走 Cloud Code Assist（cloudcode-pa）而非官方 Generative Language API。
+const OAuthTypeCodeAssist = "code_assist"
+
 // PoolAccountExtra 平台附加字段（Extra JSON 反序列化后的结构）
 // 敏感键（含 key/token/secret/cookie 字样的 header value）在写库前单独脱敏存储，
 // 但本 struct 只承载平台标识与路由相关字段，不直接放凭据。
@@ -273,6 +277,17 @@ func (c PoolCredential) EffectiveKeyWithExtra(platform string, extra PoolAccount
 				"account_id":    c.AccountID,
 				"refresh_token": c.RefreshToken,
 				"id_token":      c.IDToken,
+			})
+			return string(b)
+		}
+		// gemini 平台的 OAuth 账号走 Cloud Code Assist：出站需要 project_id，
+		// 且必须与官方 API key 区分开（后者用 ?key=，前者用 Bearer）。
+		// 裸 access_token 承载不了这两点，故与 openai 一样透传 JSON。
+		if platform == PoolPlatformGemini {
+			b, _ := json.Marshal(map[string]string{
+				"access_token": c.AccessToken,
+				"project_id":   extra.ProjectID,
+				"oauth_type":   OAuthTypeCodeAssist,
 			})
 			return string(b)
 		}

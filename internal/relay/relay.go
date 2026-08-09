@@ -643,6 +643,8 @@ func (ra *relayAttempt) forward() (int, error) {
 //   - openai-oauth 且非 codex 适配器：ChannelKey 是 OAuth JSON，适配器无法解析，
 //     手动设置 Authorization: Bearer {access_token} + chatgpt-account-id: {account_id}。
 //     codex 适配器自身解析 OAuth JSON，无需覆盖。
+//   - gemini-oauth：ChannelKey 是 code_assist 凭据 JSON，由 gemini 出站适配器
+//     自行解析并设置 Bearer（同时切到 cloudcode-pa 端点），这里不覆盖。
 //   - 其他 oauth/apikey/upstream：适配器默认 Bearer 行为正确，无需覆盖。
 //   - P3 header overrides：符合资格条件时叠加自定义请求头（跳过黑名单与安全头）。
 func (ra *relayAttempt) applyPoolCredentialHeaders(req *http.Request) {

@@ -247,8 +247,16 @@ func oauthCallback(c *gin.Context) {
 		oauthRedirectResult(c, false, poolID, "dedupe lookup failed: "+err.Error())
 		return
 	}
+	// gemini OAuth 必须记录 code_assist 标记与 project id，否则出站会退化成
+	// 「把 OAuth token 当官方 API key 的 ?key= 参数」，必然 401/403。
+	var geminiExtra *model.PoolAccountExtra
+	if platform == model.PoolPlatformGemini {
+		e := discoverGeminiExtra(c.Request.Context(), cred.AccessToken)
+		geminiExtra = &e
+	}
+
 	if existingID > 0 {
-		if err := refreshExistingOAuthAccount(poolID, existingID, credJSON, expiresAt); err != nil {
+		if err := refreshExistingOAuthAccount(poolID, existingID, credJSON, expiresAt, geminiExtra); err != nil {
 			oauthRedirectResult(c, false, poolID, "update account failed: "+err.Error())
 			return
 		}
@@ -266,6 +274,9 @@ func oauthCallback(c *gin.Context) {
 		Status:         "active",
 		Schedulable:    true,
 		TokenExpiresAt: expiresAt,
+	}
+	if geminiExtra != nil {
+		acct.SetExtra(*geminiExtra)
 	}
 	if err := pool.CreateAccount(&acct); err != nil {
 		oauthRedirectResult(c, false, poolID, "create account failed: "+err.Error())
@@ -321,7 +332,10 @@ func findExistingOAuthAccount(poolID int, platform string, cred model.PoolCreden
 
 // refreshExistingOAuthAccount 复用已有账号：更新凭据/过期时间并复位状态，
 // 同时清除刷新失败退避（授权成功视为账号恢复）。
-func refreshExistingOAuthAccount(poolID, accountID int, credJSON string, expiresAt int64) error {
+//
+// platformExtra 非空时把平台字段（如 gemini 的 code_assist project）合并进 Extra，
+// 其余字段保持原样。
+func refreshExistingOAuthAccount(poolID, accountID int, credJSON string, expiresAt int64, platformExtra *model.PoolAccountExtra) error {
 	updates := map[string]interface{}{
 		"credentials":      pool.EncryptCredentials(credJSON),
 		"token_expires_at": expiresAt,
@@ -331,12 +345,28 @@ func refreshExistingOAuthAccount(poolID, accountID int, credJSON string, expires
 	}
 	if acct, err := pool.GetAccount(poolID, accountID); err == nil {
 		var extra model.PoolAccountExtra
-		if json.Unmarshal([]byte(acct.Extra), &extra) == nil &&
-			(extra.RefreshFailureCount != 0 || extra.NextRefreshAllowedAt != 0) {
-			extra.RefreshFailureCount = 0
-			extra.NextRefreshAllowedAt = 0
-			if b, err := json.Marshal(extra); err == nil {
-				updates["extra"] = string(b)
+		if json.Unmarshal([]byte(acct.Extra), &extra) == nil {
+			changed := false
+			if extra.RefreshFailureCount != 0 || extra.NextRefreshAllowedAt != 0 {
+				extra.RefreshFailureCount = 0
+				extra.NextRefreshAllowedAt = 0
+				changed = true
+			}
+			if platformExtra != nil {
+				if platformExtra.OAuthType != "" && extra.OAuthType != platformExtra.OAuthType {
+					extra.OAuthType = platformExtra.OAuthType
+					changed = true
+				}
+				// project 探测失败时保留原值，避免把已可用的 project 抹掉。
+				if platformExtra.ProjectID != "" && extra.ProjectID != platformExtra.ProjectID {
+					extra.ProjectID = platformExtra.ProjectID
+					changed = true
+				}
+			}
+			if changed {
+				if b, err := json.Marshal(extra); err == nil {
+					updates["extra"] = string(b)
+				}
 			}
 		}
 	}
@@ -462,6 +492,22 @@ func handleGeminiCallback(ctx context.Context, sessionID, state, code string) (i
 	credBytes, _ := json.Marshal(cred)
 	expiresAt := time.Now().Unix() + tok.ExpiresIn
 	return session.PoolID, string(credBytes), expiresAt, nil
+}
+
+// discoverGeminiExtra 探测 gemini OAuth 账号的 Cloud Code Assist project，
+// 组装为账号 Extra。出站请求体需要 project id（见 transformer/outbound/gemini）。
+//
+// 探测失败不阻断授权：project 为空时出站仍按无 project 方式尝试，
+// 用户也可后续在账号详情里手工补填。
+func discoverGeminiExtra(ctx context.Context, accessToken string) model.PoolAccountExtra {
+	projectID, err := geminicli.DiscoverProject(ctx, nil, accessToken, geminicli.CodeAssistEndpoint)
+	if err != nil {
+		log.Warnf("gemini oauth: discover code assist project failed: %v", err)
+	}
+	return model.PoolAccountExtra{
+		ProjectID: projectID,
+		OAuthType: model.OAuthTypeCodeAssist,
+	}
 }
 
 func handleGrokCallback(ctx context.Context, sessionID, state, code string) (int, string, int64, error) {
