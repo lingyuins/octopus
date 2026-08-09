@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/select';
 import {
     ChannelForm,
+    deriveChannelProxyMode,
     getEffectiveRequestRewriteFormData,
     normalizeRequestRewriteFormData,
     type ChannelFormData,
@@ -151,7 +152,8 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
             : [{ enabled: true, channel_key: '', priority: 0, remark: '' }],
         model: channel.model,
         custom_model: channel.custom_model,
-        proxy: channel.proxy,
+        proxy_mode: deriveChannelProxyMode(channel),
+        proxy_config_id: channel.proxy_config_id ?? null,
         auto_sync: channel.auto_sync,
         auto_group: channel.auto_group,
         skip_model_test: channel.skip_model_test,
@@ -163,6 +165,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
         pool_id: channel.pool_id ?? 0,
     });
     const t = useTranslations('channel.detail');
+    const tProxy = useTranslations('proxyPool');
 
     const publicApiBaseUrl = settings?.find((item) => item.key === SettingKey.PublicAPIBaseURL)?.value?.trim() ?? '';
 
@@ -177,6 +180,11 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
 
     const handleUpdate = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        // pool 模式必须选择代理配置（或在渠道代理框保留自定义地址），与后端校验一致
+        if (formData.proxy_mode === 'pool' && !formData.proxy_config_id && !formData.channel_proxy.trim()) {
+            toast.error(tProxy('selectRequired'));
+            return;
+        }
         const req: UpdateChannelRequest = { id: channel.id };
         const effectiveRequestRewrite = getEffectiveRequestRewriteFormData(formData.type, formData.request_rewrite);
 
@@ -194,7 +202,13 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
         }
         if (formData.model !== channel.model) req.model = formData.model;
         if (formData.custom_model !== channel.custom_model) req.custom_model = formData.custom_model;
-        if (formData.proxy !== channel.proxy) req.proxy = formData.proxy;
+        const curProxyMode = deriveChannelProxyMode(channel);
+        const nextProxyConfigId = formData.proxy_mode === 'pool' ? formData.proxy_config_id : null;
+        if (formData.proxy_mode !== curProxyMode || nextProxyConfigId !== (channel.proxy_config_id ?? null)) {
+            // 显式发送 proxy_mode + proxy_config_id，后端不再走 legacy 推导（issue #195）
+            req.proxy_mode = formData.proxy_mode;
+            req.proxy_config_id = nextProxyConfigId;
+        }
         if (formData.auto_sync !== channel.auto_sync) req.auto_sync = formData.auto_sync;
         if (formData.skip_model_test !== channel.skip_model_test) req.skip_model_test = formData.skip_model_test;
         if (formData.disposable !== (channel.disposable ?? false)) req.disposable = formData.disposable;

@@ -131,3 +131,104 @@ func TestUpdatePatchSemanticsLeavesOtherFieldsUntouched(t *testing.T) {
 	}
 	assertAdvancedFields(t, &got, want)
 }
+
+// bindProxyPool 通过显式 proxy_mode=pool 为渠道绑定代理池配置。
+func bindProxyPool(t *testing.T, channelID, configID int) {
+	t.Helper()
+	poolMode := model.ProxyUsageModePool
+	req := &model.ChannelUpdateRequest{ID: channelID, ProxyMode: &poolMode, ProxyConfigID: &configID}
+	if _, err := Update(req, context.Background()); err != nil {
+		t.Fatalf("bind proxy pool failed: %v", err)
+	}
+}
+
+// assertProxyBinding 断言渠道（缓存返回值 + DB 读回值）的代理模式与配置绑定。
+func assertProxyBinding(t *testing.T, channelID int, wantMode model.ProxyUsageMode, wantConfigID *int) {
+	t.Helper()
+	var got model.Channel
+	if err := db.GetDB().First(&got, channelID).Error; err != nil {
+		t.Fatalf("reload from DB failed: %v", err)
+	}
+	if got.ProxyMode != wantMode {
+		t.Fatalf("ProxyMode = %q, want %q", got.ProxyMode, wantMode)
+	}
+	if wantConfigID == nil {
+		if got.ProxyConfigID != nil {
+			t.Fatalf("ProxyConfigID = %d, want nil", *got.ProxyConfigID)
+		}
+		return
+	}
+	if got.ProxyConfigID == nil || *got.ProxyConfigID != *wantConfigID {
+		t.Fatalf("ProxyConfigID = %v, want %d", got.ProxyConfigID, *wantConfigID)
+	}
+}
+
+// TestUpdateLegacyProxyFieldsPreservePoolBinding 回归测试 issue #195：
+// 已绑定代理池（proxy_mode=pool + proxy_config_id）的渠道，收到仅含旧字段
+//（proxy 开关 / channel_proxy 文本）的更新请求时，绑定必须保留，
+// 不得被 legacy 推导覆盖成 NULL 静默落库。
+func TestUpdateLegacyProxyFieldsPreservePoolBinding(t *testing.T) {
+	setupBatchGroupTest(t)
+	seedChannel(t, 1, 1)
+
+	configID := 3
+	bindProxyPool(t, 1, configID)
+	assertProxyBinding(t, 1, model.ProxyUsageModePool, &configID)
+
+	// 模拟旧前端：仅切换 proxy 开关为 false（issue #195 复现步骤 6）
+	proxyOff := false
+	if _, err := Update(&model.ChannelUpdateRequest{ID: 1, Proxy: &proxyOff}, context.Background()); err != nil {
+		t.Fatalf("legacy proxy-off Update returned error: %v", err)
+	}
+	assertProxyBinding(t, 1, model.ProxyUsageModePool, &configID)
+
+	// 模拟旧前端：在渠道代理输入框输入再清空（提交空串）
+	empty := ""
+	if _, err := Update(&model.ChannelUpdateRequest{ID: 1, ChannelProxy: &empty}, context.Background()); err != nil {
+		t.Fatalf("legacy channel-proxy-clear Update returned error: %v", err)
+	}
+	assertProxyBinding(t, 1, model.ProxyUsageModePool, &configID)
+
+	// 模拟旧前端：proxy 开关重新打开且填入自定义地址，绑定同样保留
+	proxyOn := true
+	customURL := "http://127.0.0.1:7890"
+	if _, err := Update(&model.ChannelUpdateRequest{ID: 1, Proxy: &proxyOn, ChannelProxy: &customURL}, context.Background()); err != nil {
+		t.Fatalf("legacy custom-url Update returned error: %v", err)
+	}
+	assertProxyBinding(t, 1, model.ProxyUsageModePool, &configID)
+}
+
+// TestUpdateExplicitProxyModeStillUnbindsPool 显式传 proxy_mode 时用户意图明确，
+// 仍可解除代理池绑定（direct 模式清空 proxy_config_id）。
+func TestUpdateExplicitProxyModeStillUnbindsPool(t *testing.T) {
+	setupBatchGroupTest(t)
+	seedChannel(t, 1, 1)
+
+	configID := 3
+	bindProxyPool(t, 1, configID)
+
+	directMode := model.ProxyUsageModeDirect
+	if _, err := Update(&model.ChannelUpdateRequest{ID: 1, ProxyMode: &directMode}, context.Background()); err != nil {
+		t.Fatalf("explicit direct Update returned error: %v", err)
+	}
+	assertProxyBinding(t, 1, model.ProxyUsageModeDirect, nil)
+}
+
+// TestUpdateLegacyDerivationStillWorksWithoutPoolBinding 未绑定代理池的渠道，
+// legacy 字段推导行为保持不变（proxy=true 无地址 → system；proxy=false → direct）。
+func TestUpdateLegacyDerivationStillWorksWithoutPoolBinding(t *testing.T) {
+	setupBatchGroupTest(t)
+	seedChannel(t, 1, 1)
+
+	proxyOn := true
+	if _, err := Update(&model.ChannelUpdateRequest{ID: 1, Proxy: &proxyOn}, context.Background()); err != nil {
+		t.Fatalf("legacy proxy-on Update returned error: %v", err)
+	}
+	assertProxyBinding(t, 1, model.ProxyUsageModeSystem, nil)
+
+	proxyOff := false
+	if _, err := Update(&model.ChannelUpdateRequest{ID: 1, Proxy: &proxyOff}, context.Background()); err != nil {
+		t.Fatalf("legacy proxy-off Update returned error: %v", err)
+	}
+	assertProxyBinding(t, 1, model.ProxyUsageModeDirect, nil)
+}

@@ -24,6 +24,7 @@ import {
 import { channelTemplates } from './templates';
 import { DEFAULT_CHANNEL_TYPE } from './type-options';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from '@/components/common/Toast';
 
 export function CreateDialogContent() {
     const { setIsOpen } = useMorphingDialog();
@@ -50,12 +51,14 @@ export function CreateDialogContent() {
         notif_channel_id: null,
         key_selection_strategy: '',
         enabled: true,
-        proxy: false,
+        proxy_mode: 'direct',
+        proxy_config_id: null,
         match_regex: '',
         pool_id: 0,
     });
     const t = useTranslations('channel.create');
     const tForm = useTranslations('channel.form');
+    const tProxy = useTranslations('proxyPool');
 
     const resetFormData = () => {
         setFormData({
@@ -78,7 +81,8 @@ export function CreateDialogContent() {
             notif_channel_id: null,
             key_selection_strategy: '',
             enabled: true,
-            proxy: false,
+            proxy_mode: 'direct',
+            proxy_config_id: null,
             match_regex: '',
             pool_id: 0,
         });
@@ -94,6 +98,11 @@ export function CreateDialogContent() {
 
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        // pool 模式必须选择代理配置（或填写自定义渠道代理地址），与后端校验一致
+        if (formData.proxy_mode === 'pool' && !formData.proxy_config_id && !formData.channel_proxy.trim()) {
+            toast.error(tProxy('selectRequired'));
+            return;
+        }
         const normalizedBaseUrls = (formData.base_urls ?? []).filter((u) => u.url.trim()).map((u) => ({
             url: u.url.trim(),
             delay: Number(u.delay || 0),
@@ -122,7 +131,9 @@ export function CreateDialogContent() {
                 keys: normalizedKeys,
                 model: formData.model,
                 custom_model: formData.custom_model,
-                proxy: formData.proxy,
+                proxy_mode: formData.proxy_mode,
+                proxy_config_id: formData.proxy_mode === 'pool' ? formData.proxy_config_id : null,
+                proxy: formData.proxy_mode !== 'direct',
                 auto_sync: formData.auto_sync,
                 auto_group: formData.auto_group,
                 key_selection_strategy: formData.key_selection_strategy,

@@ -339,9 +339,16 @@ func Update(req *model.ChannelUpdateRequest, ctx context.Context) (*model.Channe
 			legacyChannelProxy = req.ChannelProxy
 		}
 
-		// 仅传旧字段时，从 legacy 推导新模式
+		// 仅传旧字段时，从 legacy 推导新模式。
+		// issue #195：旧字段（proxy 开关 / channel_proxy 文本）表达不了代理池绑定，
+		// 已绑定代理池的渠道若被 legacy-only 请求推导覆盖，proxy_config_id 会被静默清成
+		// NULL 落库。此处保留原有 pool 绑定，解绑必须显式传 proxy_mode。
 		if req.ProxyMode == nil && (req.Proxy != nil || req.ChannelProxy != nil) {
-			mode, configID = deriveProxyModeFromLegacy(legacyProxy, legacyChannelProxy)
+			if current.ProxyMode == model.ProxyUsageModePool && current.ProxyConfigID != nil {
+				mode, configID = current.ProxyMode, current.ProxyConfigID
+			} else {
+				mode, configID = deriveProxyModeFromLegacy(legacyProxy, legacyChannelProxy)
+			}
 		}
 
 		tmp := model.Channel{

@@ -5,6 +5,12 @@ import { logger } from '@/lib/logger';
 import { formatCount, formatMoney, formatTime } from '@/lib/utils';
 import { StatsChannel, type StatsMetricsFormatted } from './stats';
 import { type GroupTestProgress } from './group';
+import type { ProxyMode } from './proxy-pool';
+
+/**
+ * 渠道代理模式（渠道无上级实体，不支持 inherit）
+ */
+export type ChannelProxyMode = Exclude<ProxyMode, 'inherit'>;
 /**
  * 渠道类型枚举
  */
@@ -106,6 +112,8 @@ export type Channel = {
     keys: ChannelKey[];
     model: string;
     custom_model: string;
+    proxy_mode: ChannelProxyMode;
+    proxy_config_id?: number | null;
     proxy: boolean;
     auto_sync: boolean;
     auto_group: AutoGroupType;
@@ -145,6 +153,8 @@ export type CreateChannelRequest = {
     keys: Array<Pick<ChannelKey, 'enabled' | 'channel_key' | 'priority' | 'remark'>>;
     model: string;
     custom_model?: string;
+    proxy_mode?: ChannelProxyMode;
+    proxy_config_id?: number | null;
     proxy?: boolean;
     auto_sync?: boolean;
     skip_model_test?: boolean;
@@ -173,6 +183,8 @@ export type UpdateChannelRequest = {
     base_urls?: BaseUrl[];
     model?: string;
     custom_model?: string;
+    proxy_mode?: ChannelProxyMode;
+    proxy_config_id?: number | null;
     proxy?: boolean;
     auto_sync?: boolean;
     key_selection_strategy?: string;
@@ -197,6 +209,8 @@ export type FetchModelRequest = {
     type: ChannelType;
     base_urls: BaseUrl[];
     keys: Array<Pick<ChannelKey, 'enabled' | 'channel_key'>>;
+    proxy_mode?: ChannelProxyMode;
+    proxy_config_id?: number | null;
     proxy?: boolean;
     channel_proxy?: string | null;
     match_regex?: string | null;

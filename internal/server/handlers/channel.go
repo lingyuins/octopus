@@ -371,6 +371,8 @@ type channelRequestPayload struct {
 	Keys                 []channelKeyRequestPayload  `json:"keys"`
 	Model                string                      `json:"model"`
 	CustomModel          string                      `json:"custom_model"`
+	ProxyMode            model.ProxyUsageMode        `json:"proxy_mode"`
+	ProxyConfigID        *int                        `json:"proxy_config_id"`
 	Proxy                bool                        `json:"proxy"`
 	AutoSync             bool                        `json:"auto_sync"`
 	AutoGroup            model.AutoGroupType         `json:"auto_group"`
@@ -411,8 +413,9 @@ func (p channelRequestPayload) toChannel() model.Channel {
 		})
 	}
 
-	// 兼容旧前端：proxy + channel_proxy；新前端可直接传 proxy_mode/proxy_config_id。
-	// 这里先写入旧字段，Create 内 normalizeChannelProxyFields 会推导 ProxyMode。
+	// 兼容旧前端：proxy + channel_proxy；新前端直接传 proxy_mode/proxy_config_id
+	//（issue #195）。proxy_mode 为空时，Create 内 normalizeChannelProxyFields 会从
+	// 旧字段推导 ProxyMode。
 	var channelProxy *string
 	if p.ChannelProxy != nil {
 		trimmed := strings.TrimSpace(*p.ChannelProxy)
@@ -430,6 +433,8 @@ func (p channelRequestPayload) toChannel() model.Channel {
 		Keys:                 keys,
 		Model:                p.Model,
 		CustomModel:          p.CustomModel,
+		ProxyMode:            p.ProxyMode,
+		ProxyConfigID:        p.ProxyConfigID,
 		Proxy:                p.Proxy,
 		AutoSync:             p.AutoSync,
 		SkipModelTest:        p.SkipModelTest,

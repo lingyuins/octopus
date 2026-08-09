@@ -13,7 +13,9 @@ import {
     type KeyModelResult,
     useTestChannel,
     type TestChannelSummary,
+    type ChannelProxyMode,
 } from '@/api/endpoints/channel';
+import { ProxySelector } from '@/components/modules/proxy-pool/ProxySelector';
 import { useAlertNotifChannelList } from '@/api/endpoints/alert';
 import { useSettingList, SettingKey } from '@/api/endpoints/setting';
 import { usePoolList } from '@/api/endpoints/pool';
@@ -73,7 +75,8 @@ export interface ChannelFormData {
     model: string;
     custom_model: string;
     enabled: boolean;
-    proxy: boolean;
+    proxy_mode: ChannelProxyMode;
+    proxy_config_id: number | null;
     auto_sync: boolean;
     auto_group: AutoGroupType;
     skip_model_test: boolean;
@@ -83,6 +86,18 @@ export interface ChannelFormData {
     key_selection_strategy: string;
     match_regex: string;
     pool_id: number;
+}
+
+/**
+ * 从渠道数据推导表单展示用的代理模式，镜像后端 resolveChannelProxy 的兼容语义
+ *（issue #195）：历史数据可能 proxy_mode=direct 但旧 proxy 布尔仍为 true，
+ * 此时按 legacy 字段回退展示，避免"开关开着但地址为空"的误导状态。
+ */
+export function deriveChannelProxyMode(channel: Pick<Channel, 'proxy_mode' | 'proxy' | 'channel_proxy'>): ChannelProxyMode {
+    const mode = channel.proxy_mode;
+    if (mode && mode !== 'direct') return mode;
+    if (!channel.proxy) return 'direct';
+    return channel.channel_proxy?.trim() ? 'pool' : 'system';
 }
 
 export function createDefaultRequestRewriteFormData(): RequestRewriteConfig {
@@ -731,7 +746,9 @@ export function ChannelForm({
         keys: formData.keys
             .filter((k) => k.channel_key.trim())
             .map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim(), remark: k.remark ?? '' })),
-        proxy: formData.proxy,
+        proxy_mode: formData.proxy_mode,
+        proxy_config_id: formData.proxy_mode === 'pool' ? formData.proxy_config_id : null,
+        proxy: formData.proxy_mode !== 'direct',
         channel_proxy: formData.channel_proxy?.trim() || '',
         match_regex: formData.match_regex.trim() || '',
         custom_header: normalizedHeaders,
@@ -797,7 +814,9 @@ export function ChannelForm({
             keys: formData.keys
                 .filter((k) => k.channel_key.trim())
                 .map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim() })),
-            proxy: formData.proxy,
+            proxy_mode: formData.proxy_mode,
+            proxy_config_id: formData.proxy_mode === 'pool' ? formData.proxy_config_id : null,
+            proxy: formData.proxy_mode !== 'direct',
             channel_proxy: formData.channel_proxy?.trim() || '',
             match_regex: formData.match_regex.trim() || '',
             custom_header: normalizedHeaders,
@@ -1372,6 +1391,14 @@ export function ChannelForm({
                     </AccordionTrigger>
                     <AccordionContent className="pt-4">
                         <div className="space-y-4">
+                        <ProxySelector
+                            value={{ proxy_mode: formData.proxy_mode, proxy_config_id: formData.proxy_config_id }}
+                            onChange={(next) => onFormDataChange({
+                                ...formData,
+                                proxy_mode: next.proxy_mode as ChannelProxyMode,
+                                proxy_config_id: next.proxy_config_id ?? null,
+                            })}
+                        />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className={fieldGroupClassName}>
                                 <label htmlFor={`${idPrefix}-auto-group`} className={labelClassName}>
@@ -1621,13 +1648,6 @@ export function ChannelForm({
                     <span className="text-sm font-medium text-card-foreground">{t('enabled')}</span>
                 </label>
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border/10 pt-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <Switch
-                            checked={formData.proxy}
-                            onCheckedChange={(checked) => onFormDataChange({ ...formData, proxy: checked })}
-                        />
-                        <span className="text-sm text-card-foreground">{t('proxy')}</span>
-                    </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                         <Switch
                             checked={formData.auto_sync}
