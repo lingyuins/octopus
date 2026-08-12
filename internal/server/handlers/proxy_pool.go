@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
 	"github.com/lingyuins/octopus/internal/server/router"
@@ -17,11 +18,14 @@ func init() {
 		Use(middleware.Auth()).
 		AddRoute(router.NewRoute("/list", http.MethodGet).Handle(listProxyConfigurations)).
 		AddRoute(router.NewRoute("/references/:id", http.MethodGet).Handle(listProxyConfigurationReferences)).
-		AddRoute(router.NewRoute("/delete/:id", http.MethodDelete).Handle(deleteProxyConfiguration))
+		AddRoute(router.NewRoute("/delete/:id", http.MethodDelete).
+			Use(middleware.RequirePermission(auth.PermSettingsWrite)).
+			Handle(deleteProxyConfiguration))
 
 	router.NewGroupRouter("/api/v1/proxy-pool").
 		Use(middleware.Auth()).
 		Use(middleware.RequireJSON()).
+		Use(middleware.RequirePermission(auth.PermSettingsWrite)).
 		AddRoute(router.NewRoute("/create", http.MethodPost).Handle(createProxyConfiguration)).
 		AddRoute(router.NewRoute("/update", http.MethodPost).Handle(updateProxyConfiguration)).
 		AddRoute(router.NewRoute("/test", http.MethodPost).Handle(testProxyConfiguration))

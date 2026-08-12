@@ -12,6 +12,7 @@ import (
 	"github.com/lingyuins/octopus/internal/apperror"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
 	"github.com/lingyuins/octopus/internal/server/router"
@@ -29,6 +30,7 @@ func init() {
 	router.NewGroupRouter("/api/v1/site-channel").
 		Use(middleware.Auth()).
 		Use(middleware.RequireJSON()).
+		Use(middleware.RequirePermission(auth.PermSitesWrite)).
 		AddRoute(router.NewRoute("/:siteId/account/:accountId/keys", http.MethodPost).Handle(createSiteChannelKey)).
 		AddRoute(router.NewRoute("/:siteId/account/:accountId/source-keys", http.MethodPut).Handle(updateSiteSourceKeys)).
 		AddRoute(router.NewRoute("/:siteId/account/:accountId/group-projection", http.MethodPut).Handle(updateSiteGroupProjection)).

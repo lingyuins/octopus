@@ -7,6 +7,7 @@ import (
 	dbpkg "github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/transformer/outbound"
+	"github.com/lingyuins/octopus/internal/utils/crypto"
 )
 
 func TestSiteChannelResetAccountRoutesRestoresDetectedMetadataRoute(t *testing.T) {
@@ -125,6 +126,7 @@ func TestUpdateSiteSourceKeysMarksExistingTokenAsManual(t *testing.T) {
 	if err := dbpkg.GetDB().WithContext(ctx).First(&saved, row.ID).Error; err != nil {
 		t.Fatalf("reload site token failed: %v", err)
 	}
+	saved.Token, _ = crypto.Decrypt(saved.Token)
 	if saved.Source != "manual" {
 		t.Fatalf("expected updated token source to become manual, got %q", saved.Source)
 	}
@@ -189,6 +191,7 @@ func TestUpdateSiteSourceKeysRestoresReadyWhenMaskedPendingTokenIsCompleted(t *t
 	if err := dbpkg.GetDB().WithContext(ctx).First(&saved, row.ID).Error; err != nil {
 		t.Fatalf("reload site token failed: %v", err)
 	}
+	saved.Token, _ = crypto.Decrypt(saved.Token)
 	if saved.Token != "sk-yzFyREALREALOTkb" {
 		t.Fatalf("expected completed token to be normalized and saved, got %q", saved.Token)
 	}
@@ -254,6 +257,7 @@ func TestUpdateSiteSourceKeysRejectsMaskedPendingTokenWhenInputDoesNotMatch(t *t
 	if err := dbpkg.GetDB().WithContext(ctx).First(&saved, row.ID).Error; err != nil {
 		t.Fatalf("reload site token failed: %v", err)
 	}
+	saved.Token, _ = crypto.Decrypt(saved.Token)
 	if saved.Token != "yzFy**********OTkb" {
 		t.Fatalf("expected token row to remain unchanged on rejection, got %q", saved.Token)
 	}
@@ -625,6 +629,9 @@ func TestUpdateSiteSourceKeysNormalizesPrefix(t *testing.T) {
 		Order("id ASC").
 		Find(&saved).Error; err != nil {
 		t.Fatalf("reload site tokens failed: %v", err)
+	}
+	for i := range saved {
+		saved[i].Token, _ = crypto.Decrypt(saved[i].Token)
 	}
 	if len(saved) != 2 {
 		t.Fatalf("expected account to have two site tokens after update, got %d", len(saved))

@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/db"
+	"github.com/lingyuins/octopus/internal/helper"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op"
 )
@@ -199,21 +200,36 @@ func TestNotifChannelSucceedsAgainstWebhook(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	body := fmt.Sprintf(`{"name":"my-webhook","type":"webhook","url":%q}`, srv.URL)
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/alert/notif/test", strings.NewReader(body))
-	c.Request.Header.Set("Content-Type", "application/json")
-
-	testNotifChannel(c)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusOK, recorder.Body.String())
+	// 出站发送链路（op 层）不受 handler 的 SSRF 校验影响，直接验证发送成功。
+	ch := &model.AlertNotifChannel{Name: "my-webhook", Type: "webhook", URL: srv.URL}
+	if err := helper.TestNotification(ch); err != nil {
+		t.Fatalf("TestNotification failed: %v", err)
 	}
 	if received == nil {
 		t.Fatalf("webhook server did not receive a request")
 	}
 	if received["state"] != "test" {
 		t.Fatalf("expected state=test in webhook payload, got: %v", received["state"])
+	}
+}
+
+// TestNotifChannelRejectsInternalWebhookURL 验证 handler 层拒绝内网 webhook URL
+// （SSRF 防护）：loopback 地址的 test 请求应返回 400。
+func TestNotifChannelRejectsInternalWebhookURL(t *testing.T) {
+	setupAlertHandlerTest(t)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	body := `{"name":"internal-webhook","type":"webhook","url":"http://127.0.0.1:9999/hook"}`
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/alert/notif/test", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	testNotifChannel(c)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body=%s", recorder.Code, http.StatusBadRequest, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "unsafe") {
+		t.Fatalf("expected unsafe url error, got: %s", recorder.Body.String())
 	}
 }

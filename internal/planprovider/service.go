@@ -451,6 +451,11 @@ func AddProvider(ctx context.Context, category model.PlanProviderCategory, apiKe
 	provider.CreatedAt = now
 	provider.UpdatedAt = now
 
+	// APIKey/ForwardAPIKey 加密落库；落库完成后恢复明文（返回给调用方）。
+	if err := encryptProviderSecrets(provider); err != nil {
+		return nil, err
+	}
+	defer decryptProviderSecrets(provider)
 	if err := db.GetDB().WithContext(ctx).Create(provider).Error; err != nil {
 		// 补偿：provider 落盘失败，回滚已创建的 channel（仅新建的，复用的不删）
 		if channelID > 0 && needCreateChannel {
@@ -473,6 +478,8 @@ func RefreshProvider(ctx context.Context, id int) (*model.PlanProvider, error) {
 	if err := db.GetDB().WithContext(ctx).First(&provider, id).Error; err != nil {
 		return nil, fmt.Errorf("find plan provider: %w", err)
 	}
+	// 凭据密文解密回明文供查询使用；Save 前会重新加密。
+	decryptProviderSecrets(&provider)
 
 	if provider.ProviderType == model.PlanProviderTypeBalance {
 		// 快照旧余额：本次刷新后 LastBalance 表示"上次检测时的余额"，
@@ -546,6 +553,8 @@ func UpdateProviderCredentials(ctx context.Context, id int, newAPIKey, newForwar
 	if err := db.GetDB().WithContext(ctx).First(&provider, id).Error; err != nil {
 		return nil, fmt.Errorf("find plan provider: %w", err)
 	}
+	// 凭据密文解密回明文供比较/查询使用；Save 前会重新加密。
+	decryptProviderSecrets(&provider)
 
 	info := getCategoryInfo(provider.Category)
 	if info == nil {
@@ -666,6 +675,11 @@ func UpdateProviderCredentials(ctx context.Context, id int, newAPIKey, newForwar
 	provider.LastRefresh = &now
 	provider.UpdatedAt = now
 
+	// 凭据加密落库；Save 后恢复明文（返回给调用方）。
+	if err := encryptProviderSecrets(&provider); err != nil {
+		return nil, err
+	}
+	defer decryptProviderSecrets(&provider)
 	if err := db.GetDB().WithContext(ctx).Save(&provider).Error; err != nil {
 		return nil, fmt.Errorf("save plan provider: %w", err)
 	}
@@ -675,6 +689,43 @@ func UpdateProviderCredentials(ctx context.Context, id int, newAPIKey, newForwar
 		id, provider.Category, newAPIKey != oldAPIKey, newForwardAPIKey != oldForwardAPIKey)
 
 	return &provider, nil
+}
+
+// encryptProviderSecrets 加密 PlanProvider 的 APIKey/ForwardAPIKey 字段
+// （enc: 前缀）用于落库。调用方负责在落库完成后恢复明文。
+func encryptProviderSecrets(p *model.PlanProvider) error {
+	if p == nil {
+		return nil
+	}
+	if p.APIKey != "" {
+		enc, err := crypto.Encrypt(p.APIKey)
+		if err != nil {
+			return fmt.Errorf("encrypt plan provider api key: %w", err)
+		}
+		p.APIKey = enc
+	}
+	if p.ForwardAPIKey != "" {
+		enc, err := crypto.Encrypt(p.ForwardAPIKey)
+		if err != nil {
+			return fmt.Errorf("encrypt plan provider forward api key: %w", err)
+		}
+		p.ForwardAPIKey = enc
+	}
+	return nil
+}
+
+// decryptProviderSecrets 解密 PlanProvider 的 APIKey/ForwardAPIKey
+// （无 enc: 前缀的存量明文原样保留）。
+func decryptProviderSecrets(p *model.PlanProvider) {
+	if p == nil {
+		return
+	}
+	if plain, err := crypto.Decrypt(p.APIKey); err == nil {
+		p.APIKey = plain
+	}
+	if plain, err := crypto.Decrypt(p.ForwardAPIKey); err == nil {
+		p.ForwardAPIKey = plain
+	}
 }
 
 // updatePlanForwardChannelKey 同步转发凭据变更到 provider 关联的渠道 key。

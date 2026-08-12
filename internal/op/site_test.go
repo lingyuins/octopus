@@ -505,6 +505,7 @@ func TestSiteImportMetAPIImportsSiteBasics(t *testing.T) {
 	if err := dbpkg.GetDB().Where("name = ?", "metapi-user").First(&managed).Error; err != nil {
 		t.Fatalf("query managed account failed: %v", err)
 	}
+	decryptSiteAccountCredentialFields(&managed)
 	if managed.CredentialType != model.SiteCredentialTypeAccessToken {
 		t.Fatalf("expected managed credential type access_token, got %q", managed.CredentialType)
 	}
@@ -552,6 +553,7 @@ func TestSiteImportMetAPIImportsSiteBasics(t *testing.T) {
 	if err := dbpkg.GetDB().Where("name = ?", "direct-user").First(&direct).Error; err != nil {
 		t.Fatalf("query direct account failed: %v", err)
 	}
+	decryptSiteAccountCredentialFields(&direct)
 	if direct.CredentialType != model.SiteCredentialTypeAPIKey {
 		t.Fatalf("expected direct credential type api_key, got %q", direct.CredentialType)
 	}
@@ -701,6 +703,8 @@ func assertImportedAccount(t *testing.T, name string, assertFn func(account mode
 	if err := dbpkg.GetDB().Where("name = ?", name).First(&account).Error; err != nil {
 		t.Fatalf("query site account %q failed: %v", name, err)
 	}
+	// 凭据密文落库：断言前解密（存量明文原样通过）。
+	decryptSiteAccountCredentialFields(&account)
 	assertFn(account)
 }
 

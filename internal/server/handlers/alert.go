@@ -17,6 +17,7 @@ import (
 	"github.com/lingyuins/octopus/internal/server/resp"
 	"github.com/lingyuins/octopus/internal/server/router"
 	"github.com/lingyuins/octopus/internal/utils/log"
+	"github.com/lingyuins/octopus/internal/utils/xurl"
 )
 
 func init() {
@@ -121,6 +122,10 @@ func createNotifChannel(c *gin.Context) {
 	}
 	ch := req.toModel()
 	ch.ID = 0
+	if err := validateNotifChannelURL(&ch); err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := alert.NotifChannelCreate(c.Request.Context(), &ch); err != nil {
 		if status, msg, ok := classifyAlertMutationError(err); ok {
 			resp.Error(c, status, msg)
@@ -142,6 +147,10 @@ func updateNotifChannel(c *gin.Context) {
 	if err := mergeNotifChannelSecrets(c.Request.Context(), &ch); err != nil {
 		log.Warnf("failed to merge notification channel %d secrets: %v", ch.ID, err)
 		resp.InternalError(c)
+		return
+	}
+	if err := validateNotifChannelURL(&ch); err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := alert.NotifChannelUpdate(c.Request.Context(), &ch); err != nil {
@@ -182,6 +191,10 @@ func testNotifChannel(c *gin.Context) {
 		return
 	}
 	ch := req.toModel()
+	if err := validateNotifChannelURL(&ch); err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := helper.TestNotification(&ch); err != nil {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -256,6 +269,29 @@ func (p alertNotifChannelPayload) toModel() model.AlertNotifChannel {
 		Headers: p.Headers,
 		Config:  p.Config,
 	}
+}
+
+// validateNotifChannelURL 校验通知渠道的服务端出站 URL（webhook URL、gotify
+// server_url），阻止把通知 POST 到内网/元数据地址（SSRF）。存量渠道不受影响，
+// 仅在新写入/更新/测试时校验。
+func validateNotifChannelURL(ch *model.AlertNotifChannel) error {
+	if ch == nil {
+		return fmt.Errorf("notification channel is nil")
+	}
+	if url := strings.TrimSpace(ch.URL); url != "" {
+		if err := xurl.AssertSafeURL(url); err != nil {
+			return fmt.Errorf("unsafe notification url: %w", err)
+		}
+	}
+	if ch.Config != "" {
+		var gotifyCfg model.GotifyConfig
+		if err := json.Unmarshal([]byte(ch.Config), &gotifyCfg); err == nil && strings.TrimSpace(gotifyCfg.ServerURL) != "" {
+			if err := xurl.AssertSafeURL(gotifyCfg.ServerURL); err != nil {
+				return fmt.Errorf("unsafe gotify server_url: %w", err)
+			}
+		}
+	}
+	return nil
 }
 
 func maskNotificationSecret(s string) string {

@@ -15,6 +15,7 @@ import (
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/resp"
 	"github.com/lingyuins/octopus/internal/server/router"
+	"github.com/lingyuins/octopus/internal/utils/xurl"
 )
 
 func init() {
@@ -97,6 +98,14 @@ func createRemoteSite(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
+	if req.BaseURL == "" {
+		resp.Error(c, http.StatusBadRequest, "base_url is required")
+		return
+	}
+	if err := xurl.AssertSafeURL(req.BaseURL); err != nil {
+		resp.Error(c, http.StatusBadRequest, "unsafe base_url: "+err.Error())
+		return
+	}
 	site, err := remotesite.Create(c.Request.Context(), &req)
 	if err != nil {
 		resp.Error(c, http.StatusBadRequest, err.Error())
@@ -109,6 +118,14 @@ func updateRemoteSite(c *gin.Context) {
 	var req model.RemoteSiteUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+	if req.BaseURL == nil || *req.BaseURL == "" {
+		resp.Error(c, http.StatusBadRequest, "base_url is required")
+		return
+	}
+	if err := xurl.AssertSafeURL(*req.BaseURL); err != nil {
+		resp.Error(c, http.StatusBadRequest, "unsafe base_url: "+err.Error())
 		return
 	}
 	site, err := remotesite.Update(c.Request.Context(), &req)
@@ -159,6 +176,14 @@ func detectSiteType(c *gin.Context) {
 	var req model.RemoteSiteDetectRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+	if req.BaseURL == "" {
+		resp.Error(c, http.StatusBadRequest, "base_url is required")
+		return
+	}
+	if err := xurl.AssertSafeURL(req.BaseURL); err != nil {
+		resp.Error(c, http.StatusBadRequest, "unsafe base_url: "+err.Error())
 		return
 	}
 	siteType, err := remotesite.DetectSiteType(c.Request.Context(), req.BaseURL, req.AccessToken)

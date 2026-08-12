@@ -10,6 +10,7 @@ import (
 
 	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/utils/crypto"
 	"gorm.io/gorm"
 )
 
@@ -109,6 +110,53 @@ func normalizeSiteProxyFields(site *model.Site) {
 	site.SiteProxy = nil
 	for i := range site.Accounts {
 		normalizeSiteAccountProxyFields(&site.Accounts[i])
+		// 账号凭据与站点 token 密文（enc: 前缀）解密回明文供上层使用；
+		// 存量明文原样通过（兼容升级前的数据）。
+		decryptSiteAccountCredentialFields(&site.Accounts[i])
+		decryptSiteTokensInPlace(site.Accounts[i].Tokens)
+	}
+}
+
+// encryptSiteAccountCredentialFields 就地加密账号凭据字段。调用方负责在落库
+// 完成后恢复明文（见 decryptSiteAccountCredentialFields）。
+func encryptSiteAccountCredentialFields(account *model.SiteAccount) error {
+	if account == nil {
+		return nil
+	}
+	fields := []*string{&account.Password, &account.AccessToken, &account.APIKey, &account.RefreshToken}
+	for _, f := range fields {
+		if *f == "" {
+			continue
+		}
+		enc, err := crypto.Encrypt(*f)
+		if err != nil {
+			return fmt.Errorf("encrypt site account credential: %w", err)
+		}
+		*f = enc
+	}
+	return nil
+}
+
+// decryptSiteAccountCredentialFields 将账号凭据解密回明文（无 enc: 前缀的存量
+// 明文原样保留）。
+func decryptSiteAccountCredentialFields(account *model.SiteAccount) {
+	if account == nil {
+		return
+	}
+	fields := []*string{&account.Password, &account.AccessToken, &account.APIKey, &account.RefreshToken}
+	for _, f := range fields {
+		if plain, err := crypto.Decrypt(*f); err == nil {
+			*f = plain
+		}
+	}
+}
+
+// decryptSiteTokensInPlace 将站点 token 解密回明文（存量明文原样保留）。
+func decryptSiteTokensInPlace(tokens []model.SiteToken) {
+	for i := range tokens {
+		if plain, err := crypto.Decrypt(tokens[i].Token); err == nil {
+			tokens[i].Token = plain
+		}
 	}
 }
 
@@ -372,6 +420,8 @@ func SiteAccountGet(id int, ctx context.Context) (*model.SiteAccount, error) {
 		return nil, err
 	}
 	normalizeSiteAccountProxyFields(&account)
+	decryptSiteAccountCredentialFields(&account)
+	decryptSiteTokensInPlace(account.Tokens)
 	return &account, nil
 }
 
@@ -387,6 +437,11 @@ func SiteAccountCreate(account *model.SiteAccount, ctx context.Context) error {
 			return err
 		}
 	}
+	// 凭据加密落库；落库完成后（含失败路径）恢复明文，保证调用方拿到明文。
+	if err := encryptSiteAccountCredentialFields(account); err != nil {
+		return err
+	}
+	defer decryptSiteAccountCredentialFields(account)
 	if (account.EnabledSet && !account.Enabled) || (account.AutoSyncSet && !account.AutoSync) || (account.AutoCheckinSet && !account.AutoCheckin) {
 		explicitEnabled := account.Enabled
 		explicitAutoSync := account.AutoSync
@@ -534,16 +589,32 @@ func SiteAccountUpdate(req *model.SiteAccountUpdateRequest, ctx context.Context)
 		updates.Username = merged.Username
 	}
 	if req.Password != nil {
-		updates.Password = merged.Password
+		enc, err := crypto.Encrypt(merged.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt password: %w", err)
+		}
+		updates.Password = enc
 	}
 	if req.AccessToken != nil {
-		updates.AccessToken = merged.AccessToken
+		enc, err := crypto.Encrypt(merged.AccessToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt access token: %w", err)
+		}
+		updates.AccessToken = enc
 	}
 	if req.APIKey != nil {
-		updates.APIKey = merged.APIKey
+		enc, err := crypto.Encrypt(merged.APIKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt api key: %w", err)
+		}
+		updates.APIKey = enc
 	}
 	if req.RefreshToken != nil {
-		updates.RefreshToken = merged.RefreshToken
+		enc, err := crypto.Encrypt(merged.RefreshToken)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encrypt refresh token: %w", err)
+		}
+		updates.RefreshToken = enc
 	}
 	if req.TokenExpiresAt != nil {
 		updates.TokenExpiresAt = merged.TokenExpiresAt

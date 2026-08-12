@@ -42,6 +42,29 @@ func populateRelayRequestSessionFields(c *gin.Context, req *transmodel.InternalL
 	if req.ResumeFromEventID == 0 {
 		req.ResumeFromEventID = parseRelayRawIntField(raw, "resume_from_sequence")
 	}
+
+	// 会话 ID 来自客户端（头/query/body），会被写回响应头并作为会话 map key：
+	// 限长并拒绝控制字符，防响应头注入与超长 key 内存放大。
+	req.ConversationID = sanitizeRelayConversationID(req.ConversationID)
+}
+
+// maxRelayConversationIDLen 是会话 ID 的最大长度（runes）。
+const maxRelayConversationIDLen = 128
+
+// sanitizeRelayConversationID 清理会话 ID：TrimSpace、拒绝控制字符（CR/LF 等）、
+// 超长返回空串。返回空串时该请求不启用 stream session。
+func sanitizeRelayConversationID(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if strings.IndexFunc(raw, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 {
+		return ""
+	}
+	if len([]rune(raw)) > maxRelayConversationIDLen {
+		return ""
+	}
+	return raw
 }
 
 func parseRelayRawStringField(raw map[string]RawMessage, field string) string {

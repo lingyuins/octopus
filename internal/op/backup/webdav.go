@@ -20,6 +20,10 @@ type WebDAVClient struct {
 	client   *http.Client
 }
 
+// maxWebDAVDownloadBytes 是 WebDAV 下载恢复文件的大小上限（512 MB）。
+// 防止配置的远端返回异常超大响应时 io.ReadAll 直接耗尽内存。
+const maxWebDAVDownloadBytes = 512 << 20
+
 // WebDAVFile WebDAV 文件信息
 type WebDAVFile struct {
 	Name         string    `json:"name"`
@@ -41,12 +45,12 @@ func NewWebDAVClient(baseURL, username, password string) *WebDAVClient {
 	}
 }
 
-// longClient returns an HTTP client with no client-level timeout, allowing
-// per-request context deadlines to govern the entire request lifecycle
-// (including body reading). This is necessary for Upload/Download where
-// the default 30-second client timeout would kill large transfers.
+// longClient returns an HTTP client whose timeout only kicks in beyond the
+// per-request context deadline (5 分钟), so Upload/Download 的大传输不会被
+// 默认 30 秒客户端超时杀掉，同时不会出现「无任何超时」的客户端（异常挂起时
+// 至多 10 分钟即可恢复）。
 func (c *WebDAVClient) longClient() *http.Client {
-	return &http.Client{}
+	return &http.Client{Timeout: 10 * time.Minute}
 }
 
 // Test 测试 WebDAV 连接
@@ -185,9 +189,12 @@ func (c *WebDAVClient) Download(remotePath string) ([]byte, error) {
 		return nil, fmt.Errorf("服务器返回错误: %d %s", resp.StatusCode, resp.Status)
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxWebDAVDownloadBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("读取数据失败: %w", err)
+	}
+	if int64(len(data)) > maxWebDAVDownloadBytes {
+		return nil, fmt.Errorf("下载内容超过 %d MB 上限，已中止", maxWebDAVDownloadBytes>>20)
 	}
 
 	return data, nil

@@ -44,8 +44,12 @@ func init() {
 var availableProbes = []string{"text_gen", "models_list", "tool_calling", "structured_output"}
 
 // verifyHTTPClient 是验证请求使用的 HTTP 客户端，带 30s 超时；
-// 避免使用无超时的 http.DefaultClient 导致请求挂死。
-var verifyHTTPClient = &http.Client{Timeout: 30 * time.Second}
+// 避免使用无超时的 http.DefaultClient 导致请求挂死。重定向逐跳做 SSRF 校验，
+// 防止初始校验通过后 302 到内网地址。
+var verifyHTTPClient = &http.Client{
+	Timeout:       30 * time.Second,
+	CheckRedirect: xurl.CheckRedirectSafe(5),
+}
 
 func listProbes(c *gin.Context) {
 	resp.Success(c, availableProbes)
@@ -82,6 +86,13 @@ func runVerificationForProfile(c *gin.Context) {
 	p, err := credential.GetDecrypted(c.Request.Context(), id)
 	if err != nil {
 		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// 凭据档案的 BaseURL 可能由低权限角色配置，探测前必须做 SSRF 校验
+	// （临时 URL 探测入口已校验，此路径此前遗漏）。
+	if err := xurl.AssertSafeURL(p.BaseURL); err != nil {
+		resp.Error(c, http.StatusBadRequest, "unsafe base_url: "+err.Error())
 		return
 	}
 

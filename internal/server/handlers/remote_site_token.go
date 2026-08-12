@@ -37,6 +37,7 @@ func init() {
 		).
 		AddRoute(
 			router.NewRoute("/export/:site_id", http.MethodGet).
+				Use(middleware.RequirePermission(auth.PermSitesWrite)).
 				Handle(exportTokens),
 		)
 }

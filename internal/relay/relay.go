@@ -1795,10 +1795,11 @@ exhausted:
 	req.metrics.Save(false, lastErr, allAttempts)
 	log.Warnf("[%s] all channels exhausted: model=%s, attempts=%d, last_error=%v",
 		req.internalRequest.RawAPIFormat, requestModel, len(allAttempts), lastErr)
+	// 对外返回通用文案，避免把上游内部错误体（可能含上游实现细节）回显给客户端；
+	// 完整错误已写入上方日志与 relay_log。
+	resp.Error(req.c, http.StatusBadGateway, "all channels failed")
 	if lastErr != nil {
-		resp.Error(req.c, http.StatusBadGateway, fmt.Sprintf("all channels failed: %v", lastErr))
 		return nil, lastErr
 	}
-	resp.Error(req.c, http.StatusBadGateway, "all channels failed")
 	return nil, errors.New("all channels failed")
 }

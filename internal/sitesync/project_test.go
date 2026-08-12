@@ -10,6 +10,7 @@ import (
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op"
 	"github.com/lingyuins/octopus/internal/transformer/outbound"
+	"github.com/lingyuins/octopus/internal/utils/crypto"
 )
 
 func TestBuildProjectedChannelBaseURL(t *testing.T) {
@@ -1010,6 +1011,12 @@ func loadProjectedChannelsByGroupKey(t *testing.T, ctx context.Context, accountI
 			Preload("Keys").
 			First(&channel, binding.ChannelID).Error; err != nil {
 			t.Fatalf("load channel %d failed: %v", binding.ChannelID, err)
+		}
+		// 渠道 Key 密文落库：断言前解密（存量明文原样通过）。
+		for i := range channel.Keys {
+			if plain, err := crypto.Decrypt(channel.Keys[i].ChannelKey); err == nil {
+				channel.Keys[i].ChannelKey = plain
+			}
 		}
 		channelsByGroup[binding.GroupKey] = channel
 	}

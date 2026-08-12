@@ -12,8 +12,13 @@ import (
 	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/utils/log"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
+
+// dummyBcryptHash 是用户不存在时用于抹平时序差异的 dummy bcrypt 哈希
+// （"password" 的标准 bcrypt 哈希，仅用于保证比较耗时一致，防用户名枚举）。
+var dummyBcryptHash = []byte("$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy")
 
 var (
 	adminCache   model.User
@@ -236,6 +241,11 @@ func ChangePassword(userID uint, oldPassword, newPassword string) error {
 	if err != nil {
 		return fmt.Errorf("user not found: %w", err)
 	}
+	// 与创建/引导流程一致：修改密码同样要求满足强度策略（≥12 位等），
+	// 避免管理员把密码改成弱口令。
+	if err := validateManagedCredentials(user.Username, newPassword); err != nil {
+		return err
+	}
 	if err := user.ComparePassword(oldPassword); err != nil {
 		return fmt.Errorf("incorrect old password: %w", err)
 	}
@@ -298,6 +308,9 @@ func Verify(username, password string) (model.User, error) {
 	}
 	user, err := GetByUsername(strings.TrimSpace(username), context.Background())
 	if err != nil {
+		// 用户不存在时也执行一次 dummy bcrypt 比较，抹平「用户存在与否」的
+		// 时序差异，防用户名枚举。
+		_ = bcrypt.CompareHashAndPassword(dummyBcryptHash, []byte(password))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return model.User{}, fmt.Errorf("incorrect username")
 		}

@@ -10,6 +10,7 @@ import (
 	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/op"
+	"github.com/lingyuins/octopus/internal/utils/crypto"
 	"github.com/lingyuins/octopus/internal/utils/log"
 	"gorm.io/gorm"
 )
@@ -81,6 +82,13 @@ func persistSyncSnapshot(ctx context.Context, accountID int, snapshot *syncSnaps
 		if err := tx.Where("site_account_id = ?", accountID).Order("id ASC").Find(&existingTokens).Error; err != nil {
 			return err
 		}
+		// 存量 token 可能为密文（enc: 前缀），解密后供合并/脱敏匹配逻辑使用；
+		// 写回前会重新加密（见下方 tx.Create）。
+		for i := range existingTokens {
+			if plain, err := crypto.Decrypt(existingTokens[i].Token); err == nil {
+				existingTokens[i].Token = plain
+			}
+		}
 
 		var existingModels []model.SiteModel
 		if err := tx.Where("site_account_id = ?", accountID).Find(&existingModels).Error; err != nil {
@@ -101,7 +109,11 @@ func persistSyncSnapshot(ctx context.Context, accountID int, snapshot *syncSnaps
 			"today_income":      snapshot.todayIncome,
 		}
 		if strings.TrimSpace(snapshot.accessToken) != "" {
-			updatePayload["access_token"] = strings.TrimSpace(snapshot.accessToken)
+			enc, err := crypto.Encrypt(strings.TrimSpace(snapshot.accessToken))
+			if err != nil {
+				return err
+			}
+			updatePayload["access_token"] = enc
 		}
 		if err := tx.Model(&model.SiteAccount{}).Where("id = ?", accountID).Updates(updatePayload).Error; err != nil {
 			return err
@@ -127,6 +139,17 @@ func persistSyncSnapshot(ctx context.Context, accountID int, snapshot *syncSnaps
 			return err
 		}
 		if len(mergedTokens) > 0 {
+			// 站点 token 加密落库。
+			for i := range mergedTokens {
+				if mergedTokens[i].Token == "" {
+					continue
+				}
+				enc, err := crypto.Encrypt(mergedTokens[i].Token)
+				if err != nil {
+					return err
+				}
+				mergedTokens[i].Token = enc
+			}
 			if err := tx.Create(&mergedTokens).Error; err != nil {
 				return err
 			}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/utils/crypto"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -586,6 +587,9 @@ func UpdateSiteSourceKeys(siteID int, accountID int, req *model.SiteSourceKeyUpd
 		if err := tx.Where("site_account_id = ? AND group_key = ?", accountID, targetGroupKey).Find(&existingTokens).Error; err != nil {
 			return err
 		}
+		// 存量 token 可能是密文（enc: 前缀），解密后供脱敏匹配逻辑使用；
+		// 写回时再加密（见 KeysToUpdate）。
+		decryptSiteTokensInPlace(existingTokens)
 
 		validIDs := make(map[int]model.SiteToken, len(existingTokens))
 		for _, token := range existingTokens {
@@ -597,10 +601,14 @@ func UpdateSiteSourceKeys(siteID int, accountID int, req *model.SiteSourceKeyUpd
 			if err != nil {
 				return err
 			}
+			encToken, err := crypto.Encrypt(normalizedToken)
+			if err != nil {
+				return err
+			}
 			row := model.SiteToken{
 				SiteAccountID: accountID,
 				Name:          strings.TrimSpace(item.Name),
-				Token:         normalizedToken,
+				Token:         encToken,
 				GroupKey:      targetGroupKey,
 				GroupName:     model.NormalizeSiteGroupName(targetGroupKey, targetGroupKey),
 				Enabled:       item.Enabled,
@@ -637,7 +645,11 @@ func UpdateSiteSourceKeys(siteID int, accountID int, req *model.SiteSourceKeyUpd
 						return fmt.Errorf("新 Key 与已有脱敏 Key 模式不匹配，请确认输入")
 					}
 				}
-				updates["token"] = normalizedToken
+				encToken, err := crypto.Encrypt(normalizedToken)
+				if err != nil {
+					return err
+				}
+				updates["token"] = encToken
 				updates["value_status"] = model.NormalizeSiteTokenValueStatus(existing.ValueStatus, normalizedToken)
 			}
 			if len(updates) == 0 {

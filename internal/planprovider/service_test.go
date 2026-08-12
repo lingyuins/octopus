@@ -15,6 +15,7 @@ import (
 	"github.com/lingyuins/octopus/internal/op/channel"
 	stats "github.com/lingyuins/octopus/internal/op/stats"
 	"github.com/lingyuins/octopus/internal/transformer/outbound"
+	"github.com/lingyuins/octopus/internal/utils/crypto"
 )
 
 // withVolcenginePlanServer 起一个 mock GetAgentPlanAFPUsage 服务，返回固定用量。
@@ -121,11 +122,20 @@ func TestUpdateProviderCredentials_VolcengineNewAPIKeyRefreshesUsage(t *testing.
 	if err := db.GetDB().First(&stored, provider.ID).Error; err != nil {
 		t.Fatalf("load stored: %v", err)
 	}
-	if stored.APIKey != newAPIKey {
-		t.Errorf("stored APIKey = %q, want %q", stored.APIKey, newAPIKey)
+	// APIKey/ForwardAPIKey 密文落库（enc: 前缀），解密后应与原文一致。
+	decAPIKey, err1 := crypto.Decrypt(stored.APIKey)
+	decForward, err2 := crypto.Decrypt(stored.ForwardAPIKey)
+	if err1 != nil || !strings.HasPrefix(stored.APIKey, "enc:") {
+		t.Errorf("stored APIKey = %q, want enc: prefixed ciphertext (err=%v)", stored.APIKey, err1)
 	}
-	if stored.ForwardAPIKey != forwardKey {
-		t.Errorf("stored ForwardAPIKey = %q, want %q", stored.ForwardAPIKey, forwardKey)
+	if decAPIKey != newAPIKey {
+		t.Errorf("decrypted APIKey = %q, want %q", decAPIKey, newAPIKey)
+	}
+	if err2 != nil || !strings.HasPrefix(stored.ForwardAPIKey, "enc:") {
+		t.Errorf("stored ForwardAPIKey = %q, want enc: prefixed ciphertext (err=%v)", stored.ForwardAPIKey, err2)
+	}
+	if decForward != forwardKey {
+		t.Errorf("decrypted ForwardAPIKey = %q, want %q", decForward, forwardKey)
 	}
 }
 
@@ -708,12 +718,16 @@ func TestUpdateProviderCredentials_VolcengineNewForwardKeySyncsChannelKey(t *tes
 		t.Errorf("新 forward key %q 未在渠道 keys %v 中找到", newForward, keyValues)
 	}
 
-	// DB 持久化
+	// DB 持久化（密文落库，解密后应与原文一致）
 	var stored model.PlanProvider
 	if err := db.GetDB().First(&stored, provider.ID).Error; err != nil {
 		t.Fatalf("load stored: %v", err)
 	}
-	if stored.ForwardAPIKey != newForward {
-		t.Errorf("stored ForwardAPIKey = %q, want %q", stored.ForwardAPIKey, newForward)
+	decForward, err := crypto.Decrypt(stored.ForwardAPIKey)
+	if err != nil || !strings.HasPrefix(stored.ForwardAPIKey, "enc:") {
+		t.Errorf("stored ForwardAPIKey = %q, want enc: prefixed ciphertext (err=%v)", stored.ForwardAPIKey, err)
+	}
+	if decForward != newForward {
+		t.Errorf("decrypted ForwardAPIKey = %q, want %q", decForward, newForward)
 	}
 }

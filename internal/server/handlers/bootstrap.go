@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/model"
@@ -45,7 +46,11 @@ func createBootstrapAdmin(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
 		return
 	}
+	loginKey := c.GetString("login_rate_limit_key")
 	if err := usr.BootstrapCreate(user.Username, user.Password); err != nil {
+		// 记录失败以启用限流：未初始化实例存在被抢先注册 admin 的窗口，
+		// 此前失败从不调用 RecordLoginFailure，LoginRateLimit 形同虚设。
+		middleware.RecordLoginFailure(loginKey, time.Now())
 		if errors.Is(err, usr.ErrBootstrapAlreadySetUp) {
 			resp.Error(c, http.StatusConflict, err.Error())
 			return
@@ -58,6 +63,7 @@ func createBootstrapAdmin(c *gin.Context) {
 		resp.InternalError(c)
 		return
 	}
+	middleware.ClearLoginFailures(loginKey)
 	resp.Success(c, gin.H{"initialized": true})
 }
 

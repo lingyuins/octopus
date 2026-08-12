@@ -389,10 +389,16 @@ func parseDurationOrZero(s string) time.Duration {
 // getCacheConfig 返回当前 cache 配置（config.json 中的 cache.type / cache.redis.*）。
 // 供设置页「缓存」卡片回显当前值。Redis 启用是启动时决策，此处只读运行中进程的配置。
 func getCacheConfig(c *gin.Context) {
-	resp.Success(c, model.CacheConfig{
+	cfg := model.CacheConfig{
 		Type:  conf.AppConfig.Cache.Type,
 		Redis: toModelRedis(conf.AppConfig.Cache.Redis),
-	})
+	}
+	// Redis 密码/用户名对 viewer 遮蔽：仅凭 settings:read 不应拿到明文凭据。
+	if isViewerRole(c.GetString("user_role")) {
+		cfg.Redis.Password = viewerMaskedDomain
+		cfg.Redis.Username = viewerMaskedDomain
+	}
+	resp.Success(c, cfg)
 }
 
 // testCacheConnection 测试 Redis 连接连通性（不改变全局 store 状态）。

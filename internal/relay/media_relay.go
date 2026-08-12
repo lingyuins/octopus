@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -371,7 +372,8 @@ func MediaHandler(endpointType MediaEndpointType, c *gin.Context) {
 	}
 	// All route rounds exhausted
 	recordMediaRelayLog(apiKeyID, requestModel, logEndpointType, bodyBytes, lastChannelID, lastChannelName, lastResolvedModel, time.Since(startTime), allAttempts, lastErr, clientIP)
-	resp.Error(c, http.StatusBadGateway, fmt.Sprintf("all channels failed: %v", lastErr))
+	// 对外返回通用文案，上游错误细节仅入日志（同 chat 路径）。
+	resp.Error(c, http.StatusBadGateway, "all channels failed")
 	return
 
 mediaExhausted:
@@ -380,11 +382,7 @@ mediaExhausted:
 		allAttempts = append(allAttempts, routeIter.Attempts()...)
 	}
 	recordMediaRelayLog(apiKeyID, requestModel, logEndpointType, bodyBytes, lastChannelID, lastChannelName, lastResolvedModel, time.Since(startTime), allAttempts, lastErr, clientIP)
-	if lastErr != nil {
-		resp.Error(c, http.StatusBadGateway, fmt.Sprintf("all channels failed: %v", lastErr))
-	} else {
-		resp.Error(c, http.StatusBadGateway, "all channels failed")
-	}
+	resp.Error(c, http.StatusBadGateway, "all channels failed")
 }
 
 // recordMediaRelayLog creates a RelayLog entry and updates global stats for media endpoints.
@@ -851,7 +849,12 @@ func handleSSEResponse(c *gin.Context, response *http.Response) (int, error) {
 	reader := getReader(response.Body)
 	defer putReader(reader)
 	for {
-		line, err := reader.ReadBytes('\n')
+		// ReadSlice 在单行超过内部缓冲时返回 bufio.ErrBufferFull 且不再扩容，
+		// 用其代替 ReadBytes 以限制恶意上游「无限长一行」的内存放大。
+		line, err := reader.ReadSlice('\n')
+		if errors.Is(err, bufio.ErrBufferFull) {
+			return 0, fmt.Errorf("sse line exceeds %d bytes", reader.Size())
+		}
 		if len(line) > 0 {
 			if _, writeErr := c.Writer.Write(line); writeErr != nil {
 				return 0, fmt.Errorf("failed to stream sse response: %w", writeErr)

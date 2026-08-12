@@ -529,8 +529,14 @@ func ensureSenseNovaSession(ctx context.Context, provider *model.PlanProvider) (
 func senseNovaPersistSession(ctx context.Context, provider *model.PlanProvider, s *senseNovaSession) {
 	provider.APIKey = s.accessToken
 	updates := map[string]any{
-		"api_key":    s.accessToken,
 		"updated_at": time.Now(),
+	}
+	// access_token 加密落库（api_key 字段）。
+	if enc, err := crypto.Encrypt(s.accessToken); err == nil {
+		updates["api_key"] = enc
+	} else {
+		log.Warnf("planprovider: sensenova persist session: encrypt access token failed: %v", err)
+		return
 	}
 	if s.refreshToken != "" {
 		if enc, err := crypto.Encrypt(s.refreshToken); err == nil {

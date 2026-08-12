@@ -3,6 +3,7 @@ package xurl
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -79,4 +80,20 @@ func AssertSafeURL(rawURL string) error {
 		return fmt.Errorf("url must be a valid http or https url")
 	}
 	return AssertSafeHost(parsed)
+}
+
+// CheckRedirectSafe 返回一个 http.Client 的 CheckRedirect 函数：对每一跳重定向
+// 目标重新执行 AssertSafeHost 校验，并限制最大跳数。初始 URL 校验通过后，攻击者
+// 域名仍可能 302 到内网地址（或利用 DNS rebinding 在解析后更换指向），逐跳校验
+// 可封堵「重定向到内网」这一绕过路径。
+func CheckRedirectSafe(maxRedirects int) func(*http.Request, []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+		if maxRedirects > 0 && len(via) >= maxRedirects {
+			return fmt.Errorf("stopped after %d redirects", maxRedirects)
+		}
+		if req.URL == nil || req.URL.Host == "" {
+			return fmt.Errorf("redirect url is invalid")
+		}
+		return AssertSafeHost(req.URL)
+	}
 }

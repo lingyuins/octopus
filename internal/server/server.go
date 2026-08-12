@@ -91,6 +91,12 @@ func Start() error {
 
 	httpSrv.Addr = fmt.Sprintf("%s:%d", conf.AppConfig.Server.Host, conf.AppConfig.Server.Port)
 	httpSrv.Handler = r
+	// 基础超时防护（Slowloris 慢速头/慢速体会无限占用连接与 goroutine）：
+	// 只约束读取侧与空闲连接，不设置 WriteTimeout——流式（SSE）响应需要长时间写。
+	httpSrv.ReadHeaderTimeout = conf.ServerReadHeaderTimeout
+	httpSrv.ReadTimeout = conf.ServerReadTimeout
+	httpSrv.IdleTimeout = conf.ServerIdleTimeout
+	httpSrv.MaxHeaderBytes = 1 << 20 // 1 MiB
 	ln, err := net.Listen("tcp", httpSrv.Addr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", httpSrv.Addr, err)

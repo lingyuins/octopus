@@ -20,6 +20,7 @@ import (
 	"github.com/lingyuins/octopus/internal/pkg/oauth"
 	"github.com/lingyuins/octopus/internal/pkg/openai"
 	"github.com/lingyuins/octopus/internal/pkg/xai"
+	"github.com/lingyuins/octopus/internal/server/auth"
 	"github.com/lingyuins/octopus/internal/server/middleware"
 	"github.com/lingyuins/octopus/internal/server/router"
 	"github.com/lingyuins/octopus/internal/utils/log"
@@ -30,7 +31,10 @@ import (
 func init() {
 	router.NewGroupRouter("/api/v1/pool/oauth").
 		AddRoute(
-			router.NewRoute("/initiate", http.MethodGet).Use(middleware.Auth()).Handle(oauthInitiate),
+			router.NewRoute("/initiate", http.MethodGet).
+				Use(middleware.Auth()).
+				Use(middleware.RequirePermission(auth.PermChannelsWrite)).
+				Handle(oauthInitiate),
 		).
 		AddRoute(
 			router.NewRoute("/callback", http.MethodGet).Handle(oauthCallback),

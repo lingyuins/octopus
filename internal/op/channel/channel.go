@@ -10,6 +10,7 @@ import (
 	"github.com/lingyuins/octopus/internal/model"
 	"github.com/lingyuins/octopus/internal/store"
 	"github.com/lingyuins/octopus/internal/utils/cache"
+	"github.com/lingyuins/octopus/internal/utils/crypto"
 	"github.com/lingyuins/octopus/internal/utils/xstrings"
 	"gorm.io/gorm/clause"
 )
@@ -42,6 +43,35 @@ func List(ctx context.Context) ([]model.Channel, error) {
 	return channels, nil
 }
 
+// encryptChannelKeysForDB 将渠道 Key 加密（enc: 前缀）以便落库。
+// 调用方负责保证加密后不把密文写回运行时缓存；落库完成后应恢复明文。
+func encryptChannelKeysForDB(keys []model.ChannelKey) error {
+	for i := range keys {
+		if keys[i].ChannelKey == "" {
+			continue
+		}
+		enc, err := crypto.Encrypt(keys[i].ChannelKey)
+		if err != nil {
+			return fmt.Errorf("encrypt channel key %d: %w", keys[i].ID, err)
+		}
+		keys[i].ChannelKey = enc
+	}
+	return nil
+}
+
+// decryptChannelKeysInPlace 将渠道 Key 解密回明文（无 enc: 前缀的存量明文原样
+// 保留）。用于落库完成后恢复内存对象与运行时缓存。
+func decryptChannelKeysInPlace(keys []model.ChannelKey) {
+	for i := range keys {
+		if keys[i].ChannelKey == "" {
+			continue
+		}
+		if plain, err := crypto.Decrypt(keys[i].ChannelKey); err == nil {
+			keys[i].ChannelKey = plain
+		}
+	}
+}
+
 func Create(ch *model.Channel, ctx context.Context) error {
 	if ch != nil {
 		if err := ch.RequestRewrite.Validate(ch.Type); err != nil {
@@ -59,6 +89,12 @@ func Create(ch *model.Channel, ctx context.Context) error {
 		} else if _, err := GroupGet(ch.GroupID, ctx); err != nil {
 			return err
 		}
+		// 渠道 Key 加密落库；落库后（含失败路径）恢复明文，保证缓存与
+		// 调用方拿到的对象始终是明文。
+		if err := encryptChannelKeysForDB(ch.Keys); err != nil {
+			return err
+		}
+		defer decryptChannelKeysInPlace(ch.Keys)
 	}
 	if err := db.GetDB().WithContext(ctx).Create(ch).Error; err != nil {
 		return err
@@ -223,6 +259,17 @@ func KeySaveDB(ctx context.Context) error {
 	}
 	if len(keys) == 0 {
 		return nil
+	}
+
+	// 渠道 Key 加密落库（缓存中保持明文，仅加密本地的副本）。
+	if err := encryptChannelKeysForDB(keys); err != nil {
+		// 与写库失败一致：把脏 ID 重新入队，等待下次重试。
+		keyCacheNeedUpdateLock.Lock()
+		for _, id := range keyIDs {
+			keyCacheNeedUpdate[id] = struct{}{}
+		}
+		keyCacheNeedUpdateLock.Unlock()
+		return err
 	}
 
 	if err := db.GetDB().WithContext(ctx).Clauses(clause.OnConflict{
@@ -438,7 +485,12 @@ func Update(req *model.ChannelUpdateRequest, ctx context.Context) (*model.Channe
 				updates["enabled"] = *ku.Enabled
 			}
 			if ku.ChannelKey != nil {
-				updates["channel_key"] = *ku.ChannelKey
+				enc, err := crypto.Encrypt(*ku.ChannelKey)
+				if err != nil {
+					tx.Rollback()
+					return nil, fmt.Errorf("failed to encrypt channel key %d: %w", ku.ID, err)
+				}
+				updates["channel_key"] = enc
 			}
 			if ku.Priority != nil {
 				updates["priority"] = *ku.Priority
@@ -464,10 +516,15 @@ func Update(req *model.ChannelUpdateRequest, ctx context.Context) (*model.Channe
 	if len(req.KeysToAdd) > 0 {
 		newKeys := make([]model.ChannelKey, 0, len(req.KeysToAdd))
 		for _, ka := range req.KeysToAdd {
+			enc, err := crypto.Encrypt(ka.ChannelKey)
+			if err != nil {
+				tx.Rollback()
+				return nil, fmt.Errorf("failed to encrypt new channel key: %w", err)
+			}
 			newKeys = append(newKeys, model.ChannelKey{
 				ChannelID:  req.ID,
 				Enabled:    ka.Enabled,
-				ChannelKey: ka.ChannelKey,
+				ChannelKey: enc,
 				Priority:   ka.Priority,
 				Remark:     ka.Remark,
 				Managed:    ka.Managed,
@@ -745,6 +802,9 @@ func RefreshCache(ctx context.Context) error {
 
 	for i := range channels {
 		ch := channels[i]
+		// 渠道 Key 密文（enc: 前缀）解密回明文供运行时使用；存量明文
+		// 原样通过（兼容升级前的数据）。
+		decryptChannelKeysInPlace(ch.Keys)
 		// Redis 后端：恢复频道 base URL 延迟探测结果（重启后保留）。
 		// 内存模式下 GetDelays 返回空（memoryChannelDelay 是 no-op），不影响行为。
 		if store.Enabled() {
@@ -784,6 +844,8 @@ func RefreshCacheByID(id int, ctx context.Context) error {
 		First(&ch, id).Error; err != nil {
 		return err
 	}
+	// 渠道 Key 解密回明文供运行时使用（存量明文原样通过）。
+	decryptChannelKeysInPlace(ch.Keys)
 	chCache.Set(ch.ID, ch)
 	for _, k := range ch.Keys {
 		if k.ID != 0 {

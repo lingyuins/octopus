@@ -11,6 +11,7 @@ import (
 
 	"github.com/lingyuins/octopus/internal/db"
 	"github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/utils/crypto"
 	"gorm.io/gorm"
 )
 
@@ -668,6 +669,17 @@ func replaceMetAPIAccountData(tx *gorm.DB, accountID int, data metAPIImportAccou
 		return 0, 0, 0, 0, err
 	}
 	if len(tokens) > 0 {
+		// 站点 token 加密落库。
+		for i := range tokens {
+			if tokens[i].Token == "" {
+				continue
+			}
+			enc, err := crypto.Encrypt(tokens[i].Token)
+			if err != nil {
+				return 0, 0, 0, 0, err
+			}
+			tokens[i].Token = enc
+		}
 		if err := tx.Create(&tokens).Error; err != nil {
 			return 0, 0, 0, 0, err
 		}
@@ -850,15 +862,32 @@ func upsertImportedAccount(tx *gorm.DB, siteRecord *model.Site, input importedAc
 		if err := created.Validate(); err != nil {
 			return nil, false, false, err
 		}
+		// 凭据字段加密落库。
+		encPassword, err := crypto.Encrypt(created.Password)
+		if err != nil {
+			return nil, false, false, fmt.Errorf("encrypt password failed: %w", err)
+		}
+		encAccessToken, err := crypto.Encrypt(created.AccessToken)
+		if err != nil {
+			return nil, false, false, fmt.Errorf("encrypt access token failed: %w", err)
+		}
+		encAPIKey, err := crypto.Encrypt(created.APIKey)
+		if err != nil {
+			return nil, false, false, fmt.Errorf("encrypt api key failed: %w", err)
+		}
+		encRefreshToken, err := crypto.Encrypt(created.RefreshToken)
+		if err != nil {
+			return nil, false, false, fmt.Errorf("encrypt refresh token failed: %w", err)
+		}
 		if err := tx.Model(&model.SiteAccount{}).Create(map[string]any{
 			"site_id":                       created.SiteID,
 			"name":                          created.Name,
 			"credential_type":               created.CredentialType,
 			"username":                      created.Username,
-			"password":                      created.Password,
-			"access_token":                  created.AccessToken,
-			"api_key":                       created.APIKey,
-			"refresh_token":                 created.RefreshToken,
+			"password":                      encPassword,
+			"access_token":                  encAccessToken,
+			"api_key":                       encAPIKey,
+			"refresh_token":                 encRefreshToken,
 			"token_expires_at":              created.TokenExpiresAt,
 			"platform_user_id":              created.PlatformUserID,
 			"proxy_mode":                    created.ProxyMode,
@@ -884,6 +913,8 @@ func upsertImportedAccount(tx *gorm.DB, siteRecord *model.Site, input importedAc
 		if accountRecord == nil {
 			return nil, false, false, fmt.Errorf("created site account could not be reloaded")
 		}
+		// 重新加载的记录凭据为密文，恢复明文供导入后续流程使用。
+		decryptSiteAccountCredentialFields(accountRecord)
 		return accountRecord, true, false, nil
 	}
 
@@ -909,16 +940,32 @@ func upsertImportedAccount(tx *gorm.DB, siteRecord *model.Site, input importedAc
 		"name":             merged.Name,
 		"credential_type":  merged.CredentialType,
 		"username":         merged.Username,
-		"password":         merged.Password,
-		"access_token":     merged.AccessToken,
-		"api_key":          merged.APIKey,
-		"refresh_token":    merged.RefreshToken,
 		"token_expires_at": merged.TokenExpiresAt,
 		"platform_user_id": merged.PlatformUserID,
 		"proxy_mode":       merged.ProxyMode,
 		"proxy_config_id":  merged.ProxyConfigID,
 		"account_proxy":    merged.AccountProxy,
 		"auto_checkin":     merged.AutoCheckin,
+	}
+	// 凭据字段加密落库。
+	for _, field := range []struct {
+		name string
+		val  string
+	}{
+		{"password", merged.Password},
+		{"access_token", merged.AccessToken},
+		{"api_key", merged.APIKey},
+		{"refresh_token", merged.RefreshToken},
+	} {
+		if field.val == "" {
+			updates[field.name] = field.val
+			continue
+		}
+		enc, err := crypto.Encrypt(field.val)
+		if err != nil {
+			return nil, false, false, fmt.Errorf("encrypt %s failed: %w", field.name, err)
+		}
+		updates[field.name] = enc
 	}
 	if err := tx.Model(&model.SiteAccount{}).Where("id = ?", accountRecord.ID).Updates(updates).Error; err != nil {
 		return nil, false, false, fmt.Errorf("update site account failed: %w", err)
@@ -1013,14 +1060,14 @@ func findImportedAccount(tx *gorm.DB, siteID int, input importedAccountInput) (*
 		}
 	case model.SiteCredentialTypeAccessToken:
 		if input.AccessToken != "" {
-			record, err := findByQuery("site_id = ? AND credential_type = ? AND access_token = ?", siteID, input.CredentialType, strings.TrimSpace(input.AccessToken))
+			record, err := findByDecryptedCredential(tx, siteID, input, func(a *model.SiteAccount) string { return a.AccessToken }, strings.TrimSpace(input.AccessToken))
 			if record != nil || err != nil {
 				return record, err
 			}
 		}
 	case model.SiteCredentialTypeAPIKey:
 		if input.APIKey != "" {
-			record, err := findByQuery("site_id = ? AND credential_type = ? AND api_key = ?", siteID, input.CredentialType, strings.TrimSpace(input.APIKey))
+			record, err := findByDecryptedCredential(tx, siteID, input, func(a *model.SiteAccount) string { return a.APIKey }, strings.TrimSpace(input.APIKey))
 			if record != nil || err != nil {
 				return record, err
 			}
@@ -1038,6 +1085,26 @@ func findImportedAccount(tx *gorm.DB, siteID int, input importedAccountInput) (*
 	}
 	if len(matches) == 1 {
 		return &matches[0], nil
+	}
+	return nil, nil
+}
+
+// findByDecryptedCredential 在同站点、同凭据类型下查找凭据值匹配的账号。
+// 凭据密文为 AES-GCM 非确定性加密，无法按密文等值查询，只能加载候选后
+// 解密比对（站点账号数量有限，与号池 OAuth 去重同模式）。
+func findByDecryptedCredential(tx *gorm.DB, siteID int, input importedAccountInput, pick func(*model.SiteAccount) string, plainValue string) (*model.SiteAccount, error) {
+	var candidates []model.SiteAccount
+	if err := tx.Where("site_id = ? AND credential_type = ?", siteID, input.CredentialType).Find(&candidates).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	for i := range candidates {
+		decryptSiteAccountCredentialFields(&candidates[i])
+		if pick(&candidates[i]) == plainValue {
+			return &candidates[i], nil
+		}
 	}
 	return nil, nil
 }

@@ -20,6 +20,10 @@ import (
 
 const maxUpdateAPIResponseBytes = 2 << 20 // 2 MiB — GitHub API release info JSON is typically < 100 KiB
 
+// maxUpdateBinaryBytes 是更新二进制包（zip）的下载上限（512 MiB）。
+// 之前对二进制包 io.ReadAll 无任何上限，异常超大响应可直接耗尽内存。
+const maxUpdateBinaryBytes = 512 << 20
+
 func getUpdateURL() string {
 	if u := conf.AppConfig.External.UpdateURL; u != "" {
 		return u
@@ -45,12 +49,12 @@ var github_pat = os.Getenv(strings.ToUpper(conf.APP_NAME) + "_GITHUB_PAT")
 
 // doRequestWithFallback performs an HTTP GET request, first without proxy, then with proxy if failed.
 func doRequestWithFallback(url string) ([]byte, error) {
-	data, err := doRequest(url, false, 0, "")
+	data, err := doRequest(url, false, maxUpdateBinaryBytes, "update binary")
 	if err == nil {
 		return data, nil
 	}
 	log.Warnf("direct request failed, trying with proxy: %v", err)
-	return doRequest(url, true, 0, "")
+	return doRequest(url, true, maxUpdateBinaryBytes, "update binary")
 }
 
 func doAPIRequestWithFallback(url string) ([]byte, error) {

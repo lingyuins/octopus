@@ -51,6 +51,7 @@ func redactRemoteSiteBaseURLsForViewer(sites []model.RemoteSite) {
 func redactCredentialBaseURLsForViewer(profiles []model.APICredentialProfile) {
 	for profileIndex := range profiles {
 		profiles[profileIndex].BaseURL = maskURLDomainForViewer(profiles[profileIndex].BaseURL)
+		profiles[profileIndex].APIKey = viewerMaskedDomain
 	}
 }
 
@@ -64,10 +65,17 @@ func redactSiteBaseURLsForViewer(sites []model.Site) {
 		}
 		// Mask account-level custom proxy addresses (accounts are preloaded in list queries)
 		for accountIndex := range sites[siteIndex].Accounts {
-			if sites[siteIndex].Accounts[accountIndex].AccountProxy != nil {
-				masked := maskURLDomainForViewer(*sites[siteIndex].Accounts[accountIndex].AccountProxy)
-				sites[siteIndex].Accounts[accountIndex].AccountProxy = &masked
+			account := &sites[siteIndex].Accounts[accountIndex]
+			if account.AccountProxy != nil {
+				masked := maskURLDomainForViewer(*account.AccountProxy)
+				account.AccountProxy = &masked
 			}
+			// Mask upstream account credentials: viewer 只能看到站点元信息，
+			// 账号密码/token/API Key 不得明文返回。
+			account.Password = viewerMaskedDomain
+			account.AccessToken = viewerMaskedDomain
+			account.APIKey = viewerMaskedDomain
+			account.RefreshToken = viewerMaskedDomain
 		}
 	}
 }
@@ -80,6 +88,13 @@ func redactSettingsURLsForViewer(settings []model.Setting) {
 			model.SettingKeySemanticCacheEmbeddingBaseURL,
 			model.SettingKeyAIRouteBaseURL:
 			settings[settingIndex].Value = maskURLDomainForViewer(settings[settingIndex].Value)
+		case model.SettingKeyWebDAVConfig,
+			model.SettingKeySemanticCacheEmbeddingAPIKey,
+			model.SettingKeyAIRouteAPIKey,
+			model.SettingKeyAIRouteServices:
+			// 密钥类设置（WebDAV 密码、embedding/路由 API Key、服务池 JSON）对
+			// viewer 整体遮蔽，避免明文凭据经设置列表泄露。
+			settings[settingIndex].Value = viewerMaskedDomain
 		}
 	}
 }
