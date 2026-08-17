@@ -15,6 +15,11 @@ import (
 	"github.com/lingyuins/octopus/internal/op"
 )
 
+// maxSiteResponseBytes 限制站点同步响应体的最大读取字节数（issue #221）：
+// 对端站点被劫持或异常时返回超大 body 会直接吃内存，与 detect.go 的
+// LimitReader 做法对齐。站点同步的模型/定价 JSON 远小于此上限。
+const maxSiteResponseBytes = 8 << 20
+
 func siteHTTPClient(ctx context.Context, siteRecord *model.Site, accounts ...*model.SiteAccount) (*http.Client, error) {
 	if siteRecord == nil {
 		return nil, fmt.Errorf("site is nil")
@@ -89,7 +94,7 @@ func requestJSON(ctx context.Context, siteRecord *model.Site, method string, req
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := io.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, maxSiteResponseBytes))
 	if err != nil {
 		return nil, err
 	}

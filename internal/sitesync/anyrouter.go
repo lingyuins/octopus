@@ -809,7 +809,7 @@ func anyRouterRequestJSONWithCookies(ctx context.Context, siteRecord *model.Site
 			return nil, cookieHeader, err
 		}
 
-		bodyBytes, readErr := io.ReadAll(resp.Body)
+		bodyBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, maxSiteResponseBytes))
 		resp.Body.Close()
 		if readErr != nil {
 			return nil, cookieHeader, readErr

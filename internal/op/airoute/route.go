@@ -25,6 +25,7 @@ import (
 	"github.com/lingyuins/octopus/internal/utils/log"
 	"github.com/lingyuins/octopus/internal/utils/proxyx"
 	"github.com/lingyuins/octopus/internal/utils/xstrings"
+	"github.com/lingyuins/octopus/internal/utils/xurl"
 	"golang.org/x/net/proxy"
 	"golang.org/x/sync/semaphore"
 )
@@ -692,6 +693,16 @@ func generateAIRoutesForBucketWithService(
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(service.APIKey))
+
+	// SSRF 防护（issue #221）：AI Route 的 BaseURL 来自 settings，editor 可改。
+	// 与 relay 主链路对齐：校验最终出站 URL 并把安全 IP 钉入 context，
+	// 配合 transport 的 SafeDialContext 杜绝 DNS rebinding。
+	safeCtx, err := xurl.AssertSafeRequestWithPin(req)
+	if err != nil {
+		log.Warnf("ssrf check failed for %s: %v", req.URL.Redacted(), err)
+		return nil, fmt.Errorf("AI 路由模型地址不允许访问: %w", err)
+	}
+	req = req.WithContext(safeCtx)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -1780,6 +1791,10 @@ func newAIRouteHTTPClient(proxyURLStr string) (*http.Client, error) {
 	}
 
 	cloned := transport.Clone()
+	// SafeDialContext 从 context 读校验时钉入的安全 IP（AssertSafeRequestWithPin），
+	// 直连该 IP 杜绝 DNS rebinding；未携带时回退默认拨号。socks/ss/vmess 代理路径
+	// 自设 DialContext 覆盖此值，与 internal/client/http.go 的做法一致。
+	cloned.DialContext = xurl.SafeDialContext
 	if proxyURLStr == "" {
 		cloned.Proxy = nil
 		return &http.Client{Transport: cloned}, nil
