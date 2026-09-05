@@ -286,6 +286,7 @@ func AddProvider(ctx context.Context, category model.PlanProviderCategory, apiKe
 
 	// 1. 查询余额 / TokenPlan
 	var balance, balanceUsed float64
+	var totalTokens int64
 	var quotaTotal, quotaUsed, weeklyTotal, weeklyUsed float64
 	var fiveHourTotal, fiveHourUsed float64
 	var quotaResetAt, weeklyResetAt, fiveHourResetAt *string
@@ -297,6 +298,7 @@ func AddProvider(ctx context.Context, category model.PlanProviderCategory, apiKe
 		}
 		balance = result.Balance
 		balanceUsed = result.BalanceUsed
+		totalTokens = result.TotalTokens
 	} else {
 		result, err := QueryTokenPlan(ctx, category, apiKey, info.BaseURL, proxyMode, proxyConfigID, teamOrgID, teamProjectID)
 		if err != nil {
@@ -324,7 +326,9 @@ func AddProvider(ctx context.Context, category model.PlanProviderCategory, apiKe
 
 	// 2. 渠道创建/复用
 	var channelID int
-	needCreateChannel := info.Type == model.PlanProviderTypeBalance ||
+	// balance 类默认自动创建转发渠道；tokenrhythm（基元律动）例外：
+	// 纯监控（Cookie 鉴权，无独立 API Key），不创建转发渠道。
+	needCreateChannel := (info.Type == model.PlanProviderTypeBalance && category != model.PlanProviderTokenRhythm) ||
 		(isConsoleTokenPlanCategory(category) && forwardAPIKey != "") ||
 		category == model.PlanProviderCodex
 	if needCreateChannel {
@@ -423,6 +427,7 @@ func AddProvider(ctx context.Context, category model.PlanProviderCategory, apiKe
 		LastQuotaUsed: quotaUsed,
 		Balance:       balance,
 		BalanceUsed:   balanceUsed,
+		TotalTokens:   totalTokens,
 		QuotaTotal:    quotaTotal,
 		QuotaUsed:     quotaUsed,
 		WeeklyTotal:   weeklyTotal,
@@ -492,6 +497,7 @@ func RefreshProvider(ctx context.Context, id int) (*model.PlanProvider, error) {
 		provider.LastBalance = lastBalance
 		provider.Balance = result.Balance
 		provider.BalanceUsed = result.BalanceUsed
+		provider.TotalTokens = result.TotalTokens
 		provider.TotalUsed += max(0, lastBalance-provider.Balance)
 	} else {
 		// 商汤日日新：若配置了账号密码，先确保控制台 access_token 有效
@@ -648,6 +654,7 @@ func UpdateProviderCredentials(ctx context.Context, id int, newAPIKey, newForwar
 		provider.LastBalance = lastBalance
 		provider.Balance = result.Balance
 		provider.BalanceUsed = result.BalanceUsed
+		provider.TotalTokens = result.TotalTokens
 		provider.TotalUsed += max(0, lastBalance-provider.Balance)
 	} else {
 		lastQuotaUsed := provider.QuotaUsed

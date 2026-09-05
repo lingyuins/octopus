@@ -35,6 +35,7 @@ export interface PlanProvider {
     channel_id: number;
     balance: number;
     balance_used: number;
+    total_tokens: number;
     total_used: number;
     quota_total: number;
     quota_used: number;

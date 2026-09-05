@@ -146,6 +146,7 @@ function PlanProviderSection({ type, title, providers, categories, isLoading, er
     const visibleCategories = categories.filter((c) => c.category !== 'volcengine_plan_ak');
     const isZhipuTeam = selectedCategory === 'zhipu_team';
     const isMiMoPlan = selectedCategory === 'mimo_plan';
+    const isTokenRhythm = selectedCategory === 'tokenrhythm';
     const isSenseNovaPlan = selectedCategory === 'sensenova_plan';
     const isCodexPlan = selectedCategory === 'codex';
     const supportsForwardApiKey = isConsoleTokenPlan && !isMiMoPlan;
@@ -338,11 +339,13 @@ function PlanProviderSection({ type, title, providers, categories, isLoading, er
                                 <label className="text-sm font-medium">
                                     {isMiMoPlan
                                         ? (t('plan.cookieLabel') || 'Cookie')
-                                        : isCodexPlan
-                                            ? (t('plan.codexOAuthLabel') || 'OAuth JSON')
-                                            : isConsoleTokenPlan
-                                                ? (t('plan.consoleTokenLabel') || '控制台 Token')
-                                                : (t('plan.apiKeyLabel') || 'API Key')}
+                                        : isTokenRhythm
+                                            ? (t('plan.cookieLabel') || 'Cookie')
+                                            : isCodexPlan
+                                                ? (t('plan.codexOAuthLabel') || 'OAuth JSON')
+                                                : isConsoleTokenPlan
+                                                    ? (t('plan.consoleTokenLabel') || '控制台 Token')
+                                                    : (t('plan.apiKeyLabel') || 'API Key')}
                                 </label>
                                 {isMiMoPlan && (
                                     <div className="space-y-1">
@@ -387,19 +390,21 @@ function PlanProviderSection({ type, title, providers, categories, isLoading, er
                                         ? (mimoAuthMode === 'passToken'
                                             ? (t('plan.mimoPassTokenPlaceholder') || '粘贴 account.xiaomi.com 的完整 Cookie（需包含 passToken=、userId=、cUserId= 字段）')
                                             : (t('plan.mimoServiceTokenPlaceholder') || '粘贴 platform.xiaomimimo.com 的完整 Cookie（需包含 api-platform_serviceToken=、userId=、api-platform_slh=、api-platform_ph= 字段）'))
-                                        : isCodexPlan
-                                            ? (t('plan.codexOAuthPlaceholder') || '粘贴 OAuth JSON 凭据（含 access_token 和 account_id）')
-                                            : isConsoleTokenPlan
-                                                ? (isVolcengineAKSK
-                                                    ? (t('plan.volcengineAKSKPlaceholder') || 'AccessKey ID|||Secret Access Key（火山控制面 OpenAPI 签名用，与推理 Key 不同）')
-                                                    : isVolcenginePlan
-                                                        ? (t('plan.volcengineCredentialPlaceholder') || 'Cookie值|||x-csrf-token值（从控制台请求头复制，用竖线分隔）')
-                                                        : selectedInfo?.category === 'sensenova_plan'
-                                                            ? (t('plan.sensenovaTokenPlaceholder') || '粘贴控制台 Bearer Token 值')
-                                                            : selectedInfo?.category === 'bailian_plan'
-                                                                ? (t('plan.bailianTokenPlaceholder') || '粘贴控制台完整 Cookie 值')
-                                                                : (t('plan.oasisTokenPlaceholder') || '粘贴控制台 Cookie 中的 Oasis-Token 值'))
-                                                : (t('plan.apiKeyPlaceholder') || '请输入 API Key')}
+                                        : isTokenRhythm
+                                            ? (t('plan.tokenRhythmCookiePlaceholder') || '粘贴 tokenrhythm.studio 的完整 Cookie（需包含 tr_session= 字段）')
+                                            : isCodexPlan
+                                                ? (t('plan.codexOAuthPlaceholder') || '粘贴 OAuth JSON 凭据（含 access_token 和 account_id）')
+                                                : isConsoleTokenPlan
+                                                    ? (isVolcengineAKSK
+                                                        ? (t('plan.volcengineAKSKPlaceholder') || 'AccessKey ID|||Secret Access Key（火山控制面 OpenAPI 签名用，与推理 Key 不同）')
+                                                        : isVolcenginePlan
+                                                            ? (t('plan.volcengineCredentialPlaceholder') || 'Cookie值|||x-csrf-token值（从控制台请求头复制，用竖线分隔）')
+                                                            : selectedInfo?.category === 'sensenova_plan'
+                                                                ? (t('plan.sensenovaTokenPlaceholder') || '粘贴控制台 Bearer Token 值')
+                                                                : selectedInfo?.category === 'bailian_plan'
+                                                                    ? (t('plan.bailianTokenPlaceholder') || '粘贴控制台完整 Cookie 值')
+                                                                    : (t('plan.oasisTokenPlaceholder') || '粘贴控制台 Cookie 中的 Oasis-Token 值'))
+                                                    : (t('plan.apiKeyPlaceholder') || '请输入 API Key')}
                                     value={apiKey}
                                     onChange={(e) => setApiKey(e.target.value)}
                                 />
@@ -412,6 +417,11 @@ function PlanProviderSection({ type, title, providers, categories, isLoading, er
                                 {isMiMoPlan && mimoAuthMode === 'serviceToken' && (
                                     <p className="text-[11px] leading-tight text-amber-500">
                                         {t('plan.mimoServiceTokenHint') || '登录 platform.xiaomimimo.com → F12 → Application → Cookies，复制 api-platform 域下所有 Cookie。有效期约 1 天，过期后需手动更新。'}
+                                    </p>
+                                )}
+                                {isTokenRhythm && (
+                                    <p className="text-[11px] leading-tight text-amber-500">
+                                        {t('plan.tokenRhythmCookieHint') || '登录 tokenrhythm.studio → F12 → Network → 任意请求 → Request Headers，复制完整 Cookie 值（含 tr_session=、tr_csrf= 字段）。会话过期后需重新获取。'}
                                     </p>
                                 )}
                                 {isConsoleTokenPlan && !isMiMoPlan && !(isSenseNovaPlan && senseNovaAuthMode === 'account') && (
@@ -823,7 +833,7 @@ function ProviderCard({
 
             {/* Balance / TokenPlan Info */}
             {isBalance ? (
-                <div className="grid grid-cols-2 gap-3">
+                <div className={`grid gap-3 ${provider.total_tokens > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                     <div className="rounded-lg bg-muted/50 p-2.5">
                         <p className="text-xs text-muted-foreground mb-1">
                             {t('plan.balanceAvailable') || '可用余额'}
@@ -842,6 +852,16 @@ function ProviderCard({
                             {formatBalance(provider.balance_used > 0 ? provider.balance_used : provider.total_used)}
                         </p>
                     </div>
+                    {provider.total_tokens > 0 && (
+                        <div className="rounded-lg bg-muted/50 p-2.5">
+                            <p className="text-xs text-muted-foreground mb-1">
+                                {t('plan.totalTokens') || '历史 Token'}
+                            </p>
+                            <p className="text-lg font-bold tabular-nums text-muted-foreground">
+                                {formatTokens(provider.total_tokens)}
+                            </p>
+                        </div>
+                    )}
                 </div>
             ) : compact ? (
                 <div className="flex items-center gap-4 flex-wrap text-xs">
@@ -1019,6 +1039,7 @@ function EditCredentialsDialog({
     const isVolcengineAKSK = category === 'volcengine_plan_ak';
     const isZhipuTeam = category === 'zhipu_team';
     const isMiMoPlan = category === 'mimo_plan';
+    const isTokenRhythm = category === 'tokenrhythm';
     const isCodexPlan = category === 'codex';
     const isDeepSeek = category === 'deepseek';
     const supportsForwardApiKey = isConsoleTokenPlan && !isMiMoPlan;
@@ -1104,11 +1125,13 @@ function EditCredentialsDialog({
                         <label className="text-sm font-medium">
                             {isMiMoPlan
                                 ? (t('plan.cookieLabel') || 'Cookie')
-                                : isCodexPlan
-                                    ? (t('plan.codexOAuthLabel') || 'OAuth JSON')
-                                    : isConsoleTokenPlan
-                                        ? (t('plan.consoleTokenLabel') || '控制台 Token')
-                                        : (t('plan.apiKeyLabel') || 'API Key')}
+                                : isTokenRhythm
+                                    ? (t('plan.cookieLabel') || 'Cookie')
+                                    : isCodexPlan
+                                        ? (t('plan.codexOAuthLabel') || 'OAuth JSON')
+                                        : isConsoleTokenPlan
+                                            ? (t('plan.consoleTokenLabel') || '控制台 Token')
+                                            : (t('plan.apiKeyLabel') || 'API Key')}
                         </label>
                         {category === 'sensenova_plan' && senseNovaAuthMode === 'account' ? (
                             <div className="space-y-2">
@@ -1138,9 +1161,11 @@ function EditCredentialsDialog({
                             type="password"
                             placeholder={isMiMoPlan
                                 ? (t('plan.mimoServiceTokenPlaceholder') || '粘贴 platform.xiaomimimo.com 的完整 Cookie')
-                                : isCodexPlan
-                                    ? (t('plan.codexOAuthPlaceholder') || '粘贴 OAuth JSON 凭据')
-                                    : isConsoleTokenPlan
+                                : isTokenRhythm
+                                    ? (t('plan.tokenRhythmCookiePlaceholder') || '粘贴 tokenrhythm.studio 的完整 Cookie（需包含 tr_session= 字段）')
+                                    : isCodexPlan
+                                        ? (t('plan.codexOAuthPlaceholder') || '粘贴 OAuth JSON 凭据')
+                                        : isConsoleTokenPlan
                                         ? (isVolcenginePlan
                                             ? (t('plan.volcengineCredentialPlaceholder') || 'Cookie值|||x-csrf-token值')
                                             : isVolcengineAKSK
