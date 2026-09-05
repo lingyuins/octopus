@@ -233,10 +233,6 @@ func TestSenseNovaOIDCLogin(t *testing.T) {
 	if sess.accessToken == "" || sess.refreshToken != "refresh-token-1" {
 		t.Errorf("会话 = %+v, want access_token 非空 + refresh_token=refresh-token-1", sess)
 	}
-	// access_token 应包含 tenant_id（供用量查询解码 account_id）
-	if tid := decodeSenseNovaAccountID(sess.accessToken); tid != "tenant-1" {
-		t.Errorf("decodeSenseNovaAccountID() = %q, want tenant-1", tid)
-	}
 	if !sess.expiresAt.After(time.Now().Add(2 * time.Hour)) {
 		t.Errorf("expiresAt = %v, 应约为 3 小时后", sess.expiresAt)
 	}

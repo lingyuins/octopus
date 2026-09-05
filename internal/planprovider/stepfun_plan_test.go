@@ -162,39 +162,7 @@ func TestQueryStepFunPlanTokenPlan_EmptyToken(t *testing.T) {
 	}
 }
 
-// --- SenseNova Plan 测试 ---
-
-// makeTestSenseNovaToken 构造一个合法的 SenseNova Bearer JWT，
-// payload 含 ext.tenant_id。内容不参与签名校验（测试用）。
-func makeTestSenseNovaToken(t *testing.T, tenantID string) string {
-	t.Helper()
-	payload, _ := json.Marshal(map[string]any{
-		"client_id": "nova",
-		"exp":       9999999999,
-		"ext": map[string]any{
-			"tenant_id":    tenantID,
-			"principal_id": "test-principal",
-			"username":     "testuser",
-		},
-	})
-	encodedPayload := base64.RawURLEncoding.EncodeToString(payload)
-	return "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9." + encodedPayload + ".sig"
-}
-
-func TestDecodeSenseNovaAccountID(t *testing.T) {
-	token := makeTestSenseNovaToken(t, "tenant-abc-123")
-	accountID := decodeSenseNovaAccountID(token)
-	if accountID != "tenant-abc-123" {
-		t.Errorf("decodeSenseNovaAccountID() = %q, want %q", accountID, "tenant-abc-123")
-	}
-}
-
-func TestDecodeSenseNovaAccountID_EmptyToken(t *testing.T) {
-	accountID := decodeSenseNovaAccountID("invalid")
-	if accountID != "" {
-		t.Errorf("decodeSenseNovaAccountID() = %q, want empty", accountID)
-	}
-}
+// --- SenseNova Plan 测试（新版 pool-usage 接口）---
 
 func TestQuerySenseNovaPlanTokenPlan_Success(t *testing.T) {
 	var gotAuth, gotMethod string
@@ -202,19 +170,48 @@ func TestQuerySenseNovaPlanTokenPlan_Success(t *testing.T) {
 		gotMethod = r.Method
 		gotAuth = r.Header.Get("Authorization")
 
-		// 校验 URL 参数
-		if !strings.Contains(r.URL.RawQuery, "account_id=test-tenant-id") {
-			t.Errorf("URL missing account_id: %s", r.URL.RawQuery)
-		}
-		if !strings.Contains(r.URL.RawQuery, "model_ids=sensenova-6.7-flash-lite") {
-			t.Errorf("URL missing model_ids: %s", r.URL.RawQuery)
+		// 新版接口无查询参数（不再需要 account_id / model_ids）
+		if r.URL.RawQuery != "" {
+			t.Errorf("unexpected query params: %s", r.URL.RawQuery)
 		}
 
 		resp := map[string]any{
-			"model_remaining_percent": map[string]any{
-				"deepseek-v4-flash":        100,
-				"sensenova-6.7-flash-lite": 80,
-				"sensenova-u1-fast":        50,
+			"plan": map[string]any{
+				"id":   "free",
+				"name": "Free Plan",
+				"type": "TOKEN_PLAN_PLAN_TYPE_FREE",
+			},
+			"pools": []any{
+				map[string]any{
+					"id":        "pool_default",
+					"name":      "通用积分池",
+					"pool_type": "default",
+					"model_ids": []string{"deepseek-v4-flash", "sensenova-6.7-flash-lite"},
+					"window_5h": map[string]any{
+						"limit": "60000", "used": "0", "remaining": "60000", "reset_at": "1788523830",
+					},
+					"window_7d": map[string]any{
+						"limit": "600000", "used": "354.84768", "remaining": "599645.15232", "reset_at": "1788948630",
+					},
+					"grant_balance":                  "1908.9024",
+					"nearest_grant_expiry":           "1791025200",
+					"nearest_grant_expiring_balance": "0.602",
+				},
+				map[string]any{
+					"id":        "pool_dedicated",
+					"name":      "Flash-Lite积分池",
+					"pool_type": "dedicated",
+					"model_ids": []string{"sensenova-6.7-flash-lite", "sensenova-6.8-flash-lite"},
+					"window_5h": map[string]any{
+						"limit": "60000", "used": "5716.0492", "remaining": "54283.9508", "reset_at": "1788523830",
+					},
+					"window_7d": map[string]any{
+						"limit": "600000", "used": "5716.6512", "remaining": "594283.3488", "reset_at": "1788948630",
+					},
+					"grant_balance":                  "0",
+					"nearest_grant_expiry":           "0",
+					"nearest_grant_expiring_balance": "0",
+				},
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -226,8 +223,7 @@ func TestQuerySenseNovaPlanTokenPlan_Success(t *testing.T) {
 	senseNovaPlanURL = ts.URL
 	defer func() { senseNovaPlanURL = origURL }()
 
-	token := makeTestSenseNovaToken(t, "test-tenant-id")
-	result, err := querySenseNovaPlanTokenPlan(context.Background(), token)
+	result, err := querySenseNovaPlanTokenPlan(context.Background(), "test-bearer-token")
 	if err != nil {
 		t.Fatalf("querySenseNovaPlanTokenPlan() error = %v", err)
 	}
@@ -240,34 +236,65 @@ func TestQuerySenseNovaPlanTokenPlan_Success(t *testing.T) {
 		t.Errorf("Authorization = %q, want Bearer", gotAuth)
 	}
 
-	// 校验解析结果
-	if result.QuotaTotal != 100 {
-		t.Errorf("QuotaTotal = %f, want 100", result.QuotaTotal)
+	// 校验解析结果：双池汇总
+	if result.FiveHourTotal != 120000 {
+		t.Errorf("FiveHourTotal = %f, want 120000 (双池求和)", result.FiveHourTotal)
 	}
-	// 最高已用 = 100-50 = 50
-	if result.QuotaUsed != 50 {
-		t.Errorf("QuotaUsed = %f, want 50", result.QuotaUsed)
+	if result.FiveHourUsed != 5716.0492 {
+		t.Errorf("FiveHourUsed = %f, want 5716.0492", result.FiveHourUsed)
 	}
-	// 校验模型明细
-	if len(result.Models) != 3 {
-		t.Fatalf("Models len = %d, want 3", len(result.Models))
+	if result.WeeklyTotal != 1200000 {
+		t.Errorf("WeeklyTotal = %f, want 1200000 (双池求和)", result.WeeklyTotal)
 	}
-	for _, m := range result.Models {
-		var wantUsed float64
-		switch m.ModelName {
-		case "deepseek-v4-flash":
-			wantUsed = 0 // 100-100=0
-		case "sensenova-6.7-flash-lite":
-			wantUsed = 20 // 100-80=20
-		case "sensenova-u1-fast":
-			wantUsed = 50 // 100-50=50
-		default:
-			t.Errorf("unexpected model: %s", m.ModelName)
-			continue
-		}
-		if m.QuotaUsed != wantUsed {
-			t.Errorf("model %s: QuotaUsed = %f, want %f", m.ModelName, m.QuotaUsed, wantUsed)
-		}
+	if result.WeeklyUsed != 6071.49888 {
+		t.Errorf("WeeklyUsed = %f, want 6071.49888", result.WeeklyUsed)
+	}
+	if result.QuotaTotal != 1908.9024 {
+		t.Errorf("QuotaTotal = %f, want 1908.9024 (grant 求和)", result.QuotaTotal)
+	}
+	if result.QuotaUsed != 0 {
+		t.Errorf("QuotaUsed = %f, want 0", result.QuotaUsed)
+	}
+	// 重置时间：Unix 秒
+	if result.FiveHourResetAt == nil || result.FiveHourResetAt.Unix() != 1788523830 {
+		t.Errorf("FiveHourResetAt = %v, want 1788523830", result.FiveHourResetAt)
+	}
+	if result.WeeklyResetAt == nil || result.WeeklyResetAt.Unix() != 1788948630 {
+		t.Errorf("WeeklyResetAt = %v, want 1788948630", result.WeeklyResetAt)
+	}
+	// 授权到期：取最早的 grant 到期
+	if result.QuotaResetAt == nil || result.QuotaResetAt.Unix() != 1791025200 {
+		t.Errorf("QuotaResetAt = %v, want 1791025200", result.QuotaResetAt)
+	}
+	// 分池明细：2 池
+	if len(result.Pools) != 2 {
+		t.Fatalf("Pools len = %d, want 2", len(result.Pools))
+	}
+	p0 := result.Pools[0]
+	if p0.ID != "pool_default" || p0.Name != "通用积分池" || p0.PoolType != "default" {
+		t.Errorf("pool[0] = %+v, want default 通用积分池", p0)
+	}
+	if p0.SevenDayLimit != 600000 || p0.SevenDayUsed != 354.84768 || p0.SevenDayRemain != 599645.15232 {
+		t.Errorf("pool[0] SevenDay = %+v", p0)
+	}
+	if p0.FiveHourLimit != 60000 || p0.FiveHourRemain != 60000 {
+		t.Errorf("pool[0] FiveHour = %+v", p0)
+	}
+	if p0.GrantBalance != 1908.9024 || p0.NearestGrantExpiringBal != 0.602 {
+		t.Errorf("pool[0] grant = %+v", p0)
+	}
+	if p0.NearestGrantExpiry == nil || p0.NearestGrantExpiry.Unix() != 1791025200 {
+		t.Errorf("pool[0] NearestGrantExpiry = %v, want 1791025200", p0.NearestGrantExpiry)
+	}
+	if len(p0.ModelIDs) != 2 || p0.ModelIDs[0] != "deepseek-v4-flash" {
+		t.Errorf("pool[0] ModelIDs = %v", p0.ModelIDs)
+	}
+	p1 := result.Pools[1]
+	if p1.PoolType != "dedicated" || p1.Name != "Flash-Lite积分池" {
+		t.Errorf("pool[1] = %+v, want dedicated Flash-Lite积分池", p1)
+	}
+	if p1.GrantBalance != 0 || p1.NearestGrantExpiry != nil {
+		t.Errorf("pool[1] grant = %+v, want 0/nil", p1)
 	}
 }
 
@@ -281,13 +308,26 @@ func TestQuerySenseNovaPlanTokenPlan_EmptyToken(t *testing.T) {
 	}
 }
 
-func TestQuerySenseNovaPlanTokenPlan_InvalidToken(t *testing.T) {
-	// Token 无法解码出 account_id
-	_, err := querySenseNovaPlanTokenPlan(context.Background(), "invalid.token")
+func TestQuerySenseNovaPlanTokenPlan_NoPools(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"plan":  map[string]any{"id": "free", "name": "Free Plan"},
+			"pools": []any{},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer ts.Close()
+
+	origURL := senseNovaPlanURL
+	senseNovaPlanURL = ts.URL
+	defer func() { senseNovaPlanURL = origURL }()
+
+	_, err := querySenseNovaPlanTokenPlan(context.Background(), "token")
 	if err == nil {
-		t.Fatal("expected error for invalid token, got nil")
+		t.Fatal("expected error for empty pools, got nil")
 	}
-	if !strings.Contains(err.Error(), "account_id") {
-		t.Errorf("error = %q, want 'account_id'", err.Error())
+	if !strings.Contains(err.Error(), "pools") {
+		t.Errorf("error = %q, want mention of pools", err.Error())
 	}
 }

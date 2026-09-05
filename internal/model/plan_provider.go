@@ -159,7 +159,7 @@ var PlanProviderCategories = []PlanProviderCategoryInfo{
 		Type:        PlanProviderTypeTokenPlan,
 		BaseURL:     "https://platform.sensenova.cn",
 		Models:      "sensenova-6.7-flash-lite,sensenova-u1-fast,deepseek-v4-flash",
-		Description: "SenseNova Coding Plan 套餐用量查询（控制台 Bearer Token 必填，约 3 小时有效期）。可选填 API Key 自动创建/复用转发渠道（接入点 token.sensenova.cn/v1）",
+		Description: "SenseNova Coding Plan 套餐用量查询（新版 pool-usage 接口，控制台 Bearer Token 必填，约 3 小时有效期；可配账号密码自动续期）。可选填 API Key 自动创建/复用转发渠道（接入点 token.sensenova.cn/v1）",
 		HelpURL:     "https://platform.sensenova.cn/console",
 	},
 	{
@@ -264,6 +264,9 @@ type PlanProvider struct {
 	FiveHourTotal   float64    `json:"five_hour_total" gorm:"default:0"`
 	FiveHourUsed    float64    `json:"five_hour_used" gorm:"default:0"`
 	FiveHourResetAt *time.Time `json:"five_hour_reset_at"`
+	// PoolsJSON 分池明细（仅 sensenova_plan 新版 pool-usage 接口返回），
+	// JSON 数组字符串（TokenPlanPoolUsage），空表示无分池数据。
+	PoolsJSON string `json:"-" gorm:"type:text;default:''"`
 	// RefreshIntervalMin 自动刷新间隔（分钟），0 表示跟随全局默认设置
 	// SettingKeyPlanProviderRefreshInterval。
 	RefreshIntervalMin int `json:"refresh_interval_min" gorm:"not null;default:0"`
@@ -291,12 +294,37 @@ type PlanChannelStats struct {
 	Source string `json:"source,omitempty"`
 }
 
+// TokenPlanPoolUsage 单积分池明细（sensenova_plan 新版 pool-usage 接口）。
+// 数值已由 query 层从官方字符串转换为 float64；时间字段为 Unix 秒转换。
+type TokenPlanPoolUsage struct {
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	PoolType string   `json:"pool_type"` // default（通用池）| dedicated（专属池）
+	ModelIDs []string `json:"model_ids"`
+	// FiveHour 5 小时窗口
+	FiveHourLimit    float64    `json:"five_hour_limit"`
+	FiveHourUsed     float64    `json:"five_hour_used"`
+	FiveHourRemain   float64    `json:"five_hour_remaining"`
+	FiveHourResetAt  *time.Time `json:"five_hour_reset_at"`
+	// SevenDay 7 天窗口（本周余额）
+	SevenDayLimit    float64    `json:"seven_day_limit"`
+	SevenDayUsed     float64    `json:"seven_day_used"`
+	SevenDayRemain   float64    `json:"seven_day_remaining"`
+	SevenDayResetAt  *time.Time `json:"seven_day_reset_at"`
+	// 授权余额（活动固定积分）
+	GrantBalance            float64    `json:"grant_balance"`
+	NearestGrantExpiry      *time.Time `json:"nearest_grant_expiry"`
+	NearestGrantExpiringBal float64    `json:"nearest_grant_expiring_balance"`
+}
+
 // PlanProviderListItem 列表响应
 type PlanProviderListItem struct {
 	PlanProvider
 	Models         string `json:"models"`       // 从 Channel 继承的模型
 	ChannelName    string `json:"channel_name"` // 关联渠道名称
 	ChannelEnabled bool   `json:"channel_enabled"`
+	// Pools 分池明细（PoolsJSON 反序列化，sensenova_plan 等返回）
+	Pools []TokenPlanPoolUsage `json:"pools,omitempty"`
 	// LoginConfigured 是否已配置账号密码自动登录（sensenova_plan 等支持账号登录的厂商）
 	LoginConfigured bool `json:"login_configured"`
 	// BalanceDelta 上次刷新到本次刷新之间的余额减少额（balance 类，充值导致的负值按 0）

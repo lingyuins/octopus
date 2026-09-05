@@ -20,6 +20,28 @@ export interface PlanChannelStats {
     source?: 'official' | 'local';
 }
 
+// 单积分池明细（sensenova_plan 新版 pool-usage 接口）
+export interface TokenPlanPool {
+    id: string;
+    name: string;
+    pool_type: string; // default（通用池）| dedicated（专属池）
+    model_ids: string[];
+    // 5 小时窗口
+    five_hour_limit: number;
+    five_hour_used: number;
+    five_hour_remaining: number;
+    five_hour_reset_at: string | null;
+    // 7 天窗口（本周余额）
+    seven_day_limit: number;
+    seven_day_used: number;
+    seven_day_remaining: number;
+    seven_day_reset_at: string | null;
+    // 授权余额（活动固定积分）
+    grant_balance: number;
+    nearest_grant_expiry: string | null;
+    nearest_grant_expiring_balance: number;
+}
+
 export interface PlanProvider {
     id: number;
     name: string;
@@ -49,6 +71,7 @@ export interface PlanProvider {
     balance_delta: number;
     quota_used_delta: number;
     channel_stats?: PlanChannelStats | null;
+    pools?: TokenPlanPool[]; // 分池明细（sensenova_plan 新版接口）
     status: string;
     last_refresh: string | null;
     channel_name: string;

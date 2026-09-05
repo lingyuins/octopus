@@ -2,6 +2,7 @@ package planprovider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -99,6 +100,32 @@ func MigrateLegacyDeepSeekChannels(ctx context.Context) (int, error) {
 	return migrated, nil
 }
 
+// marshalPlanPools 把分池明细序列化为落库 JSON 字符串（无分池数据时返回空串）。
+func marshalPlanPools(pools []model.TokenPlanPoolUsage) string {
+	if len(pools) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(pools)
+	if err != nil {
+		log.Warnf("planprovider: marshal pools failed: %v", err)
+		return ""
+	}
+	return string(b)
+}
+
+// unmarshalPlanPools 反序列化 PoolsJSON 为分池明细（空串/解析失败返回 nil）。
+func unmarshalPlanPools(poolsJSON string) []model.TokenPlanPoolUsage {
+	if poolsJSON == "" {
+		return nil
+	}
+	var pools []model.TokenPlanPoolUsage
+	if err := json.Unmarshal([]byte(poolsJSON), &pools); err != nil {
+		log.Warnf("planprovider: unmarshal pools failed: %v", err)
+		return nil
+	}
+	return pools
+}
+
 // ListProviders 列出所有 Plan Provider
 func ListProviders(ctx context.Context, providerType model.PlanProviderType) ([]model.PlanProviderListItem, error) {
 	var providers []model.PlanProvider
@@ -115,6 +142,7 @@ func ListProviders(ctx context.Context, providerType model.PlanProviderType) ([]
 		item.APIKey = ""
 		item.ForwardAPIKey = ""
 		item.LoginConfigured = p.LoginUsername != "" && p.LoginPasswordEnc != ""
+		item.Pools = unmarshalPlanPools(p.PoolsJSON)
 		// 本次与上次检测之间的消费增量：
 		// balance 类 = 上次余额 − 本次余额（充值导致的负值按 0）；
 		// tokenplan 类 = 本次已用 − 上次已用（周期重置导致的负值按 0）。
@@ -289,6 +317,7 @@ func AddProvider(ctx context.Context, category model.PlanProviderCategory, apiKe
 	var quotaTotal, quotaUsed, weeklyTotal, weeklyUsed float64
 	var fiveHourTotal, fiveHourUsed float64
 	var quotaResetAt, weeklyResetAt, fiveHourResetAt *string
+	var pools []model.TokenPlanPoolUsage
 
 	if info.Type == model.PlanProviderTypeBalance {
 		result, err := QueryBalance(ctx, category, apiKey, info.BaseURL)
@@ -320,6 +349,7 @@ func AddProvider(ctx context.Context, category model.PlanProviderCategory, apiKe
 			s := result.FiveHourResetAt.Format("2006-01-02 15:04:05")
 			fiveHourResetAt = &s
 		}
+		pools = result.Pools
 	}
 
 	// 2. 渠道创建/复用
@@ -429,6 +459,7 @@ func AddProvider(ctx context.Context, category model.PlanProviderCategory, apiKe
 		WeeklyUsed:    weeklyUsed,
 		FiveHourTotal: fiveHourTotal,
 		FiveHourUsed:  fiveHourUsed,
+		PoolsJSON:     marshalPlanPools(pools),
 	}
 
 	if quotaResetAt != nil {
@@ -520,6 +551,7 @@ func RefreshProvider(ctx context.Context, id int) (*model.PlanProvider, error) {
 		provider.FiveHourTotal = result.FiveHourTotal
 		provider.FiveHourUsed = result.FiveHourUsed
 		provider.FiveHourResetAt = result.FiveHourResetAt
+		provider.PoolsJSON = marshalPlanPools(result.Pools)
 	}
 
 	now := time.Now()
@@ -669,6 +701,7 @@ func UpdateProviderCredentials(ctx context.Context, id int, newAPIKey, newForwar
 		provider.FiveHourTotal = result.FiveHourTotal
 		provider.FiveHourUsed = result.FiveHourUsed
 		provider.FiveHourResetAt = result.FiveHourResetAt
+		provider.PoolsJSON = marshalPlanPools(result.Pools)
 	}
 
 	now := time.Now()
