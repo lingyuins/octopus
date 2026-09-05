@@ -47,6 +47,8 @@ import { useSettingList, SettingKey } from '@/api/endpoints/setting';
 
 // 与后端 model.PlanProviderDeepSeek 对应的类别标识（DeepSeek 专属统计展示）
 const DEEPSEEK_PLAN_CATEGORY = 'deepseek';
+// MiMo 套餐类别标识：月度订阅固定额度、无滚动刷新，仅展示月档一个用量条
+const MIMO_PLAN_CATEGORY = 'mimo_plan';
 
 // --- Balance Section ---
 
@@ -732,6 +734,8 @@ function ProviderCard({
 
     // Find category info for display
     const isBalance = provider.provider_type === 'balance';
+    // MiMo 为月度订阅（固定额度、无滚动刷新），只展示月档一个用量条
+    const isMiMo = provider.category === MIMO_PLAN_CATEGORY;
 
     // 有效配额档（total>0）。外层先过滤，使 length/idx 反映真实渲染数，
     // 用于 normal 网格布局的"奇数末项跨两列"判断（QuotaTier 内部
@@ -740,7 +744,7 @@ function ProviderCard({
         { key: 'five_hour', label: t('plan.tierFiveHour') || '近5小时用量', total: provider.five_hour_total, used: provider.five_hour_used, resetAt: provider.five_hour_reset_at },
         { key: 'weekly', label: t('plan.tierWeekly') || '近一周用量', total: provider.weekly_total, used: provider.weekly_used, resetAt: provider.weekly_reset_at },
         { key: 'monthly', label: t('plan.tierMonthly') || '近一月用量', total: provider.quota_total, used: provider.quota_used, resetAt: provider.quota_reset_at },
-    ].filter((tier) => tier.total > 0);
+    ].filter((tier) => tier.total > 0 && !(isMiMo && tier.key !== 'monthly'));
 
     return (
         <div className={cn(
@@ -845,20 +849,24 @@ function ProviderCard({
                 </div>
             ) : compact ? (
                 <div className="flex items-center gap-4 flex-wrap text-xs">
-                    <QuotaTier
-                        label={t('plan.tierFiveHour') || '5h'}
-                        total={provider.five_hour_total}
-                        used={provider.five_hour_used}
-                        resetAt={provider.five_hour_reset_at}
-                        compact
-                    />
-                    <QuotaTier
-                        label={t('plan.tierWeekly') || '周'}
-                        total={provider.weekly_total}
-                        used={provider.weekly_used}
-                        resetAt={provider.weekly_reset_at}
-                        compact
-                    />
+                    {!isMiMo && (
+                        <QuotaTier
+                            label={t('plan.tierFiveHour') || '5h'}
+                            total={provider.five_hour_total}
+                            used={provider.five_hour_used}
+                            resetAt={provider.five_hour_reset_at}
+                            compact
+                        />
+                    )}
+                    {!isMiMo && (
+                        <QuotaTier
+                            label={t('plan.tierWeekly') || '周'}
+                            total={provider.weekly_total}
+                            used={provider.weekly_used}
+                            resetAt={provider.weekly_reset_at}
+                            compact
+                        />
+                    )}
                     <QuotaTier
                         label={t('plan.tierMonthly') || '月'}
                         total={provider.quota_total}

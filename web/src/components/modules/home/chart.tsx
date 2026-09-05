@@ -169,6 +169,29 @@ export function StatsChart() {
         return `${formatted.value}${formatted.unit}`;
     };
 
+    // Y 轴刻度：大跨度不需要小数点精度，中国化模式整数化（1500.00万 → 1500万），
+    // 避免 4 位数字 + 两位小数把刻度挤爆被截断；非中国化保持原样。
+    const axisCountTick = (value: number): string => {
+        if (chinaMode) {
+            const v = Number(value);
+            if (v >= 100_000_000) return `${Math.round(v / 100_000_000)}亿`;
+            if (v >= 10_000) return `${Math.round(v / 10_000)}万`;
+            return `${Math.round(v)}`;
+        }
+        const formatted = formatCount(value).formatted;
+        return `${formatted.value}${formatted.unit}`;
+    };
+
+    const axisCostTick = (value: number): string => {
+        if (chinaMode) {
+            const v = Number(value);
+            if (v >= 100_000_000) return `${Math.round(v / 100_000_000)}亿元`;
+            if (v >= 10_000) return `${Math.round(v / 10_000)}万元`;
+            return `${Math.round(v)}元`;
+        }
+        return costAxisFormatter(value);
+    };
+
     const costSummary = formatDisplayCost(totals.cost);
 
 
@@ -289,12 +312,11 @@ export function StatsChart() {
                         tickFormatter={(value) => {
                             const primary = chartMetrics[0] ?? 'cost';
                             if (primary === 'cost') {
-                                return costAxisFormatter(Number(value));
+                                return axisCostTick(Number(value));
                             } else if (primary === 'success-rate') {
                                 return `${value.toFixed(0)}%`;
                             } else if (primary === 'count' || primary === 'tokens') {
-                                const formatted = formatCount(value);
-                                return `${formatted.formatted.value}${formatted.formatted.unit}`;
+                                return axisCountTick(Number(value));
                             }
                             return value.toString();
                         }}

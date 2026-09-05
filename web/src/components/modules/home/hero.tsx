@@ -11,6 +11,33 @@ import { AnimatedNumber } from '@/components/common/AnimatedNumber';
 import { EASING } from '@/lib/animations/fluid-transitions';
 import { formatCount, formatMoney, formatTime } from '@/lib/utils';
 
+// Adaptive metric font size: CJK units (万/亿/元) count double-width, so long
+// values (e.g. "2,008万" / "1,234.56万元") shrink instead of overflowing the
+// 2-column card grid (chinaMode 千万级 4 位数字场景).
+function visualWidthOf(value: string | undefined, unit: string | undefined): number {
+    let w = 0;
+    for (const ch of value ?? '') w += ch.charCodeAt(0) > 255 ? 2 : 1;
+    for (const ch of unit ?? '') w += ch.charCodeAt(0) > 255 ? 2 : 1;
+    return w;
+}
+
+function metricFontClass(width: number): string {
+    if (width <= 6) return 'text-xl sm:text-2xl';
+    if (width <= 8) return 'text-lg sm:text-xl';
+    if (width <= 10) return 'text-base sm:text-lg';
+    return 'text-sm sm:text-base';
+}
+
+// 中国化模式万级整数化：794.25万 → 794万。大跨度展示两位小数无意义，
+// 整数化后保留单位、缩短宽度（794万 / 978万），窄卡片不再挤。
+// 亿级保留两位小数（1.02亿），k/m/b 模式与原始数值保持原样。
+function chinaIntValue(value: string, unit: string): string {
+    if (unit === '万' && value.includes('.')) {
+        return String(Math.round(parseFloat(value)));
+    }
+    return value;
+}
+
 export function HomeHero() {
     const t = useTranslations('home.hero');
     const statsRefreshMs = useHomeStatsRefreshMs();
@@ -33,10 +60,16 @@ export function HomeHero() {
         .reduce((sum, point) => sum + (point.cache_read_tokens ?? 0), 0);
     const cacheRate = totalTokens > 0 ? (todayCacheReadTokens / totalTokens) * 100 : 0;
 
-    const callsSuccess = formatCount(successCount).formatted;
-    const callsTotal = formatCount(requestCount).formatted;
-    const cacheRead = formatCount(todayCacheReadTokens).formatted;
-    const tokens = formatCount(totalTokens).formatted;
+    // 复合卡数值中国化整数化（794.25万 → 794万），单位保留；k/m/b 模式原样。
+    const fmtCount = (n?: number) => {
+        const f = formatCount(n).formatted;
+        return { value: chinaIntValue(f.value, f.unit), unit: f.unit };
+    };
+
+    const callsSuccess = fmtCount(successCount);
+    const callsTotal = fmtCount(requestCount);
+    const cacheRead = fmtCount(todayCacheReadTokens);
+    const tokens = fmtCount(totalTokens);
 
     // 2 列 × 2 行：第一行普通指标（平均响应时延 / 今日花费），第二行复合卡（今日调用 / 今日Token使用）。
     const cards = [
@@ -117,12 +150,12 @@ export function HomeHero() {
                             <div className="text-xs font-medium text-muted-foreground">{card.label}</div>
                             {card.isComposite ? (
                                 <div className="mt-1 space-y-0.5">
-                                    <div className="flex items-baseline gap-1.5">
-                                        <span className="text-xl font-semibold tracking-tight sm:text-2xl">
+                                    <div className="flex items-baseline gap-1.5 min-w-0">
+                                        <span className={`${metricFontClass(visualWidthOf(card.mainValue, card.mainUnit))} font-semibold tracking-tight whitespace-nowrap`}>
                                             <AnimatedNumber value={card.mainValue} />
                                             {card.mainUnit ? <span className="text-sm text-muted-foreground">{card.mainUnit}</span> : null}
                                         </span>
-                                        <span className="text-sm text-muted-foreground">
+                                        <span className="text-sm text-muted-foreground whitespace-nowrap">
                                             / {card.dividerValue}{card.dividerUnit}
                                         </span>
                                     </div>
@@ -131,8 +164,8 @@ export function HomeHero() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="mt-1 flex items-baseline gap-1">
-                                    <span className="text-xl font-semibold tracking-tight sm:text-2xl">
+                                <div className="mt-1 flex items-baseline gap-1 min-w-0">
+                                    <span className={`${metricFontClass(visualWidthOf(card.value, card.unit))} font-semibold tracking-tight`}>
                                         <AnimatedNumber value={card.value} />
                                     </span>
                                     {card.unit ? <span className="text-sm text-muted-foreground">{card.unit}</span> : null}
