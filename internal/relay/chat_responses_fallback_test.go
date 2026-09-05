@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/lingyuins/octopus/internal/transformer/model"
@@ -344,9 +345,54 @@ func TestShouldTryAdapterFallbackSkipsClientErrorScopeNone(t *testing.T) {
 		Success:  false,
 		Written:  false,
 		Decision: RetryDecision{Scope: ScopeNone, Reason: "bad request, client error", Code: 400, IsError: true},
+		Err:      errors.New(`channel foo adapter=response attempt 1/4: upstream error: 400: {"error":{"message":"输入内容过长","code":"context_length_exceeded"}}`),
 	}
 
 	if shouldTryAdapterFallback(result, 0, 2) {
 		t.Fatal("expected client error ScopeNone to skip adapter fallback so upstream body can be returned immediately")
+	}
+}
+
+func TestShouldTryAdapterFallbackAllowsResponsesToolHistoryMismatch(t *testing.T) {
+	result := attemptResult{
+		Success:  false,
+		Written:  false,
+		Decision: RetryDecision{Scope: ScopeNone, Reason: "bad request, client error", Code: 400, IsError: true},
+		Err: errors.New(`channel 基元律动 adapter=response attempt 1/4: upstream error: 400: {"error":{"message":"No tool output found for tool call call_01_jCi6YrQJgn7qQhsWk5vD3152.","type":"invalid_request_error"}}`),
+	}
+
+	if !shouldTryAdapterFallback(result, 0, 2) {
+		t.Fatal("expected Responses tool-history 400 to allow adapter fallback to chat")
+	}
+	if shouldTryAdapterFallback(result, 1, 2) {
+		t.Fatal("expected last adapter attempt to stop even on format mismatch")
+	}
+}
+
+func TestShouldTryAdapterFallbackSkipsGenericInvalidRequest(t *testing.T) {
+	result := attemptResult{
+		Success:  false,
+		Written:  false,
+		Decision: RetryDecision{Scope: ScopeNone, Reason: "bad request, client error", Code: 400, IsError: true},
+		Err:      errors.New(`upstream error: 400: {"error":{"message":"invalid_request_error: unknown field","type":"invalid_request_error"}}`),
+	}
+
+	if shouldTryAdapterFallback(result, 0, 2) {
+		t.Fatal("expected generic 400 invalid_request to stay terminal")
+	}
+}
+
+func TestIsOutboundAdapterFormatMismatch(t *testing.T) {
+	if !isOutboundAdapterFormatMismatch(400, errors.New("No tool output found for function call abc")) {
+		t.Fatal("expected function_call wording to match")
+	}
+	if !isOutboundAdapterFormatMismatch(400, errors.New(`Invalid 'input[3].call_id': empty`)) {
+		t.Fatal("expected Invalid 'input[ to match")
+	}
+	if isOutboundAdapterFormatMismatch(400, errors.New("context_length_exceeded")) {
+		t.Fatal("context length must not match format mismatch")
+	}
+	if isOutboundAdapterFormatMismatch(500, errors.New("No tool output found for tool call x")) {
+		t.Fatal("non-400 must not match")
 	}
 }

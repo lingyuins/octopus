@@ -600,30 +600,39 @@ func convertUserMessageToResponses(msg model.Message) ResponsesItem {
 func convertAssistantMessageToResponses(msg model.Message) []ResponsesItem {
 	var items []ResponsesItem
 
-	// Handle tool calls
+	// Handle tool calls. Historical function_call items are already executed by
+	// the client; mark them completed so strict Responses gateways do not treat
+	// them as pending calls that still need a matching live output.
 	for _, tc := range msg.ToolCalls {
 		items = append(items, ResponsesItem{
 			Type:      "function_call",
 			CallID:    tc.ID,
 			Name:      tc.Function.Name,
 			Arguments: tc.Function.Arguments,
+			Status:    lo.ToPtr("completed"),
 		})
 	}
 
-	// Handle content
+	// Handle content. Hermes and similar agents often send content:"" together
+	// with tool_calls; an empty output_text message between function_call and
+	// function_call_output breaks strict upstream pairing checks.
 	var contentItems []ResponsesItem
 	if msg.Content.Content != nil {
-		contentItems = append(contentItems, ResponsesItem{
-			Type: "output_text",
-			Text: msg.Content.Content,
-		})
+		if text := strings.TrimSpace(*msg.Content.Content); text != "" {
+			contentItems = append(contentItems, ResponsesItem{
+				Type: "output_text",
+				Text: lo.ToPtr(text),
+			})
+		}
 	} else {
 		for _, p := range msg.Content.MultipleContent {
 			if p.Type == "text" && p.Text != nil {
-				contentItems = append(contentItems, ResponsesItem{
-					Type: "output_text",
-					Text: p.Text,
-				})
+				if text := strings.TrimSpace(*p.Text); text != "" {
+					contentItems = append(contentItems, ResponsesItem{
+						Type: "output_text",
+						Text: lo.ToPtr(text),
+					})
+				}
 			}
 		}
 	}
@@ -664,6 +673,7 @@ func convertToolMessageToResponses(msg model.Message) ResponsesItem {
 		Type:   "function_call_output",
 		CallID: lo.FromPtr(msg.ToolCallID),
 		Output: &output,
+		Status: lo.ToPtr("completed"),
 	}
 }
 

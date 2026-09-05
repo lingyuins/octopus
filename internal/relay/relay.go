@@ -98,11 +98,35 @@ func shouldTryAdapterFallback(result attemptResult, adapterIndex, attemptCount i
 	if result.Success || result.Written || adapterIndex >= attemptCount-1 {
 		return false
 	}
-	// 只有路由级失败（换候选）才值得尝试另一种出站 adapter 格式。
-	// 客户端错误 ScopeNone（如 context_length_exceeded 的 400）与 Key 级失败
-	// ScopeSameChannel 都不该再换 adapter：前者必须立刻把上游错误体回给下游，
-	// 后者换 adapter 只会用同一把 Key 多打一次，徒增延迟。
-	return result.Decision.Scope == ScopeNextChannel
+	// 路由级失败（换候选）值得试另一种出站 adapter。
+	if result.Decision.Scope == ScopeNextChannel {
+		return true
+	}
+	// Responses/Chat 协议形态不匹配的 400（如 tool 历史转换后上游报
+	// "No tool output found for tool call"）不是用户 prompt 写错，换下一个
+	// adapter（通常 Response→Chat）可能立刻恢复。其它 400（context_length 等）
+	// 与 Key 级失败仍不换 adapter，避免延迟和误伤。
+	return isOutboundAdapterFormatMismatch(result.Decision.Code, result.Err)
+}
+
+// isOutboundAdapterFormatMismatch 识别「当前出站 adapter 的 wire 形态」导致的
+// 上游 400，而不是通用客户端错误。匹配要保持窄，防止任意 invalid_request 被重试。
+func isOutboundAdapterFormatMismatch(statusCode int, err error) bool {
+	if statusCode != http.StatusBadRequest || err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	for _, needle := range []string{
+		"no tool output found for tool call",
+		"no tool output found for function call",
+		"invalid 'input[",
+		"function_call_output",
+	} {
+		if strings.Contains(msg, needle) {
+			return true
+		}
+	}
+	return false
 }
 func isZenCandidateChannelAllowed(requestModel string, channelType outbound.OutboundType, isEmbeddingRequest bool) bool {
 	preferred := detectZenPreferredChannelTypes(requestModel, isEmbeddingRequest)
@@ -994,6 +1018,14 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 			case <-ctx.Done():
 				return
 			}
+			// OpenAI 兼容 SSE 的流结束标志：收到 [DONE] 即代表上游流已结束。
+			// 部分上游（如 B.AI/chat.b.ai）发完 [DONE] 后保持连接不关闭，octopus
+			// 若继续等 EOF 会一直阻塞，最终由客户端正常断开触发 clientDone 被误判
+			// 为失败（进而 key 冷却/熔断，误伤健康渠道）。收到 [DONE] 后主动结束
+			// 读取（defer close(results) 让主循环走正常结束路径）。
+			if strings.TrimSpace(ev.Data) == "[DONE]" {
+				return
+			}
 		}
 	}()
 
@@ -1031,6 +1063,14 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 		select {
 		case <-clientDone:
 			if ra.streamSession == nil {
+				// 客户端断开。若已向客户端写出可见内容，视为正常完成——
+				// 客户端已拿到完整输出并主动关闭连接（或上游发完 [DONE] 后
+				// 保持连接不关闭，octopus 等不到 EOF），不应记为失败，否则会
+				// 触发 key 冷却/熔断，误伤健康渠道。
+				if hasVisibleContent {
+					log.Infof("client disconnected after visible content, treating as completed")
+					return nil
+				}
 				log.Infof("client disconnected, stopping stream")
 				return errClientDisconnected
 			}
@@ -1715,18 +1755,21 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 					handlePoolAuthError(poolAccount, poolCredType, result.Decision.Code)
 				}
 
+				// Client disconnected — stop all retries immediately without
+				// recording failure hints, circuit-breaker failures, or attempting
+				// further channels. The client chose to stop, not the channel.
+				// 必须先于熔断记录：client disconnected 的 Decision.Scope 为 ScopeAbortAll，
+				// 若先执行熔断记录会把正常流结束误记为连续失败，触发误熔断（issue 修复）。
+				if errors.Is(result.Err, errClientDisconnected) {
+					req.metrics.Save(false, result.Err, currentAttempts)
+					return nil, result.Err
+				}
+
 				// 熔断器和 Auto 策略：在所有 adapter 类型（如 Responses→Chat）均失败后才记录，
 				// 避免 Response adapter 降级到 Chat 的过程中误触发熔断。
 				if channel.PoolID == 0 && (result.Decision.Scope == ScopeNextChannel || result.Decision.Scope == ScopeAbortAll) {
 					balancer.RecordFailure(channel.ID, usedKey.ID, resolvedModelName)
 					balancer.RecordAutoFailure(channel.ID, resolvedModelName)
-				}
-
-				// Client disconnected — stop all retries immediately without
-				// recording failure hints or attempting further channels.
-				if errors.Is(result.Err, errClientDisconnected) {
-					req.metrics.Save(false, result.Err, currentAttempts)
-					return nil, result.Err
 				}
 
 				// hold 路径：本轮 429 会立刻再试同一渠道，不写 failure hint / 不记 failedKey，

@@ -6,6 +6,67 @@ import (
 	"github.com/lingyuins/octopus/internal/transformer/model"
 )
 
+func TestConvertAssistantMessageToResponses_MarksToolCallsCompletedAndSkipsEmptyContent(t *testing.T) {
+	empty := ""
+	msg := model.Message{
+		Role:    "assistant",
+		Content: model.MessageContent{Content: &empty},
+		ToolCalls: []model.ToolCall{
+			{
+				ID: "call_01_jCi6YrQJgn7qQhsWk5vD3152",
+				Function: model.FunctionCall{
+					Name:      "terminal",
+					Arguments: `{"command":"ls"}`,
+				},
+			},
+		},
+	}
+
+	items := convertAssistantMessageToResponses(msg)
+	if len(items) != 1 {
+		t.Fatalf("expected only function_call item, got %#v", items)
+	}
+	if items[0].Type != "function_call" {
+		t.Fatalf("type = %q, want function_call", items[0].Type)
+	}
+	if items[0].CallID != "call_01_jCi6YrQJgn7qQhsWk5vD3152" {
+		t.Fatalf("call_id = %q", items[0].CallID)
+	}
+	if items[0].Status == nil || *items[0].Status != "completed" {
+		t.Fatalf("status = %#v, want completed", items[0].Status)
+	}
+}
+
+func TestConvertAssistantMessageToResponses_KeepsNonEmptyTextMessage(t *testing.T) {
+	msg := model.Message{
+		Role:    "assistant",
+		Content: model.MessageContent{Content: strPtr("done")},
+	}
+	items := convertAssistantMessageToResponses(msg)
+	if len(items) != 1 || items[0].Type != "message" {
+		t.Fatalf("expected one message item, got %#v", items)
+	}
+}
+
+func TestConvertToolMessageToResponses_MarksOutputCompleted(t *testing.T) {
+	toolCallID := "call_01_jCi6YrQJgn7qQhsWk5vD3152"
+	msg := model.Message{
+		Role:       "tool",
+		ToolCallID: &toolCallID,
+		Content:    model.MessageContent{Content: strPtr(`{"ok":true}`)},
+	}
+	item := convertToolMessageToResponses(msg)
+	if item.Type != "function_call_output" {
+		t.Fatalf("type = %q", item.Type)
+	}
+	if item.Status == nil || *item.Status != "completed" {
+		t.Fatalf("status = %#v, want completed", item.Status)
+	}
+	if item.CallID != toolCallID {
+		t.Fatalf("call_id = %q", item.CallID)
+	}
+}
+
 func TestConvertToResponsesRequest_OmitsNoneReasoningEffort(t *testing.T) {
 	req := &model.InternalLLMRequest{
 		Model:           "mimo-v2.5-pro",
