@@ -6,7 +6,7 @@ Channels are the basic configuration units for connecting to LLM providers.
 
 **Channel Templates:**
 
-The UI provides 9 built-in channel templates for quick creation: OpenAI, OpenAI Responses, Anthropic, Gemini, DeepSeek, OpenRouter, SiliconFlow, Volcengine, and MiMo.
+The UI provides built-in channel templates for quick creation: OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter, SiliconFlow, Volcengine, and MiMo (the OpenAI template creates an OpenAI Responses type channel).
 
 **Base URL Guide:**
 

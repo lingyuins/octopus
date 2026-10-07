@@ -1,250 +1,116 @@
 # Hub — 远程站点管理
 
-Hub 将多站点账户管理功能内置到 Octopus 中，使其成为一站式 AI 资产管理平台。
+Hub 提供远程站点账户、余额、签到、模型与 Token 管理。前端入口是 Hub，账号级操作集中在站点卡片中。
 
-## 架构
+## 代码入口
 
-```
-internal/hub/
-├── adapter.go              # SiteAdapter 接口定义 (15 个方法)
-├── registry.go             # 按 site_type 注册/获取适配器
-├── httpclient.go           # 共享 HTTP 客户端 (FetchJSON 泛型)
-├── common/adapter.go       # New API / One API 默认适配器 (兜底)
-├── octopus/adapter.go      # Octopus 类型 (JWT 登录)
-├── ldoh/adapter.go         # LDOH 公开站点发现
-├── aihubmix/adapter.go     # AIHubMix 适配器
-├── axonhub/adapter.go      # AxonHub 适配器
-├── claudecodehub/adapter.go # ClaudeCodeHub 适配器
-├── sapi/adapter.go         # SAPI 适配器（用户账号/密码登录）
-└── sub2api/adapter.go      # Sub2API 适配器
+| 入口 | 职责 |
+| --- | --- |
+| `adapter.go` | `SiteAdapter` 接口、请求与响应类型 |
+| `registry.go` | 按 `site_type` 注册与获取适配器 |
+| `httpclient.go` | 共享 HTTP 客户端与 `FetchJSON` |
+| `common/` | One API / New API 默认适配器与兜底 |
+| `aihubmix/`、`axonhub/`、`claudecodehub/`、`octopus/`、`sapi/`、`sub2api/` | 各站点专用适配器 |
+| `ldoh/` | 公开站点发现；不注册 `SiteAdapter` |
+| `../op/remotesite/` | 远程站点 CRUD、刷新、余额、签到、公告、兑换、Token、用量与渠道迁移 |
+| `../op/credential/` | API 凭据档案 |
+| `../sitesync/` | 多账号站点同步与投射渠道；`../site/` 为薄门面 |
+| `../server/handlers/` | 路由、认证与权限控制 |
 
-internal/op/remotesite/
-├── remotesite.go       # 站点 CRUD + Refresh + DetectSiteType
-├── balance.go          # 余额快照 CRUD + 定时捕获
-├── checkin.go          # 签到执行 + 历史查询
-├── announcement.go     # 公告拉取 + 存储
-├── redemption.go       # 兑换码核销 + 历史记录
-├── token.go            # 远程 Token 同步 + 导入本地渠道
-├── usage_history.go    # 远程用量日志同步 + 查询 + 聚合
-└── migration.go        # 渠道迁移 (远程↔本地)
+## 站点类型与适配器
 
-internal/op/credential/
-└── credential.go       # API 凭据档案 CRUD
-```
+已知站点类型以 `internal/model/remote_site.go` 的 `AllSiteTypes()` 为准；是否有专用实现以适配器的 `hub.Register` 为准。
 
-## 支持的站点类型
+| 站点类型 | 适配器 |
+| --- | --- |
+| `new-api`、`unknown` | `common` |
+| `veloera`、`done-hub`、`one-hub`、`anyrouter` | 未注册专用实现，回退到 `common` |
+| `aihubmix`、`axonhub`、`octopus`、`sapi`、`sub2api` | 同名子包 |
+| `claude-code-hub` | `claudecodehub` |
 
-| SiteType | 适配器 | 说明 |
-|----------|--------|------|
-| `new-api` | common | One API / New API 系列（默认兜底） |
-| `octopus` | octopus | Octopus 网关（JWT 登录） |
-| `veloera` | common | 兼容 New API |
-| `done-hub` | common | 兼容 New API |
-| `one-hub` | common | 兼容 New API |
-| `sub2api` | sub2api | Sub2API 专用适配器 |
-| `anyrouter` | common | 兼容 New API |
-| `aihubmix` | aihubmix | AIHubMix 专用适配器 |
-| `axonhub` | axonhub | AxonHub 专用适配器 |
-| `claude-code-hub` | claudecodehub | ClaudeCodeHub 专用适配器 |
-| `sapi` | sapi | SAPI 站点（用户账号/密码登录，刷新后同步 API Key） |
-| `unknown` | common | 自动检测失败时的兜底 |
+`hub.Get()` 在找不到专用适配器时回退到 `new-api`。回退并不保证上游兼容所有能力；非标准站点应提供专用实现。
 
 ## SiteAdapter 接口
 
-每个站点类型实现 15 个方法：
+接口定义以 `adapter.go` 为准，主要能力包括：
 
-| 方法 | 功能 |
-|------|------|
-| `FetchUserInfo` | 获取账户信息（余额、用户名等） |
-| `PerformCheckIn` | 执行签到 |
-| `FetchCheckInStatus` | 查询今日是否已签到 |
-| `FetchModels` | 获取可用模型列表 |
-| `FetchModelPricing` | 获取模型定价 |
-| `FetchTokens` | 列出 API Token |
-| `CreateToken` | 创建 API Token |
-| `ListChannels` | 列出渠道 |
-| `CreateChannel` | 创建渠道 |
-| `UpdateChannel` | 更新渠道 |
-| `DeleteChannel` | 删除渠道 |
-| `FetchAnnouncement` | 获取公告 |
-| `FetchSiteStatus` | 获取站点公开状态 |
-| `RedeemCode` | 兑换码核销（不支持时返回 nil） |
-| `FetchUsageLogs` | 获取用量日志（分页，不支持时返回 nil） |
+- 账户与状态：`FetchUserInfo`、`FetchSiteStatus`、`FetchAnnouncement`。
+- 签到与兑换：`PerformCheckIn`、`FetchCheckInStatus`、`RedeemCode`。
+- 模型与价格：`FetchModels`、`FetchModelPricing`。
+- Token：`FetchTokens`、`CreateToken`。
+- 渠道：`ListChannels`、`CreateChannel`、`UpdateChannel`、`DeleteChannel`。
+- 用量：`FetchUsageLogs`。
 
-## API 路由
+能力支持与不支持时的返回约定应遵循接口注释，不要仅凭站点类型判断。
 
-所有路由位于 `/api/v1/` 下，需要 JWT 认证。
+## 管理 API
 
-### 远程站点
+这些路由位于 `/api/v1/` 下，需要 JWT 认证。完整路径、HTTP 方法和权限以 `internal/server/handlers/` 内的注册代码为准，下面给出查找入口，避免重复维护端点清单。
 
-| Method | Path | 权限 | 说明 |
-|--------|------|------|------|
-| GET | `/remote-site/list` | `sites:read` | 列出所有站点 |
-| POST | `/remote-site/create` | `sites:write` | 添加站点 |
-| POST | `/remote-site/update` | `sites:write` | 更新站点 |
-| DELETE | `/remote-site/delete/:id` | `sites:write` | 删除站点 |
-| POST | `/remote-site/refresh/:id` | `sites:write` | 刷新单个站点 |
-| POST | `/remote-site/refresh-all` | `sites:write` | 刷新全部 |
-| POST | `/remote-site/detect` | `sites:write` | 自动检测类型 |
-| GET | `/remote-site/models/:id` | `sites:read` | 模型列表 |
-| GET | `/remote-site/pricing/:id` | `sites:read` | 模型定价 |
-| GET | `/remote-site/site-types` | `sites:read` | 已知站点类型 |
+| 路由前缀 | Handler 文件 | 权限说明 |
+| --- | --- | --- |
+| `/remote-site` | `remote_site.go` | 读取 `sites:read`，写入 `sites:write` |
+| `/site-discovery` | `remote_site.go` | 公开目录查询仍要求 `sites:write` |
+| `/balance-history` | `balance_history.go` | 读取与预测 `sites:read`，捕获 `sites:write` |
+| `/checkin` | `checkin.go` | 状态与历史 `sites:read`，执行 `sites:write` |
+| `/redemption` | `redemption.go` | 历史 `sites:read`，兑换 `sites:write` |
+| `/usage-history` | `usage_history.go` | 查询 `sites:read`，同步 `sites:write` |
+| `/announcement` | `announcement.go` | 读取 `sites:read`，刷新 `sites:write` |
+| `/remote-site-token` | `remote_site_token.go` | 列表 `sites:read`，同步与导出 `sites:write` |
+| `/channel-migration` | `channel_migration.go` | `sites:write` |
+| `/api-credential` | `api_credential.go` | 读取 `api_keys:read`，写入 `api_keys:write` |
+| `/verification` | `verification.go` | 所有接口（含探针列表）要求 `api_keys:write` |
+| `/cli-export` | `cli_export.go` | `api_keys:read` |
 
-### 余额历史
+远程 Token 的旧管理 UI 已移除，后端仍保留列表、同步、导入渠道和导出接口。不要把保留接口等同于仍有独立前端面板。
 
-| Method | Path | 权限 | 说明 |
-|--------|------|------|------|
-| GET | `/balance-history/list/:site_id` | `sites:read` | 余额快照列表 |
-| GET | `/balance-history/chart/:site_id` | `sites:read` | 图表数据 |
-| POST | `/balance-history/capture/:site_id` | `sites:write` | 手动捕获 |
+## 定时任务与自动化
 
-### 签到
+`internal/task/init.go` 注册远程站点余额捕获、自动签到、公告拉取与用量同步任务。任务名和默认间隔以注册代码为准。
 
-| Method | Path | 权限 | 说明 |
-|--------|------|------|------|
-| GET | `/checkin/status/:site_id` | `sites:read` | 今日签到状态 |
-| POST | `/checkin/execute/:site_id` | `sites:write` | 执行签到 |
-| POST | `/checkin/execute-all` | `sites:write` | 全部签到 |
-| GET | `/checkin/history/:site_id` | `sites:read` | 签到历史 |
+Hub 的“自动化”标签页复用 `SettingSiteAutomation`，用于多账号站点的自动同步与签到配置；这与上述 `hub_*` 远程站点任务不是同一组调度。
 
-### 兑换
+## 凭据与备份
 
-| Method | Path | 权限 | 说明 |
-|--------|------|------|------|
-| POST | `/redemption/redeem` | `sites:write` | 兑换码核销 |
-| POST | `/redemption/redeem-all` | `sites:write` | 全部站点兑换 |
-| GET | `/redemption/history/:site_id` | `sites:read` | 兑换历史 |
+- 站点凭据与 API Key 在库内使用 AES-256-GCM 加密，实现位于 `internal/utils/crypto/`，密文前缀为 `enc:`；无前缀值保留明文兼容。
+- 密钥使用 `security.encryption_key`（环境变量 `OCTOPUS_SECURITY_ENCRYPTION_KEY`），未配置时可由持久化 `auth.jwt_secret` 派生。两者都未配置时拒绝启动，避免重启后凭据不可解密。
+- 数据库备份由 `internal/op/backup/` 管理。当前 Hub 导出内容包括远程站点、余额快照、签到记录、API 凭据档案、公告和远程 Token；远程用量记录未纳入导出。完整范围以 `ExportAll` / `ImportWithModeToDB` 为准。
+- **备份格式 v2 将敏感字段导出为明文，导入时用目标实例密钥重新加密。备份文件必须作为凭据文件保密存放。**
+- Hub 数据增量导入跳过已存在记录；完整导入先删除既有数据再插入，应先备份并确认范围。
 
-### 用量历史
+## 前端入口
 
-| Method | Path | 权限 | 说明 |
-|--------|------|------|------|
-| GET | `/usage-history` | `sites:read` | 查询用量历史（分页） |
-| GET | `/usage-history/summary` | `sites:read` | 用量聚合统计 |
-| GET | `/usage-history/hourly` | `sites:read` | 按小时用量分布 |
-| GET | `/usage-history/models/:site_id` | `sites:read` | 站点使用过的模型列表 |
-| POST | `/usage-history/sync/:site_id` | `sites:write` | 同步单个站点用量 |
-| POST | `/usage-history/sync-all` | `sites:write` | 同步全部站点用量 |
+Hub 容器位于 `web/src/components/modules/remote-site/index.tsx`，标签顺序与可见性由 `navbar/sub-tab-store.ts` 管理。
 
-### API 凭据
+| 标签 | 实现 |
+| --- | --- |
+| 站点 | `modules/site/`；多账号卡片、同步、签到、归档与批量操作 |
+| 站点渠道 | `modules/site-channel/`；远程投射渠道管理 |
+| 自动化 | `modules/setting/SiteAutomation.tsx` |
+| 额度 | `modules/plan-provider/` 的 `BalanceSection` |
+| TokenPlan | `modules/plan-provider/` 的 `TokenPlanSection` |
 
-| Method | Path | 权限 | 说明 |
-|--------|------|------|------|
-| GET | `/api-credential/list` | `api_keys:read` | 列出凭据 |
-| POST | `/api-credential/create` | `api_keys:write` | 创建凭据 |
-| POST | `/api-credential/update` | `api_keys:write` | 更新凭据 |
-| DELETE | `/api-credential/delete/:id` | `api_keys:write` | 删除凭据 |
+`modules/remote-site/` 保留部分历史面板文件，但不代表当前 Hub 会渲染它们；请以容器导入与渲染代码为准。
 
-### 验证 & CLI 导出
+## 添加站点适配器
 
-| Method | Path | 权限 | 说明 |
-|--------|------|------|------|
-| POST | `/verification/run` | `api_keys:read` | 运行验证探针 |
-| POST | `/verification/run-for/:id` | `api_keys:read` | 按凭据验证 |
-| GET | `/verification/probes` | `api_keys:read` | 可用探针列表 |
-| POST | `/cli-export/generate` | `api_keys:read` | 生成 CLI 配置 |
+1. 在 `internal/model/remote_site.go` 定义站点类型，并加入 `AllSiteTypes()`。
+2. 创建 `internal/hub/<sitetype>/adapter.go`，实现 `hub.SiteAdapter`。
+3. 在适配器的 `init()` 中调用 `hub.Register(model.SiteTypeXXX, &Adapter{})`。
+4. **在调用方添加匿名导入**：核对 `internal/op/remotesite/remotesite.go` 与 `internal/server/handlers/remote_site.go` 的导入链。仅编写 `init()` 不会加载子包，遗漏导入会静默回退到 `common`。
+5. 同步前端 `web/src/api/endpoints/remote-site.ts` 的 `SITE_TYPES` 与相关三语文案。
+6. 添加适配器测试，并验证经真实导入链调用 `hub.Get()` 能取得该适配器。
 
-### 公告
+New API 兼容站点通常可使用 `common`；自定义签到端点、认证或响应格式等非标准行为才需要专用适配器。
 
-| Method | Path | 权限 | 说明 |
-|--------|------|------|------|
-| GET | `/announcement/list` | `sites:read` | 全部公告 |
-| GET | `/announcement/list/:site_id` | `sites:read` | 按站点查询 |
-| POST | `/announcement/refresh/:site_id` | `sites:write` | 刷新公告 |
-| POST | `/announcement/refresh-all` | `sites:write` | 刷新全部 |
+## 验证
 
-### 远程 Token（v2.0.0 起前端已移除，后端保留供备份系统使用）
-
-| Method | Path | 权限 | 说明 |
-|--------|------|------|------|
-| GET | `/remote-site-token/list/:site_id` | `sites:read` | Token 列表 |
-| POST | `/remote-site-token/sync/:site_id` | `sites:write` | 同步 Token |
-| POST | `/remote-site-token/sync-to-channel` | `sites:write` | 导入为本地渠道 |
-
-> **注意：** 远程 Token 同步功能已从前端 UI 移除（v2.0.0），但后端 API 端点保留，供备份/恢复系统使用。
-
-### 渠道迁移
-
-| Method | Path | 权限 | 说明 |
-|--------|------|------|------|
-| POST | `/channel-migration/migrate` | `sites:write` | 迁移单个渠道 |
-| POST | `/channel-migration/migrate-all` | `sites:write` | 迁移全部渠道 |
-
-### 站点发现
-
-| Method | Path | 权限 | 说明 |
-|--------|------|------|------|
-| GET | `/site-discovery/discover` | `sites:write` | 查询公开目录 |
-
-## 定时任务
-
-在 `internal/task/init.go` 中注册：
-
-| 任务 | 间隔 | 说明 |
-|------|------|------|
-| `hub_balance_capture` | 6 小时 | 捕获所有启用站点的余额快照 |
-| `hub_auto_checkin` | 12 小时 | 所有启用站点自动签到（幂等） |
-| `hub_announcement_fetch` | 4 小时 | 拉取所有启用站点的公告 |
-| `hub_usage_history_sync` | 6 小时 | 同步所有启用站点的用量历史 |
-
-## 凭据加密
-
-所有 `access_token`、`password`、`api_key` 字段使用 AES-256-GCM 加密存储。
-
-- 加密密钥：配置 `security.encryption_key` 或环境变量 `OCTOPUS_SECURITY_ENCRYPTION_KEY`
-- 密文前缀：`enc:` (base64)
-- 无前缀的值视为明文（向后兼容）
-- 实现在 `internal/utils/crypto/`
-
-## 导入导出
-
-Hub 数据已纳入数据库备份/恢复体系（`internal/op/backup/`）：
-
-**导出表：** `remote_sites`, `balance_snapshots`, `check_in_records`, `api_credential_profiles`, `site_announcements`, `remote_site_tokens`, `remote_usage_records`
-
-**导入策略：**
-- Incremental 模式：ON CONFLICT DO NOTHING（跳过已存在的记录）
-- Full 模式：先按依赖逆序删除所有表数据，再插入
-
-## 前端模块
-
-Hub 在侧边栏中作为单一入口，内部通过标签页组织 5 个子面板：
-
-| 路由 ID | 路径 | 说明 |
-|---------|------|------|
-| `hub` | 侧边栏 Hub | Hub 标签页容器，包含 5 个子面板 |
-
-**Hub 内部标签页：**
-- **站点 (Sites)** — 多账号站点卡片网格（`web/src/components/modules/site/`），内联展示余额、同步状态、签到状态；支持置顶、归档/恢复、批量编辑、AllAPIHub/MetAPI 批量导入；账号级操作含同步、签到、启用/停用、编辑、删除
-- **站点渠道 (Site Channels)** — 远程站点投射渠道管理（`web/src/components/modules/site-channel/`）
-- **自动化 (Automation)** — 自动同步与自动签到间隔配置（复用 `SettingSiteAutomation` 组件）
-- **额度 (Balance)** — 套餐余额监控图表（复用 `BalanceChart.tsx`），展示各站点余额趋势与预测
-- **TokenPlan** — Token 套餐监控（`web/src/components/modules/plan-provider/`），跟踪上游订阅套餐额度/用量并管理自动创建的转发渠道
-
-> **注意：** 此前 Hub 的 7 标签页布局（Sites / Check-in / Announcement / Redemption / Usage / Credential / Site Channels）已精简为 5 标签页（Sites / Site Channels / Automation / Balance / TokenPlan）。签到、公告、兑换、用量、凭证功能已内联进站点卡片或通过 API 访问。`web/src/components/modules/remote-site/` 下仍保留 `CheckInPanel.tsx` / `AnnouncementPanel.tsx` / `RedemptionPanel.tsx` / `UsageHistoryPanel.tsx` / `CredentialPanel.tsx` 等历史文件，但已不再被前端引用（后端 API 仍保留供备份系统使用）；`BalanceChart.tsx` 现被 Balance 标签页复用。
-
-后端的远程 Token 管理 API 端点保留供备份系统使用，但前端已移除对应 UI。
-
-## 测试
+从仓库根目录执行：
 
 ```bash
-# 运行 Hub 相关测试
-go test ./internal/hub/...
-go test ./internal/op/remotesite/...
-go test ./internal/op/backup/...
-go test ./internal/utils/crypto/...
-
-# 前端
-cd web && pnpm check
+go test ./internal/hub/... ./internal/op/remotesite/...
+go test ./internal/op/backup/... ./internal/utils/crypto/...
+pnpm --dir web check
 ```
 
-## 添加新站点适配器
-
-1. 在 `internal/hub/<sitetype>/` 创建 `adapter.go`
-2. 实现 `hub.SiteAdapter` 接口的 15 个方法
-3. 在 `init()` 中调用 `hub.Register(model.SiteTypeXXX, &Adapter{})`
-4. 在 `internal/model/remote_site.go` 添加 `SiteTypeXXX` 常量
-5. 在 `model.AllSiteTypes()` 中注册
-6. 前端 `web/src/api/endpoints/remote-site.ts` 的 `SITE_TYPES` 数组中添加
-
-大多数 New API 兼容站点无需自定义适配器，`common` 适配器已作为默认兜底。仅当站点有非标准 API（如自定义签到端点、不同的响应格式）时才需要专用适配器。
+新检出且尚无前端产物时，Go 全包编译前先执行 `mkdir -p static/out && touch static/out/.keep`。

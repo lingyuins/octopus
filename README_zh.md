@@ -128,16 +128,21 @@ docker compose up -d
 # 克隆项目
 git clone https://github.com/lingyuins/octopus.git
 cd octopus
+# 任何 Go 构建前必须执行：static/static.go 的 go:embed 要求该目录存在
+#（目录被 gitignore，新克隆的仓库没有它）
+mkdir -p static/out && touch static/out/.keep
 # 可选：通过环境变量预置初始管理员账户
 export OCTOPUS_INITIAL_ADMIN_USERNAME="admin"
 export OCTOPUS_INITIAL_ADMIN_PASSWORD="change-this-password-long"
-# 可选但强烈建议：设置持久化 JWT 密钥
+# 必需：下面两个密钥至少设置一个。security.encryption_key 与持久化 auth.jwt_secret
+# 都为空时启动会被直接拒绝（用临时密钥派生 AES key 会导致重启后已加密数据无法解密）
 export OCTOPUS_AUTH_JWT_SECRET="replace-with-a-long-random-secret"
-# 直接启动后端服务（即使还没构建前端，也可以先以 API-only 模式启动）
+export OCTOPUS_SECURITY_ENCRYPTION_KEY="replace-with-another-long-random-secret"
+# 启动后端服务（嵌入前端产物前为 API-only 模式）
 go run main.go start
 ```
 
-如果 `static/out/` 中已经有前端构建产物，Go 二进制会直接提供管理界面；如果还没有构建产物，Octopus 仍然可以正常启动并提供 API，但必须先构建前端并在执行 `go build` / `go run` 前将导出的资源放到 `static/out/` 下，管理界面才能访问。
+> `static/out/` 这一步对源码构建是必需的：缺少该目录时，所有 `go build` / `go test` / `go run` 都会因 embed 指令失败。目录存在后（哪怕只有 `.keep`），后端即可编译并对外提供 API；把构建好的前端产物放到 `static/out/` 下（见下文）后，管理界面才可访问。
 
 发布构建（`bash scripts/build.sh release`）使用 `--frozen-lockfile` 安装前端依赖；任一平台构建或产物准备失败都会终止。执行 `bash scripts/build_test.sh` 可在不编译二进制的情况下验证发布失败处理。
 
@@ -145,11 +150,15 @@ go run main.go start
 
 ```bash
 cd web && pnpm install && NEXT_PUBLIC_APP_VERSION="$(git describe --tags --always 2>/dev/null || printf 'dev')" pnpm build && cd ..
-# 将前端构建产物移动到 Go 二进制预期的嵌入目录
+## 用新导出的产物替换之前生成的嵌入目录（static/out 是被 gitignore 的构建产物；
+## web/out 原样保留，无需为再次构建或本地调试重新导出）
+rm -rf static/out
 mkdir -p static/out
-mv web/out/* static/out/
-# 如果 Next.js 导出了空的 _not-found 目录，请在构建 Go 前补一个占位文件
-printf 'placeholder for go:embed\n' > static/out/_not-found/.keep
+cp -r web/out/. static/out/
+# go:embed 对空目录会报错；如果 Next.js 导出了空的 _not-found，补一个占位文件
+if [ -d web/out/_not-found ] && [ -z "$(ls -A web/out/_not-found)" ]; then
+  touch static/out/_not-found/.keep
+fi
 # 重新启动后端，此时可直接访问嵌入式管理界面
 go run main.go start
 ```
@@ -161,13 +170,16 @@ cd web && pnpm install && NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8080" NEXT_
 ## 新建终端，可选：通过环境变量自动创建初始管理员账户
 export OCTOPUS_INITIAL_ADMIN_USERNAME="admin"
 export OCTOPUS_INITIAL_ADMIN_PASSWORD="change-this-password-long"
-## 可选但强烈建议：设置持久化 JWT 密钥
+## 必需：下面两个密钥至少设置一个（原因见上方快速开始说明）
 export OCTOPUS_AUTH_JWT_SECRET="replace-with-a-long-random-secret"
+export OCTOPUS_SECURITY_ENCRYPTION_KEY="replace-with-another-long-random-secret"
 ## 启动后端服务
 go run main.go start
 ## 访问前端地址
 http://localhost:3000
 ```
+
+> **开发模式 CORS 提示**：开发态前端（`http://localhost:3000`）跨端口访问 `8080` 后端。CORS 白名单默认为空（= 拒绝所有跨域来源），若浏览器拦截了 API 请求，请在 `设置 → 系统 → CORS` 中加入 `http://localhost:3000`（或 `*`）。
 
 ### 🔐 初始管理员设置
 
@@ -178,7 +190,7 @@ http://localhost:3000
 
 > ⚠️ **安全提示**：初始管理员密码长度必须至少为 12 个字符。
 >
-> ⚠️ **安全提示**：如果未配置 `OCTOPUS_AUTH_JWT_SECRET` 或 `auth.jwt_secret`，Octopus 会在启动时生成仅当前进程有效的 JWT 密钥。服务重启后，已有登录 token 会失效。
+> ⚠️ **安全提示**：必须配置持久化 `auth.jwt_secret` 或 `security.encryption_key`，两者均未配置时会拒绝启动，避免加密凭据丢失。若只配置加密密钥，JWT 密钥仍为临时值，服务重启后已有登录 token 会失效。
 
 ### 👥 管理员角色
 
@@ -231,7 +243,7 @@ http://localhost:3000
 | `database.path` | 数据库连接地址 | `data/data.db` |
 | `log.level` | 日志级别 | `info` |
 | `auth.jwt_secret` | JWT 签名密钥 | 空（未设置时启动生成临时密钥） |
-| `security.encryption_key` | 敏感数据存储加密密钥（凭证档案、站点密码等） | 空（回退到 JWT 密钥） |
+| `security.encryption_key` | 敏感数据存储加密密钥（凭证档案、站点密码等） | 空（回退到持久化 JWT 密钥；两者均未配置时拒绝启动） |
 | `relay.max_json_body_bytes` | JSON 请求体最大大小 | `67108864`（64 MB） |
 | `relay.max_multipart_body_bytes` | Multipart 请求体最大大小 | `67108864`（64 MB） |
 
@@ -356,17 +368,17 @@ http://localhost:3000
 | 模块 | 作用 |
 |------|------|
 | Home | 版本信息、运行状态、高层摘要、趋势图、GitHub 风格活跃热力图和排行榜 |
-| Hub | 上游中继平台管理，包含 5 个标签页：站点（多账号卡片，内联余额/同步/签到状态、归档/恢复、批量编辑、AllAPIHub/MetAPI 批量导入）、站点渠道（投射渠道绑定）、自动化（自动同步与自动签到间隔）、额度（套餐余额图表）和 TokenPlan（Token 套餐监控） |
+| Hub | 上游中继平台管理，包含站点（多账号卡片，内联余额/同步/签到状态、归档/恢复、批量编辑、AllAPIHub/MetAPI 批量导入）、站点渠道（投射渠道绑定）、自动化（自动同步与自动签到间隔）、额度（套餐余额图表）和 TokenPlan（Token 套餐监控）等页签 |
 | Channel | 上游渠道、Key、Header、同步、延迟探测、代理模式和请求改写配置 |
 | 号池 | 面向 relay 调度的号池管理：号池列表支持搜索与新建/编辑（名称、描述、策略、默认并发、冷却、启用）并带删除二次确认；详情页支持按关键字 / 平台 / 状态筛选账号、OAuth 账号授权、批量操作和凭据导入导出 |
 | Group | 模型路由、负载均衡、会话保持、分组测试、AI 路由、分组思考模式（自动 / 关闭 / 开启）、端点供应商、Zashboard 风格可折叠分组列表和 CC Switch 深链接 |
 | Model Market | 模型目录（市场 / 可用端点 / 价格分类三视图）、自定义价格、渠道覆盖、可用 Key 数、延迟、成功率摘要、归一化去重多维筛选，以及兜底定价与峰谷计费规则 |
 | Analytics | 渠道×模型（默认）、用量拆分、路由健康、延迟分布、评估中心、缓存（语义 + 供应商 Prompt Cache）和分享快照 |
-| Log | Relay 请求历史，详情支持分组 / 请求体切换、模型与渠道候选状态和响应并排展示、展开尝试诊断，以及 Token 使用和费用记录 |
-| Notification | 统一通知中心，含 4 个分组：消息（收件箱 / 已归档）、告警（规则 / 历史）、送达（渠道 / 策略 / 偏好）和报表（调度 / 历史）。告警规则、通知渠道（Webhook、Gotify、Email、Telegram、飞书、钉钉、企业微信、ntfy）和用量报表调度都在这里 |
+| Log | 双视图：Relay 请求历史，详情支持分组 / 请求体切换、模型与渠道候选状态和响应并排展示、展开尝试诊断，以及 Token 使用和费用记录；另有错误日志（Error Log）视图查看后端记录的错误 |
+| Notification | 统一通知中心，分组涵盖消息（收件箱 / 已归档）、告警（规则 / 历史）、送达（渠道 / 策略 / 偏好）和报表（调度 / 历史）。告警规则、通知渠道（Webhook、Gotify、Email、Telegram、飞书、钉钉、企业微信、ntfy）和用量报表调度都在这里 |
 | Ops | 遥测（Hero 指标、P95 延迟、供应商健康、Prompt Cache 分析）、配额、健康、维护（重试 / 熔断 / 响应过滤）、系统和审计轨迹 |
 | APIKey | API Key 创建、编辑、删除，模型白名单、过期时间、费用上限、RPM / TPM 配额、IP 白名单和按模型配额 |
-| Setting | 版本更新信息、外观与导航偏好（排序 + 可见性）、运行时调优、语义缓存、AI 路由服务池、API Key 默认配置、WebAuthn/Passkey、数据库迁移、WebDAV 备份、站点自动化、备份恢复、模型名归一化规则和危险操作 |
+| Setting | 版本更新信息、外观与导航偏好（排序 + 可见性）、AI 路由服务池、语义缓存、日志保留、系统选项（Public API Base URL、代理、CORS）、LLM/价格同步节奏、数据库备份与实时迁移、Redis 缓存后端、WebDAV 备份、WebAuthn/Passkey、模型名归一化、号池调度设置、代理池入口和危险操作 |
 | User | 管理员用户和角色管理 |
 
 此外，以下功能可通过应用外壳工具栏或其他模块内访问：
@@ -383,7 +395,7 @@ http://localhost:3000
 
 **渠道模板：**
 
-UI 提供 9 种内置渠道模板用于快速创建：OpenAI、OpenAI Responses、Anthropic、Gemini、DeepSeek、OpenRouter、SiliconFlow、Volcengine 和 MiMo。
+UI 提供内置渠道模板用于快速创建（以 `web/src/components/modules/channel/templates.ts` 为准）：OpenAI（创建的是 OpenAI Responses 类型渠道）、Anthropic、Gemini、DeepSeek、OpenRouter、SiliconFlow、Volcengine 和 MiMo。
 
 **Base URL 说明：**
 
@@ -604,7 +616,7 @@ Octopus 提供多层模型可见性：
 
 **CC Switch 集成：**
 
-分组工具栏包含 CC Switch 深链接生成器，可为 5 种目标应用生成供应商导入链接：Claude Code、Codex、Gemini、OpenCode 和 OpenClaw。对于 Claude Code，支持将 Haiku / Sonnet / Opus 模型映射到指定路由分组。
+分组工具栏包含 CC Switch 深链接生成器，可为下列目标应用生成供应商导入链接：Claude Code、Codex、Gemini、OpenCode 和 OpenClaw。对于 Claude Code，支持将 Haiku / Sonnet / Opus 模型映射到指定路由分组。
 
 > 💡 **示例**：创建分组名称为 `gpt-4o`，将多个供应商的 GPT-4o 渠道加入该分组，即可通过统一的 `model: gpt-4o` 访问所有渠道。
 
@@ -612,7 +624,7 @@ Octopus 提供多层模型可见性：
 
 ### 💎 模型广场与价格
 
-`Model` 路由（模型广场）提供三个可在工具栏切换的视图：**市场**（价格与覆盖卡片）、**可用端点**（端点 → 模型分组）和**价格分类**（兜底定价规则 + 峰谷计费）。
+`Model` 路由（模型广场）提供可在工具栏切换的视图：**市场**（价格与覆盖卡片）、**可用端点**（端点 → 模型分组）和**价格分类**（兜底定价规则 + 峰谷计费）。
 
 **市场视图每张卡片整合的数据：**
 
@@ -690,7 +702,7 @@ Octopus 提供多层模型可见性：
 
 ### 📈 Analytics
 
-Analytics 是偏只读的分析模块，当前包含 6 个页签，默认 Tab 为 **渠道×模型**，让最关注的数据先呈现：
+Analytics 是偏只读的分析模块，默认 Tab 为 **渠道×模型**，让最关注的数据先呈现：
 
 | 页签 | 展示内容 |
 |------|----------|
@@ -756,7 +768,7 @@ Telemetry 标签页包含供应商侧 Prompt Cache 监控，追踪上游供应�
 - 二者都会按统计保存周期定时落库
 - 二者也会在优雅退出时主动保存
 
-**当前设置页的重点卡片（瘦身后共 14 张）：**
+**当前设置页的重点卡片**（权威清单见 `web/src/components/modules/setting/index.tsx`）：
 
 | 卡片 | 作用 |
 |------|------|
@@ -764,7 +776,7 @@ Telemetry 标签页包含供应商侧 Prompt Cache 监控，追踪上游供应�
 | Appearance | 主题、语言、告警通知语言，一级导航顺序拖拽偏好，以及各页面可见性开关 |
 | AI Route | 单分组兼容默认目标、超时、并发度、服务池配置 |
 | Auto Strategy | Auto 策略调优（最小样本数、时间窗口、滑动窗口大小、延迟权重） |
-| Account | 登录会话/账户偏好和应用时区选择（10 个时区） |
+| Account | 登录会话/账户偏好和应用时区选择 |
 | Semantic Cache | 开关、TTL、相似度阈值、最大条目数、embedding Base URL / API Key / 模型 / 超时 |
 | Log | 日志保留（按时长和按数量）和日志级别 |
 | System | Public API Base URL、代理、CORS 白名单（标签式管理）和统计落库周期 |
@@ -774,6 +786,8 @@ Telemetry 标签页包含供应商侧 Prompt Cache 监控，追踪上游供应�
 | WebDAV Backup | WebDAV 云备份配置：连接设置、自动备份间隔、最大备份保留数、手动触发、远程文件列表、恢复和删除 |
 | WebAuthn / Passkey | RP ID、RP 展示名、允许的 Origin 配置 |
 | 归一化（Normalize） | 模型名归一化规则：路由前缀、功能后缀和显式变体→基准名映射（运行时可配置，支持离线 AI 辅助归一化工作流） |
+| 号池（Pool） | 号池调度调优：健康巡检、分层调度、粘性会话逃逸、权重重置等相关设置 |
+| 代理池（Proxy Pool） | 打开共享代理池管理弹窗（无内嵌面板） |
 
 > **说明：** 以下设置项已迁移到更相关的模块（issue #87）：
 > - **重试 / 熔断器 / 响应过滤** → `运维中心 → 维护` 页签
@@ -807,7 +821,7 @@ Backup 设置卡片包含超越简单导出/导入的实时数据库迁移功能
 
 **设置卡片排序：**
 
-设置页支持对其 14 个卡片区域进行拖拽排序，排序结果会持久化到本地存储。提供"恢复默认"按钮。
+设置页支持对卡片区域进行拖拽排序，排序结果会持久化到本地存储。提供"恢复默认"按钮。
 
 > ⚠️ **重要提示**：退出程序时，请使用正常的关闭方式（如 `Ctrl+C` 或发送 `SIGTERM` 信号），以确保内存中的统计数据能正确写入数据库。**请勿使用 `kill -9` 等强制终止方式**，否则可能导致统计数据丢失。
 
@@ -839,7 +853,7 @@ Hub 模块的**站点**页签将上游中继平台作为一等实体管理。站
 可从应用外壳工具栏访问的共享代理配置池：
 
 - 命名代理配置，支持 URL、协议（SOCKS5 / HTTP / HTTPS）、启用/禁用和备注
-- 4 种代理模式：`direct`、`system`、`pool`、`inherit`
+- 代理模式：`direct`、`system`、`pool`、`inherit`
 - 针对可配置测试 URL 的代理连通性测试
 - **引用树**：展示哪些站点、站点账号、托管渠道和渠道使用了每个代理
 - 引用跳转导航，可深链到引用实体
@@ -884,7 +898,7 @@ Hub 模块的**站点**页签将上游中继平台作为一等实体管理。站
 
 **CLI 配置导出：**
 
-为 5 种客户端工具生成即用配置片段：
+为下列客户端工具生成即用配置片段：
 
 | 工具 | 格式 |
 |------|------|
@@ -900,7 +914,7 @@ Hub 模块的**站点**页签将上游中继平台作为一等实体管理。站
 
 通知模块是统一中心，聚合系统事件、告警触发和套餐供应商通知，支持严重级别、已读/归档状态、过滤和 SSE 实时推送。告警规则监控系统健康并触发通知：
 
-**告警规则类型：** 错误率（支持可配置作用域——按渠道 / 按分组 / 全局——和滑动窗口评估）、费用阈值、额度超限和渠道下线。
+**告警规则类型：** 错误率（支持可配置作用域——按渠道 / 按分组 / 全局——和滑动窗口评估）、费用阈值、额度超限、渠道下线，以及号池账号异常（`pool_account_error`，按账号作用域）。
 
 **通知渠道：**
 
@@ -997,10 +1011,11 @@ Octopus 采用清晰的分层 Go 架构：
 ```
 cmd/                    # 程序入口（Cobra CLI）
 internal/
+├── apperror/           # 应用错误类型（机器码 + HTTP 状态码 + i18n 参数）
 ├── conf/               # 配置加载与构建元信息
-├── client/             # HTTP 客户端工具
+├── client/             # 出站 HTTP 客户端池（超时分桶、代理、SSRF 防护）
 ├── db/                 # 数据库连接与迁移（SQLite/MySQL/PostgreSQL）
-│   └── migrate/        # 版本化 Schema 迁移（001-033）
+│   └── migrate/        # 版本化 Schema 迁移（编号以该目录内文件为准）
 ├── model/              # 领域类型（Channel、Group、APIKey、User、Site、ProxyConfiguration、ModelMapping……）
 ├── op/                 # 按领域拆分的业务逻辑操作
 │   ├── airoute/        # AI 路由生成、进度追踪、服务池和兼容辅助逻辑
@@ -1013,6 +1028,7 @@ internal/
 │   ├── channel/        # 渠道 CRUD、同步、分组、密钥、托管渠道投射和 Base URL 辅助逻辑
 │   ├── credential/     # API 凭证档案管理（含加密）
 │   ├── dbmigration/    # SQLite/MySQL/PostgreSQL 之间的实时数据库迁移
+│   ├── errorlog/       # 后端错误日志持久化与保留策略
 │   ├── group/          # 路由分组 CRUD、自动分组、分组项、测试与缓存查询
 │   ├── llm/            # LLM 价格目录操作
 │   ├── modelmapping/   # 模型映射规则管理
@@ -1020,6 +1036,7 @@ internal/
 │   ├── navorder/       # 导航顺序和可见性持久化
 │   ├── notification/   # 通知中心（消息、SSE 流、偏好）
 │   ├── ops/            # Ops 仪表盘数据聚合（遥测、配额、健康）
+│   ├── pool/           # 面向 relay 调度的号池管理
 │   ├── ratelimitstore/ # RPM/TPM 限流状态
 │   ├── relaylog/       # Relay 日志持久化（含异步刷写 Worker）
 │   ├── remotesite/     # 远程 Hub 站点操作（余额、签到、公告、用量、令牌、兑换）
@@ -1030,7 +1047,8 @@ internal/
 │   └── webauthn/       # WebAuthn / Passkey 注册和认证
 ├── relay/              # 核心中转管线
 │   ├── balancer/       # 负载均衡策略（轮询、随机、故障转移、加权、智能）
-│   └── condition/      # 请求条件评估
+│   ├── condition/      # 请求条件评估
+│   └── poolscheduler/  # 号池渠道的账号调度
 ├── server/             # HTTP 层（Gin）
 │   ├── auth/           # JWT 认证与权限
 │   ├── handlers/       # 路由处理器（每个资源一个文件）
@@ -1045,11 +1063,16 @@ internal/
 │   └── model/          # 共享适配器类型与接口
 ├── hub/                # 远程站点适配器接口、注册表、HTTP 客户端和平台专属适配器
 ├── planprovider/       # 上游订阅套餐监控（Codex、MiMo、StepFun、SenseNova、余额类厂商）
-├── store/              # 可选缓存/状态后端（KVStore、RateLimitStore、StatsStore、RuntimeStateStore）：内存 + Redis
+├── poolhealthcheck/    # 号池账号周期健康巡检
+├── pooltokenrefresh/   # 号池 OAuth Token 自动刷新（含退避）
+├── poolscheduledtest/  # 号池计划连通性测试与账号恢复
+├── store/              # 可选缓存/状态后端（KVStore、RateLimitStore、StatsStore、RuntimeStateStore、ChannelDelayStore）：内存 + Redis
 ├── helper/             # 横切辅助（AI 路由、渠道/分组探测、价格、通知）
 ├── price/              # LLM 价格目录（models.dev 同步）
+├── pkg/                # 号池账号第三方 OAuth 流程辅助（Anthropic / OpenAI / Gemini CLI / xAI）
 ├── update/             # 自更新机制
 ├── utils/              # 工具库（缓存、限流、语义缓存、分词器、加密……）
+├── site/               # 薄门面，全部转发到 sitesync
 └── sitesync/           # 站点同步、投射与签到实现
 ```
 
@@ -1077,11 +1100,11 @@ inbound.TransformResponse（内部格式 → 客户端格式）
 
 **Hub 适配器：**
 
-Hub 远程站点管理采用适配器架构，共 7 个适配器包，覆盖 12 种站点类型：
+Hub 远程站点管理采用适配器架构。各适配器包在 `init()` 中为对应站点类型注册专属处理器（当前清单以 `internal/hub/` 各子包与 `internal/hub/README.md` 为准），注册表对没有专属适配器的站点类型回退到 `common`（One API / New API 族）适配器：
 
 | 适配器 | 站点类型 |
 |--------|----------|
-| `common` | `new-api`、`veloera`、`done-hub`、`one-hub`、`anyrouter`、`unknown`（One API / New API 族回退适配器） |
+| `common` | 直接注册 `new-api`、`unknown`；`veloera`、`done-hub`、`one-hub`、`anyrouter` 经注册表回退由其处理（One API / New API 族） |
 | `octopus` | `octopus`（自适应适配器） |
 | `aihubmix` | `aihubmix` |
 | `axonhub` | `axonhub` |
@@ -1091,7 +1114,7 @@ Hub 远程站点管理采用适配器架构，共 7 个适配器包，覆盖 12 
 
 `ldoh` 包提供公开站点发现功能（非适配器）。
 
-每个适配器实现 15 个方法的 `SiteAdapter` 接口，涵盖用户信息、签到、模型、价格、令牌、渠道、公告、状态、兑换和用量日志。
+每个适配器实现 `SiteAdapter` 接口，涵盖用户信息、签到、模型、价格、令牌、渠道、公告、状态、兑换和用量日志。
 
 **前端（Next.js 16 App Router）：**
 
@@ -1100,10 +1123,11 @@ web/src/
 ├── api/               # API 客户端与端点 Hooks（TanStack Query）
 ├── app/               # Next.js App Router 页面
 ├── components/
-│   ├── modules/       # 领域模块（渠道、分组、API Key、远程站点、站点、代理池、模型映射、凭证……）
+│   ├── modules/       # 领域模块（渠道、分组、API Key、远程站点、站点、号池、代理池、模型映射、凭证……）
 │   ├── ui/            # UI 原语（基于 Radix）
 │   ├── common/        # 共享组件
-│   └── nature/        # 动画背景与特效
+│   ├── nature/        # 动画背景与特效
+│   └── animate-ui/    # 动效 UI 组件
 ├── hooks/             # 自定义 Hooks
 ├── lib/               # 工具、国际化、日志、时区辅助
 ├── provider/          # React Context 提供者
@@ -1119,7 +1143,7 @@ Octopus 涉及时区的三层独立概念：
 |----|---------|---------|
 | **容器时区** | `ENV TZ` / `-e TZ=` | 服务端日志时间戳、`time.Now()` 返回值 |
 | **统计时区** | 管理端设置 → `stats_timezone`（IANA 名，如 `Asia/Shanghai`） | 每小时/每天统计数据的日期归入 |
-| **前端展示时区** | 管理端设置 → 用户偏好（10 个时区） | 所有页面上的时间显示格式 |
+| **前端展示时区** | 管理端设置 → 用户偏好 | 所有页面上的时间显示格式 |
 
 三层独立配置：容器时区影响服务端运行时，统计时区影响数据聚合，前端展示时区只影响用户看到的时间文本。
 

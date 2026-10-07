@@ -21,6 +21,8 @@
 - 🔄 **协议互转** - 支持 OpenAI Chat / OpenAI Responses / OpenAI Embeddings / Anthropic 四种 API 格式互相转换
 - 🌐 **多供应商支持** - 内置支持 OpenAI 兼容、Anthropic、Cloudflare、Gemini、Volcengine、MiMo、Codex 以及 Passthrough 透传渠道
 - 🛰️ **媒体与工具类中继** - 支持通过同一套分组 / 重试 / 熔断基础设施转发 OpenAI Images、音频、视频、搜索、重排和审核类端点
+- 👥 **号池** - 池化管理上游账号（OAuth / API Key / Cookie 凭据），提供专属调度、健康巡检、Token 自动刷新和定时连通性测试
+- 📜 **转发日志与错误日志** - 日志双视图：转发日志展示逐候选重试明细，错误日志收集后端 panic 和前端异常
 - 🧾 **API Key 治理** - 支持模型白名单、过期时间、费用上限、RPM / TPM 限额、按模型配额，以及 IP / CIDR 白名单
 - 🔐 **角色化管理权限** - 内置 `admin`、`editor`、`viewer` 三种角色，并由服务端强制执行权限控制
 - 🔑 **WebAuthn / Passkey 登录** — 通过 WebAuthn/Passkey 实现无密码登录和注册，支持可配置 RP 设置
@@ -55,10 +57,10 @@
 | 04 | [渠道管理](zh/04-渠道管理.md) | 渠道模板、Base URL、代理模式、请求改写、参数覆盖、Key 策略 |
 | 05 | [分组管理](zh/05-分组管理.md) | 分组管理、负载均衡、模型发现与能力查询 |
 | 06 | [模型广场](zh/06-模型广场.md) | 模型目录、定价、覆盖、能力双视图 |
-| 07 | [Relay 端点](zh/07-Relay端点.md) | 公共 relay API、Zen 路由、模型映射、代理池 |
+| 07 | [Relay 端点](zh/07-Relay端点.md) | 公共 relay API、Zen 路由、模型映射、代理池、号池 |
 | 08 | [分析](zh/08-分析.md) | 渠道×模型、用量明细、路由健康、延迟、评估、缓存 |
 | 09 | [运维](zh/09-运维.md) | 遥测、配额、健康、维护、系统、审计 |
-| 10 | [设置](zh/10-设置.md) | 14 张设置卡片、语义缓存、数据库迁移、危险操作 |
+| 10 | [设置](zh/10-设置.md) | 设置卡片、语义缓存、数据库迁移、危险操作 |
 | 11 | [站点管理](zh/11-站点管理.md) | 站点管理、WebDAV 备份、API 凭证、CLI 导出、通知中心 |
 | 12 | [客户端接入](zh/12-客户端接入.md) | OpenAI SDK、Claude Code、Codex、CLI 导出 |
 | 13 | [架构](zh/13-架构.md) | 分层架构、relay 数据流、Hub 适配器、时区、安全 |

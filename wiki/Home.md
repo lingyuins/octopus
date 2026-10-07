@@ -21,6 +21,8 @@
 - 🔄 **Protocol Conversion** - Seamless conversion between OpenAI Chat / OpenAI Responses / OpenAI Embeddings / Anthropic API formats
 - 🌐 **Multi-Provider Support** - Built-in support for OpenAI-compatible, Anthropic, Cloudflare, Gemini, Volcengine, MiMo, Codex, and passthrough channels
 - 🛰️ **Media & Utility Relay** - Relay OpenAI Images, audio, video, search, rerank, and moderation endpoints through the same group / retry / circuit-breaker infrastructure
+- 👥 **Account Pools** - Pool upstream accounts (OAuth / API key / cookie credentials) with dedicated scheduling, health probes, token auto-refresh, and scheduled connectivity tests
+- 📜 **Relay & Error Logs** - Dual log views: relay logs with per-candidate retries, and error logs collecting backend panics plus frontend exceptions
 - 🧾 **API Key Governance** - Supported-model allowlists, expiry, max-cost caps, RPM / TPM limits, per-model quotas, and IP / CIDR allowlists
 - 🔐 **Role-Based Admin Access** - Built-in `admin`, `editor`, and `viewer` roles with server-side permission enforcement
 - 🔑 **WebAuthn / Passkey Login** — Passwordless login and registration via WebAuthn/Passkey with configurable RP settings
@@ -55,10 +57,10 @@
 | 04 | [Channels](en/04-Channels.md) | Channel templates, base URLs, proxy mode, request rewrite, param override, key strategy |
 | 05 | [Groups](en/05-Groups.md) | Group management, load balancing, model discovery & capabilities |
 | 06 | [Model Market](en/06-Model-Market.md) | Model catalog, pricing, coverage, capabilities dual-view |
-| 07 | [Relay Endpoints](en/07-Relay-Endpoints.md) | Public relay API, Zen routing, model mapping, proxy pool |
+| 07 | [Relay Endpoints](en/07-Relay-Endpoints.md) | Public relay API, Zen routing, model mapping, proxy pool, account pools |
 | 08 | [Analytics](en/08-Analytics.md) | Channel×Model, usage breakdown, route health, latency, evaluation, cache |
 | 09 | [Ops](en/09-Ops.md) | Telemetry, quota, health, maintenance, system, audit |
-| 10 | [Settings](en/10-Settings.md) | 14 settings cards, semantic cache, DB migration, dangerous ops |
+| 10 | [Settings](en/10-Settings.md) | Settings cards, semantic cache, DB migration, dangerous ops |
 | 11 | [Hub & Sites](en/11-Hub-Sites.md) | Site management, WebDAV backup, API credentials, CLI export, notifications |
 | 12 | [Client Integration](en/12-Client-Integration.md) | OpenAI SDK, Claude Code, Codex, CLI export |
 | 13 | [Architecture](en/13-Architecture.md) | Layered architecture, relay data flow, hub adapters, timezone, security |

@@ -2,7 +2,7 @@
 
 ## 🔗 Site Management (Hub → Sites)
 
-The Hub module's **Sites** tab manages upstream relay platforms as a first-class entity. Sites represent platforms like New-API, One-API, One-Hub, Done-Hub, Sub2API, OpenAI, Claude, Gemini, and SAPI. Each site renders as a multi-account card with inline balance, sync status, and check-in status, replacing the previous multi-tab Hub layout.
+The Hub module's **Sites** tab manages upstream relay platforms as a first-class entity. Sites represent platforms like New-API, One-API, One-Hub, Done-Hub, Sub2API, AnyRouter, OpenAI, Claude, and Gemini. Each site renders as a multi-account card with inline balance, sync status, and check-in status, replacing the previous multi-tab Hub layout.
 
 **Features:**
 
@@ -33,6 +33,12 @@ Automated cloud backup via WebDAV with full lifecycle management:
 - Delete remote backups
 - Included in the Settings page as a dedicated card
 
+**What a backup contains — handle with care:**
+
+The backup is a JSON dump of the database, same format as the Settings → Backup export. It always includes the core tables (channels, keys, groups, API keys, settings, alerts, notifications, runtime states), the Site tables, and the Hub tables `remote_sites`, `balance_snapshots`, `check_in_records`, `api_credential_profiles`, `site_announcements`, and `remote_site_tokens`. Relay logs and audit logs (the "include logs" option) and statistics (the "include stats" option) are only exported when selected. Account pool tables and Hub usage-history records (`remote_usage_records`) are not part of the dump.
+
+> ⚠️ **Confidentiality**: In the current dump format (v2), sensitive fields — channel keys, API keys, site access tokens / passwords, credential API keys — are exported in **plaintext** (so a backup restores correctly on another instance; import re-encrypts them with the target instance's key). Anyone holding the backup file holds live credentials: store it encrypted / access-restricted, and never commit or share it.
+
 ---
 
 ## 🔑 API Credential Profiles & CLI Export
@@ -46,7 +52,7 @@ Reusable API credential profiles store Base URL + API Key pairs for quick access
 
 **CLI Config Export:**
 
-Generate ready-to-use configuration snippets for 5 client tools:
+Generate ready-to-use configuration snippets for the following client tools:
 
 | Tool | Format |
 |------|--------|
@@ -62,7 +68,7 @@ Generate ready-to-use configuration snippets for 5 client tools:
 
 The Notification module is a unified center aggregating system events, alert firings, and plan-provider notifications with severity levels, read/archive state, filtering, and SSE streaming for real-time delivery. Alert rules monitor system health and trigger notifications:
 
-**Alert rule types:** Error rate (with configurable scope — per-channel / per-group / global — and sliding-window evaluation), cost threshold, quota exceeded, and channel down.
+**Alert rule types:** Error rate (with configurable scope — per-channel / per-group / global — and sliding-window evaluation), cost threshold, quota exceeded, channel down, and pool account error (fires while any — or the scoped — pool account stays in the error state).
 
 **Notification channels:**
 

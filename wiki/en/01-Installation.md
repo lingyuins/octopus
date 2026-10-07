@@ -83,16 +83,19 @@ Download the binary for your platform from [Releases](https://github.com/lingyui
 # Clone the repository
 git clone https://github.com/lingyuins/octopus.git
 cd octopus
+# Create the embed directory placeholder — required for Go compilation
+# even before any frontend assets are built
+mkdir -p static/out && touch static/out/.keep
 # Optional: bootstrap the initial admin via environment variables
 export OCTOPUS_INITIAL_ADMIN_USERNAME="admin"
 export OCTOPUS_INITIAL_ADMIN_PASSWORD="change-this-password-long"
-# Optional but recommended: set a persistent JWT secret
+# Required unless security.encryption_key is configured: set a persistent JWT secret
 export OCTOPUS_AUTH_JWT_SECRET="replace-with-a-long-random-secret"
-# Start the backend service directly (API-only mode works even before frontend assets are built)
+# Start the backend service (API-only mode until frontend assets are embedded)
 go run main.go start
 ```
 
-If `static/out/` already contains built frontend assets, the Go binary serves the management UI directly. Otherwise, Octopus still starts normally and exposes the API endpoints, but the management UI is unavailable until you build the frontend and place the exported assets under `static/out/` before running `go build` / `go run`.
+Go compilation requires `static/out/` to exist (a `.keep` placeholder is enough). If it contains built frontend assets, the binary serves the management UI directly; otherwise Octopus still starts and exposes the API, but the management UI is unavailable until you build the frontend and place the exported assets under `static/out/` before running `go build` / `go run`.
 
 Release builds (`bash scripts/build.sh release`) use `--frozen-lockfile` and abort on any platform build or artifact preparation failure. Run `bash scripts/build_test.sh` to verify failure handling without a full build.
 
@@ -100,11 +103,14 @@ Release builds (`bash scripts/build.sh release`) use `--frozen-lockfile` and abo
 
 ```bash
 cd web && pnpm install && NEXT_PUBLIC_APP_VERSION="$(git describe --tags --always 2>/dev/null || printf 'dev')" pnpm build && cd ..
-# Move frontend assets to the embed directory expected by the Go binary
+# Replace the generated embed directory; keep web/out for local development
+rm -rf static/out
 mkdir -p static/out
-mv web/out/* static/out/
-# If Next.js exports an empty _not-found directory, add a placeholder before building Go
-printf 'placeholder for go:embed\n' > static/out/_not-found/.keep
+cp -r web/out/. static/out/
+# Only an existing empty directory needs a placeholder
+if [ -d static/out/_not-found ] && [ -z "$(ls -A static/out/_not-found)" ]; then
+  touch static/out/_not-found/.keep
+fi
 # Start the backend service with embedded UI assets available in the repository
 go run main.go start
 ```
@@ -116,7 +122,7 @@ cd web && pnpm install && NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8080" NEXT_
 ## Open a new terminal, optionally set initial admin credentials for automatic bootstrap
 export OCTOPUS_INITIAL_ADMIN_USERNAME="admin"
 export OCTOPUS_INITIAL_ADMIN_PASSWORD="change-this-password-long"
-## Optional but recommended: set a persistent JWT secret
+## Required unless security.encryption_key is configured: set a persistent JWT secret
 export OCTOPUS_AUTH_JWT_SECRET="replace-with-a-long-random-secret"
 ## Start the backend service
 go run main.go start
@@ -133,7 +139,7 @@ On first launch, you can initialize the admin account in either of these ways:
 
 > ⚠️ **Security Notice**: The initial admin password must be at least 12 characters long.
 >
-> ⚠️ **Security Notice**: If `OCTOPUS_AUTH_JWT_SECRET` or `auth.jwt_secret` is not configured, Octopus will generate an in-memory JWT secret at startup. Existing login tokens will become invalid after a restart.
+> ⚠️ **Security Notice**: Configure a persistent `auth.jwt_secret` or `security.encryption_key`; without either, startup is refused to prevent loss of encrypted credentials. If only the encryption key is configured, the JWT secret remains temporary and existing login tokens become invalid after a restart.
 
 ---
 

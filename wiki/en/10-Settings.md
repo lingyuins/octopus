@@ -19,7 +19,7 @@ Since the program handles numerous statistics, writing to the database on every 
 - Both are saved periodically using the same interval as statistics persistence
 - Both are also saved during graceful shutdown
 
-**Key settings cards in the current UI (14 cards):**
+**Key settings cards in the current UI:**
 
 | Card | Purpose |
 |------|---------|
@@ -27,16 +27,18 @@ Since the program handles numerous statistics, writing to the database on every 
 | Appearance | Theme, locale, alert language, drag-and-drop top-level navigation order, and per-page visibility toggles |
 | AI Route | Default compatibility group, timeout, parallelism, and service-pool configuration |
 | Auto Strategy | Auto strategy tuning (minimum samples, time window, sliding window size, latency weight) |
-| Account | Login-session/account preferences and application timezone selection (10 time zones) |
+| Account | Login-session/account preferences and application timezone selection |
 | Semantic Cache | Enablement, TTL, similarity threshold, max entries, embedding base URL / API key / model / timeout |
 | Log | Retention (time-based and count-based) and log level |
 | System | Public API base URL, proxy URL, CORS allowlist (tag-style management), and stats persistence interval |
 | LLM Sync | Upstream model synchronization and price refresh cadence |
-| Backup | Database export, import, and live database migration between SQLite / MySQL / PostgreSQL with connection testing and per-table row count results |
+| Backup | Database export, import, and live database migration between SQLite / MySQL / PostgreSQL with connection testing and per-table row count results. The exported dump contains sensitive fields (channel keys, API keys, site tokens) in plaintext — keep backup files confidential |
 | Redis | Optional Redis cache backend configuration: connection settings, test connection, and save (restart to apply). Unloads stats, runtime state, rate-limit/cooldown, and channel-delay probing to Redis for low-memory hosts and multi-instance scaling |
 | WebDAV Backup | WebDAV cloud backup configuration: connection settings, auto-backup interval, max backups retention, manual trigger, remote file listing, restore, and delete |
 | WebAuthn / Passkey | RP ID, RP name, allowed origins configuration |
 | Normalize | Model-name normalization rules: router prefixes, functional suffixes, and explicit variant→canonical mappings (runtime-configurable, with an offline AI-assisted normalization workflow) |
+| Pool | Account-pool scheduling and health tuning: probe interval, failure threshold, minimum priority, unschedulable rules, sticky escape, weight reset / quota |
+| Proxy Pool | Not an inline panel — opens the shared proxy pool dialog |
 
 > **Note:** The following settings have been relocated to more relevant modules (issue #87):
 > - **Retry / Circuit Breaker / Response Filter** → `Ops → Maintenance` tab
@@ -70,7 +72,7 @@ The Backup settings card includes a live database migration feature beyond simpl
 
 **Settings Card Order:**
 
-The Settings page supports drag-and-drop reordering of its 14 card sections, with order persisted to local storage. A "Reset to Default" button restores the original order.
+The Settings page supports drag-and-drop reordering of its card sections, with order persisted to local storage. A "Reset to Default" button restores the original order.
 
 > ⚠️ **Important**: When exiting the program, use proper shutdown methods (like `Ctrl+C` or sending `SIGTERM` signal) to ensure in-memory statistics are correctly written to the database. **Do NOT use `kill -9` or other forced termination methods**, as this may result in statistics data loss.
 
