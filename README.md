@@ -334,7 +334,7 @@ All configuration options can be overridden via environment variables using the 
 
 ## 📸 Screenshots
 
-> Note: The screenshots below show the core console surfaces. Current builds keep the same visual system and navigation, with `Model` presented as `Model Market` and additional `Analytics` / `Ops` entries in the sidebar.
+> Captured from v2.6.3-fix on 2026-10-07 using an isolated instance with synthetic demo data. Desktop viewport: 1440 × 960; mobile viewport: 430 × 932. No production accounts or credentials are shown.
 
 ### 🖥️ Desktop
 
