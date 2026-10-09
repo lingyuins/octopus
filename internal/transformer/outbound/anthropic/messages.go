@@ -239,6 +239,7 @@ func (o *MessageOutbound) TransformStream(ctx context.Context, eventData []byte)
 			case "signature_delta":
 				if streamEvent.Delta.Signature != nil {
 					choice.Delta.ReasoningSignature = streamEvent.Delta.Signature
+					choice.Delta.ReasoningSignatureFormat = model.APIFormatAnthropicMessage
 				}
 			default:
 				return nil, nil
@@ -572,7 +573,7 @@ func convertAssistantWithToolCalls(msg model.Message) []anthropicModel.MessagePa
 		blocks = append(blocks, anthropicModel.MessageContentBlock{
 			Type:      "thinking",
 			Thinking:  msg.ReasoningContent,
-			Signature: msg.ReasoningSignature,
+			Signature: msg.ReasoningSignatureFor(model.APIFormatAnthropicMessage),
 		})
 	}
 
@@ -650,7 +651,7 @@ func buildMultipleContentWithThinking(msg model.Message) anthropicModel.MessageC
 		blocks = append(blocks, anthropicModel.MessageContentBlock{
 			Type:      "thinking",
 			Thinking:  msg.ReasoningContent,
-			Signature: msg.ReasoningSignature,
+			Signature: msg.ReasoningSignatureFor(model.APIFormatAnthropicMessage),
 		})
 	}
 
@@ -866,11 +867,12 @@ func convertToLLMResponse(resp *anthropicModel.Message) *model.InternalLLMRespon
 	}
 
 	message := &model.Message{
-		Role:               resp.Role,
-		Content:            content,
-		ToolCalls:          toolCalls,
-		ReasoningContent:   thinkingText,
-		ReasoningSignature: thinkingSignature,
+		Role:                     resp.Role,
+		Content:                  content,
+		ToolCalls:                toolCalls,
+		ReasoningContent:         thinkingText,
+		ReasoningSignature:       thinkingSignature,
+		ReasoningSignatureFormat: model.APIFormatAnthropicMessage,
 	}
 
 	choice := model.Choice{

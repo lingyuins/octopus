@@ -190,14 +190,23 @@ func (i *ChatInbound) GetInternalResponse(ctx context.Context) (*model.InternalL
 					*existingChoice.Message.ReasoningContent += delta.GetReasoningContent()
 				}
 
+				if delta.ReasoningSignature != nil {
+					signature := *delta.ReasoningSignature
+					if delta.ReasoningSignatureFormat != model.APIFormatOpenAIResponse && existingChoice.Message.ReasoningSignature != nil {
+						signature = *existingChoice.Message.ReasoningSignature + signature
+					}
+					existingChoice.Message.ReasoningSignature = &signature
+					existingChoice.Message.ReasoningSignatureFormat = delta.ReasoningSignatureFormat
+				}
+
 				// Aggregate tool calls
 				for _, toolCall := range delta.ToolCalls {
 					existingChoice.Message.ToolCalls = mergeToolCall(existingChoice.Message.ToolCalls, toolCall)
 				}
 
-				// Set refusal if present
+				// Append refusal if present
 				if delta.Refusal != "" {
-					existingChoice.Message.Refusal = delta.Refusal
+					existingChoice.Message.Refusal += delta.Refusal
 				}
 			}
 

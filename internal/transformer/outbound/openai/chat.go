@@ -204,6 +204,7 @@ func sanitizeMessageForOpenAICompat(msg *model.Message, preserveDeepSeekReasonin
 
 	reasoningContent := msg.GetReasoningContent()
 	reasoningSignature := msg.ReasoningSignature
+	reasoningSignatureFormat := msg.ReasoningSignatureFormat
 	shouldKeepReasoning := shouldKeepDeepSeekReasoningContent(msg, preserveDeepSeekReasoning, reasoningContent)
 
 	msg.ClearHelpFields()
@@ -211,6 +212,7 @@ func sanitizeMessageForOpenAICompat(msg *model.Message, preserveDeepSeekReasonin
 	if shouldKeepReasoning {
 		msg.ReasoningContent = &reasoningContent
 		msg.ReasoningSignature = reasoningSignature
+		msg.ReasoningSignatureFormat = reasoningSignatureFormat
 	}
 }
 

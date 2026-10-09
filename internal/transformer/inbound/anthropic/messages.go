@@ -268,6 +268,7 @@ func (i *MessagesInbound) TransformRequest(ctx context.Context, body []byte) (*m
 
 			if reasoningSignature != "" {
 				chatMsg.ReasoningSignature = &reasoningSignature
+				chatMsg.ReasoningSignatureFormat = model.APIFormatAnthropicMessage
 			}
 		}
 
@@ -379,8 +380,8 @@ func (i *MessagesInbound) TransformResponse(ctx context.Context, response *model
 					Type:     "thinking",
 					Thinking: message.ReasoningContent,
 				}
-				if message.ReasoningSignature != nil && *message.ReasoningSignature != "" {
-					thinkingBlock.Signature = message.ReasoningSignature
+				if signature := message.ReasoningSignatureFor(model.APIFormatAnthropicMessage); signature != nil && *signature != "" {
+					thinkingBlock.Signature = signature
 				} else {
 					thinkingBlock.Signature = lo.ToPtr("ANTHROPIC_MAGIC_STRING_TRIGGER_REDACTED_THINKING_46C9A13E193C177646C7398A98432ECCCE4C1253D5E2D82641AC0E52CC2876CB")
 				}
@@ -601,7 +602,7 @@ func (i *MessagesInbound) TransformStream(ctx context.Context, stream *model.Int
 
 		// Add signature delta if signature is available; it targets the active
 		// thinking block only.
-		if choice.Delta != nil && choice.Delta.ReasoningSignature != nil && *choice.Delta.ReasoningSignature != "" && i.thinkingBlockIndex != nil {
+		if choice.Delta != nil && choice.Delta.ReasoningSignatureFor(model.APIFormatAnthropicMessage) != nil && *choice.Delta.ReasoningSignature != "" && i.thinkingBlockIndex != nil {
 			sigEvent := StreamEvent{
 				Type:  "content_block_delta",
 				Index: i.thinkingBlockIndex,
@@ -974,6 +975,14 @@ func (i *MessagesInbound) GetInternalResponse(ctx context.Context) (*model.Inter
 					*existingChoice.Message.ReasoningContent += *delta.ReasoningContent
 				}
 
+				if delta.ReasoningSignature != nil {
+					if existingChoice.Message.ReasoningSignature == nil {
+						existingChoice.Message.ReasoningSignature = new(string)
+					}
+					*existingChoice.Message.ReasoningSignature += *delta.ReasoningSignature
+					existingChoice.Message.ReasoningSignatureFormat = delta.ReasoningSignatureFormat
+				}
+
 				// Aggregate tool calls
 				for _, toolCall := range delta.ToolCalls {
 					existingChoice.Message.ToolCalls = mergeToolCall(existingChoice.Message.ToolCalls, toolCall)
@@ -981,7 +990,7 @@ func (i *MessagesInbound) GetInternalResponse(ctx context.Context) (*model.Inter
 
 				// Set refusal if present
 				if delta.Refusal != "" {
-					existingChoice.Message.Refusal = delta.Refusal
+					existingChoice.Message.Refusal += delta.Refusal
 				}
 			}
 

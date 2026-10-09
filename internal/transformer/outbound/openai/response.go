@@ -24,7 +24,8 @@ type ResponseOutbound struct {
 
 	// sawFunctionCall tracks whether the stream contained at least one
 	// function_call output item so the final finish_reason can be tool_calls.
-	sawFunctionCall bool
+	sawFunctionCall            bool
+	emittedReasoningSignatures map[int]string
 }
 
 func (o *ResponseOutbound) TransformRequest(ctx context.Context, request *model.InternalLLMRequest, baseUrl, key string) (*http.Request, error) {
@@ -181,6 +182,17 @@ func (o *ResponseOutbound) TransformStream(ctx context.Context, eventData []byte
 			},
 		}
 
+	case "response.refusal.delta":
+		resp.Choices = []model.Choice{
+			{
+				Index: 0,
+				Delta: &model.Message{
+					Role:    "assistant",
+					Refusal: streamEvent.Delta,
+				},
+			},
+		}
+
 	case "response.function_call_arguments.delta":
 		resp.Choices = []model.Choice{
 			{
@@ -232,6 +244,11 @@ func (o *ResponseOutbound) TransformStream(ctx context.Context, eventData []byte
 			return nil, nil
 		}
 
+	case "response.output_item.done":
+		if streamEvent.Item == nil || !o.captureReasoningSignature(streamEvent.OutputIndex, *streamEvent.Item, resp) {
+			return nil, nil
+		}
+
 	case "response.reasoning_summary_text.delta":
 		resp.Choices = []model.Choice{
 			{
@@ -276,6 +293,9 @@ func (o *ResponseOutbound) TransformStream(ctx context.Context, eventData []byte
 			if streamEvent.Response.Usage != nil {
 				resp.Usage = convertResponsesUsage(streamEvent.Response.Usage)
 			}
+			for index, item := range streamEvent.Response.Output {
+				o.captureReasoningSignature(index, item, resp)
+			}
 			resp.StreamFinished = true
 		}
 
@@ -297,6 +317,9 @@ func (o *ResponseOutbound) TransformStream(ctx context.Context, eventData []byte
 			},
 		}
 		if streamEvent.Response != nil {
+			for index, item := range streamEvent.Response.Output {
+				o.captureReasoningSignature(index, item, resp)
+			}
 			if streamEvent.Response.Usage != nil {
 				resp.Usage = convertResponsesUsage(streamEvent.Response.Usage)
 			}
@@ -326,6 +349,25 @@ func (o *ResponseOutbound) TransformStream(ctx context.Context, eventData []byte
 	}
 
 	return resp, nil
+}
+
+func (o *ResponseOutbound) captureReasoningSignature(index int, item ResponsesItem, resp *model.InternalLLMResponse) bool {
+	if item.Type != "reasoning" || item.EncryptedContent == nil || *item.EncryptedContent == "" {
+		return false
+	}
+	if o.emittedReasoningSignatures == nil {
+		o.emittedReasoningSignatures = make(map[int]string)
+	}
+	if o.emittedReasoningSignatures[index] == *item.EncryptedContent {
+		return false
+	}
+	o.emittedReasoningSignatures[index] = *item.EncryptedContent
+	if len(resp.Choices) == 0 {
+		resp.Choices = []model.Choice{{Index: 0, Delta: &model.Message{Role: "assistant"}}}
+	}
+	resp.Choices[0].Delta.ReasoningSignature = item.EncryptedContent
+	resp.Choices[0].Delta.ReasoningSignatureFormat = model.APIFormatOpenAIResponse
+	return true
 }
 
 // responseFailedError builds a model.ResponseError from a failed terminal
@@ -381,6 +423,11 @@ type ResponsesRequest struct {
 	Temperature       *float64              `json:"temperature,omitempty"`
 	TopP              *float64              `json:"top_p,omitempty"`
 	Reasoning         *ResponsesReasoning   `json:"reasoning,omitempty"`
+	// Include forwards the original Responses API include list (e.g.
+	// "reasoning.encrypted_content") so relayed responses→responses requests
+	// do not silently drop it. Only set when the conversation originated from
+	// a Responses client.
+	Include []string `json:"include,omitempty"`
 }
 
 type ResponsesInput struct {
@@ -391,6 +438,11 @@ type ResponsesInput struct {
 func (i ResponsesInput) MarshalJSON() ([]byte, error) {
 	if i.Text != nil {
 		return transformer.Marshal(i.Text)
+	}
+	// Responses API requires input to be a string or an array. A nil Items
+	// slice would serialize to `null`, which is a protocol type error.
+	if i.Items == nil {
+		return []byte("[]"), nil
 	}
 	return transformer.Marshal(i.Items)
 }
@@ -418,6 +470,7 @@ type ResponsesItem struct {
 	Text     *string         `json:"text,omitempty"`
 	ImageURL *string         `json:"image_url,omitempty"`
 	Detail   *string         `json:"detail,omitempty"`
+	Refusal  *string         `json:"refusal,omitempty"`
 
 	// Annotations for output_text content
 	Annotations []ResponsesAnnotation `json:"annotations,omitempty"`
@@ -438,7 +491,24 @@ type ResponsesItem struct {
 	Size         *string `json:"size,omitempty"`
 
 	// Reasoning fields
-	Summary []ResponsesReasoningSummary `json:"summary,omitempty"`
+	Summary          []ResponsesReasoningSummary `json:"summary,omitempty"`
+	EncryptedContent *string                     `json:"encrypted_content,omitempty"`
+}
+
+func (item ResponsesItem) MarshalJSON() ([]byte, error) {
+	type alias ResponsesItem
+	var summary *[]ResponsesReasoningSummary
+	if item.Type == "reasoning" {
+		items := item.Summary
+		if items == nil {
+			items = []ResponsesReasoningSummary{}
+		}
+		summary = &items
+	}
+	return transformer.Marshal(struct {
+		alias
+		Summary *[]ResponsesReasoningSummary `json:"summary,omitempty"`
+	}{alias: alias(item), Summary: summary})
 }
 
 type ResponsesReasoningSummary struct {
@@ -617,11 +687,18 @@ func ConvertToResponsesRequest(req *model.InternalLLMRequest) *ResponsesRequest 
 		ParallelToolCalls: req.ParallelToolCalls,
 	}
 
+	// Preserve the original Responses API include list only when the
+	// conversation came from a Responses client. Other protocols have no
+	// meaningful mapping for these flags.
+	if req.RawAPIFormat == model.APIFormatOpenAIResponse && len(req.Include) > 0 {
+		result.Include = append([]string(nil), req.Include...)
+	}
+
 	// Convert instructions from system messages
 	result.Instructions = convertInstructionsFromMessages(req.Messages)
 
 	// Convert input from messages
-	result.Input = convertInputFromMessages(req.Messages, req.TransformOptions)
+	result.Input = convertInputFromMessages(req.Messages, req.TransformOptions, req.RawAPIFormat)
 
 	// Convert tools
 	if len(req.Tools) > 0 {
@@ -686,7 +763,7 @@ func convertInstructionsFromMessages(msgs []model.Message) string {
 	return strings.Join(instructions, "\n")
 }
 
-func convertInputFromMessages(msgs []model.Message, transformOptions model.TransformOptions) ResponsesInput {
+func convertInputFromMessages(msgs []model.Message, transformOptions model.TransformOptions, rawFormat model.APIFormat) ResponsesInput {
 	if len(msgs) == 0 {
 		return ResponsesInput{}
 	}
@@ -713,7 +790,7 @@ func convertInputFromMessages(msgs []model.Message, transformOptions model.Trans
 		case "user":
 			items = append(items, convertUserMessageToResponses(msg))
 		case "assistant":
-			items = append(items, convertAssistantMessageToResponses(msg)...)
+			items = append(items, convertAssistantMessageToResponses(msg, rawFormat)...)
 		case "tool":
 			items = append(items, convertToolMessageToResponses(msg))
 		}
@@ -758,8 +835,29 @@ func convertUserMessageToResponses(msg model.Message) ResponsesItem {
 	}
 }
 
-func convertAssistantMessageToResponses(msg model.Message) []ResponsesItem {
+func convertAssistantMessageToResponses(msg model.Message, rawFormat model.APIFormat) []ResponsesItem {
 	var items []ResponsesItem
+
+	if rawFormat == model.APIFormatOpenAIResponse {
+		signature := msg.ReasoningSignature
+		if msg.ReasoningSignatureFormat != "" && msg.ReasoningSignatureFormat != model.APIFormatOpenAIResponse {
+			signature = nil
+		}
+		if msg.GetReasoningContent() != "" || (signature != nil && *signature != "") {
+			reasoningItem := ResponsesItem{
+				Type:             "reasoning",
+				Summary:          []ResponsesReasoningSummary{},
+				EncryptedContent: signature,
+			}
+			if text := msg.GetReasoningContent(); text != "" {
+				reasoningItem.Summary = append(reasoningItem.Summary, ResponsesReasoningSummary{
+					Type: "summary_text",
+					Text: text,
+				})
+			}
+			items = append(items, reasoningItem)
+		}
+	}
 
 	// Handle tool calls
 	for _, tc := range msg.ToolCalls {
@@ -893,10 +991,12 @@ func convertToLLMResponseFromResponses(resp *ResponsesResponse) *model.InternalL
 	}
 
 	var (
-		contentParts     []model.MessageContentPart
-		textContent      strings.Builder
-		reasoningContent strings.Builder
-		toolCalls        []model.ToolCall
+		contentParts       []model.MessageContentPart
+		textContent        strings.Builder
+		reasoningContent   strings.Builder
+		reasoningSignature *string
+		refusalContent     strings.Builder
+		toolCalls          []model.ToolCall
 	)
 
 	for _, outputItem := range resp.Output {
@@ -904,14 +1004,25 @@ func convertToLLMResponseFromResponses(resp *ResponsesResponse) *model.InternalL
 		case "message":
 			if outputItem.Content != nil {
 				for _, item := range outputItem.Content.Items {
-					if item.Type == "output_text" && item.Text != nil {
-						textContent.WriteString(*item.Text)
+					switch item.Type {
+					case "output_text":
+						if item.Text != nil {
+							textContent.WriteString(*item.Text)
+						}
+					case "refusal":
+						if item.Refusal != nil {
+							refusalContent.WriteString(*item.Refusal)
+						}
 					}
 				}
 			}
 		case "output_text":
 			if outputItem.Text != nil {
 				textContent.WriteString(*outputItem.Text)
+			}
+		case "refusal":
+			if outputItem.Refusal != nil {
+				refusalContent.WriteString(*outputItem.Refusal)
 			}
 		case "function_call":
 			toolCalls = append(toolCalls, model.ToolCall{
@@ -925,6 +1036,13 @@ func convertToLLMResponseFromResponses(resp *ResponsesResponse) *model.InternalL
 		case "reasoning":
 			for _, summary := range outputItem.Summary {
 				reasoningContent.WriteString(summary.Text)
+			}
+			// Preserve encrypted_content for multi-turn reasoning replay. We
+			// reuse ReasoningSignature, which is the same internal slot the
+			// inbound side writes to.
+			if outputItem.EncryptedContent != nil && *outputItem.EncryptedContent != "" {
+				s := *outputItem.EncryptedContent
+				reasoningSignature = &s
 			}
 		case "image_generation_call":
 			if outputItem.Result != nil && *outputItem.Result != "" {
@@ -954,6 +1072,15 @@ func convertToLLMResponseFromResponses(resp *ResponsesResponse) *model.InternalL
 	if reasoningContent.Len() > 0 {
 		choice.Message.ReasoningContent = lo.ToPtr(reasoningContent.String())
 	}
+	if reasoningSignature != nil {
+		choice.Message.ReasoningSignature = reasoningSignature
+		choice.Message.ReasoningSignatureFormat = model.APIFormatOpenAIResponse
+	}
+
+	// Set refusal if present
+	if refusalContent.Len() > 0 {
+		choice.Message.Refusal = refusalContent.String()
+	}
 
 	// Set message content
 	if textContent.Len() > 0 {
@@ -977,8 +1104,12 @@ func convertToLLMResponseFromResponses(resp *ResponsesResponse) *model.InternalL
 		}
 	}
 
-	// Set finish reason based on status
-	if len(toolCalls) > 0 {
+	// Set finish reason based on status. "incomplete" (token budget hit) takes
+	// precedence over tool_calls: the call stream was cut short. This mirrors
+	// the streaming branch's mapping at TransformStream: response.completed.
+	if resp.Status != nil && *resp.Status == "incomplete" {
+		choice.FinishReason = lo.ToPtr("length")
+	} else if len(toolCalls) > 0 {
 		choice.FinishReason = lo.ToPtr("tool_calls")
 	} else if resp.Status != nil {
 		switch *resp.Status {
@@ -986,8 +1117,6 @@ func convertToLLMResponseFromResponses(resp *ResponsesResponse) *model.InternalL
 			choice.FinishReason = lo.ToPtr("stop")
 		case "failed":
 			choice.FinishReason = lo.ToPtr("error")
-		case "incomplete":
-			choice.FinishReason = lo.ToPtr("length")
 		}
 	}
 

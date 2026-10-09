@@ -294,6 +294,14 @@ func cloneInternalResponse(resp *transmodel.InternalLLMResponse) *transmodel.Int
 	if err := jsonAPI.Unmarshal(payload, &cloned); err != nil {
 		return nil
 	}
+	for index, choice := range resp.Choices {
+		if choice.Message != nil && cloned.Choices[index].Message != nil {
+			cloned.Choices[index].Message.ReasoningSignatureFormat = choice.Message.ReasoningSignatureFormat
+		}
+		if choice.Delta != nil && cloned.Choices[index].Delta != nil {
+			cloned.Choices[index].Delta.ReasoningSignatureFormat = choice.Delta.ReasoningSignatureFormat
+		}
+	}
 	return &cloned
 }
 

@@ -16,12 +16,14 @@ import (
 // ResponseInbound implements the Inbound interface for OpenAI Responses API.
 type ResponseInbound struct {
 	// State tracking
-	hasResponseCreated      bool
-	hasMessageItemStarted   bool
-	hasReasoningItemStarted bool
-	hasContentPartStarted   bool
-	hasFinished             bool
-	responseCompleted       bool
+	hasResponseCreated         bool
+	hasMessageItemStarted      bool
+	hasReasoningItemStarted    bool
+	hasReasoningSummaryStarted bool
+	hasContentPartStarted      bool
+	hasRefusalPartStarted      bool
+	hasFinished                bool
+	responseCompleted          bool
 
 	// finishStatus records the mapped Responses status for the final
 	// response.completed event ("completed", "incomplete", "failed").
@@ -40,8 +42,11 @@ type ResponseInbound struct {
 	currentItemID      string
 
 	// Content accumulation
-	accumulatedText      strings.Builder
-	accumulatedReasoning strings.Builder
+	accumulatedText               strings.Builder
+	accumulatedReasoning          strings.Builder
+	accumulatedReasoningSignature *string
+	accumulatedRefusal            strings.Builder
+	messageContentParts           []ResponsesItem
 
 	// completedOutputItems captures each output item as it is closed via
 	// output_item.done, keyed by the output index it was emitted at. The final
@@ -170,9 +175,20 @@ func (i *ResponseInbound) TransformStream(ctx context.Context, stream *model.Int
 			events = append(events, i.handleReasoningContent(choice.Delta.ReasoningContent)...)
 		}
 
+		if choice.Delta != nil {
+			if signature := choice.Delta.ReasoningSignatureFor(model.APIFormatOpenAIResponse); signature != nil && *signature != "" {
+				events = append(events, i.handleReasoningSignature(signature)...)
+			}
+		}
+
 		// Handle text content delta
 		if choice.Delta != nil && choice.Delta.Content.Content != nil && *choice.Delta.Content.Content != "" {
 			events = append(events, i.handleTextContent(choice.Delta.Content.Content)...)
+		}
+
+		// Handle refusal delta
+		if choice.Delta != nil && choice.Delta.Refusal != "" {
+			events = append(events, i.handleRefusalContent(choice.Delta.Refusal)...)
 		}
 
 		// Handle tool calls
@@ -311,7 +327,7 @@ func (i *ResponseInbound) enqueueEvent(ev *ResponsesStreamEvent) []byte {
 	return formatSSEData(data)
 }
 
-func (i *ResponseInbound) handleReasoningContent(content *string) [][]byte {
+func (i *ResponseInbound) startReasoningItem() [][]byte {
 	var events [][]byte
 
 	// Start reasoning output item if not started
@@ -337,7 +353,20 @@ func (i *ResponseInbound) handleReasoningContent(content *string) [][]byte {
 			Item:        item,
 		}))
 
-		// Emit reasoning_summary_part.added
+	}
+	return events
+}
+
+func (i *ResponseInbound) handleReasoningSignature(signature *string) [][]byte {
+	events := i.startReasoningItem()
+	i.accumulatedReasoningSignature = signature
+	return events
+}
+
+func (i *ResponseInbound) handleReasoningContent(content *string) [][]byte {
+	events := i.startReasoningItem()
+	if !i.hasReasoningSummaryStarted {
+		i.hasReasoningSummaryStarted = true
 		events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 			Type:         "response.reasoning_summary_part.added",
 			ItemID:       &i.currentItemID,
@@ -368,6 +397,11 @@ func (i *ResponseInbound) handleTextContent(content *string) [][]byte {
 	// Close reasoning item if it was started
 	if i.hasReasoningItemStarted {
 		events = append(events, i.closeReasoningItem()...)
+	}
+
+	// Close refusal part if it was started (text follows refusal in same message)
+	if i.hasRefusalPartStarted {
+		events = append(events, i.closeRefusalPart()...)
 	}
 
 	// Start message output item if not started
@@ -417,6 +451,113 @@ func (i *ResponseInbound) handleTextContent(content *string) [][]byte {
 		ContentIndex: &i.contentIndex,
 		Delta:        *content,
 	}))
+
+	return events
+}
+
+// handleRefusalContent streams a refusal delta as a "refusal" content part
+// within the same message item used for text. Refusal and output_text are
+// mutually exclusive in practice, but the state machine keeps them as
+// separate content parts so interleaving cannot corrupt the stream.
+func (i *ResponseInbound) handleRefusalContent(content string) [][]byte {
+	var events [][]byte
+
+	// Close reasoning item if it was started
+	if i.hasReasoningItemStarted {
+		events = append(events, i.closeReasoningItem()...)
+	}
+
+	// Close text part if it was started
+	if i.hasContentPartStarted {
+		events = append(events, i.closeCurrentContentPart()...)
+	}
+
+	// Start message output item if not started
+	if !i.hasMessageItemStarted {
+		i.hasMessageItemStarted = true
+		i.currentItemID = generateItemID()
+		i.currentOutputIndex = i.outputIndex
+		i.outputIndex++
+
+		events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
+			Type:        "response.output_item.added",
+			OutputIndex: lo.ToPtr(i.currentOutputIndex),
+			Item: &ResponsesItem{
+				ID:      i.currentItemID,
+				Type:    "message",
+				Status:  lo.ToPtr("in_progress"),
+				Role:    "assistant",
+				Content: &ResponsesInput{Items: []ResponsesItem{}},
+			},
+		}))
+	}
+
+	// Start refusal content part if not started
+	if !i.hasRefusalPartStarted {
+		i.hasRefusalPartStarted = true
+
+		events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
+			Type:         "response.content_part.added",
+			ItemID:       &i.currentItemID,
+			OutputIndex:  lo.ToPtr(i.currentOutputIndex),
+			ContentIndex: &i.contentIndex,
+			Part: &ResponsesContentPart{
+				Type:    "refusal",
+				Refusal: lo.ToPtr(""),
+			},
+		}))
+	}
+
+	// Accumulate refusal content
+	i.accumulatedRefusal.WriteString(content)
+
+	// Emit refusal delta
+	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
+		Type:         "response.refusal.delta",
+		ItemID:       &i.currentItemID,
+		OutputIndex:  lo.ToPtr(i.currentOutputIndex),
+		ContentIndex: &i.contentIndex,
+		Delta:        content,
+	}))
+
+	return events
+}
+
+// closeRefusalPart finalizes the open refusal content part, if any.
+func (i *ResponseInbound) closeRefusalPart() [][]byte {
+	if !i.hasRefusalPartStarted {
+		return nil
+	}
+
+	var events [][]byte
+	i.hasRefusalPartStarted = false
+	fullRefusal := i.accumulatedRefusal.String()
+
+	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
+		Type:         "response.refusal.done",
+		ItemID:       &i.currentItemID,
+		OutputIndex:  lo.ToPtr(i.currentOutputIndex),
+		ContentIndex: &i.contentIndex,
+		Refusal:      fullRefusal,
+	}))
+
+	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
+		Type:         "response.content_part.done",
+		ItemID:       &i.currentItemID,
+		OutputIndex:  lo.ToPtr(i.currentOutputIndex),
+		ContentIndex: &i.contentIndex,
+		Part: &ResponsesContentPart{
+			Type:    "refusal",
+			Refusal: lo.ToPtr(fullRefusal),
+		},
+	}))
+
+	i.messageContentParts = append(i.messageContentParts, ResponsesItem{
+		Type:    "refusal",
+		Refusal: lo.ToPtr(fullRefusal),
+	})
+	i.contentIndex++
+	i.accumulatedRefusal.Reset()
 
 	return events
 }
@@ -503,32 +644,38 @@ func (i *ResponseInbound) closeReasoningItem() [][]byte {
 	i.hasReasoningItemStarted = false
 	fullReasoning := i.accumulatedReasoning.String()
 
-	// Emit reasoning_summary_text.done
-	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
-		Type:         "response.reasoning_summary_text.done",
-		ItemID:       &i.currentItemID,
-		OutputIndex:  lo.ToPtr(i.currentOutputIndex),
-		SummaryIndex: lo.ToPtr(0),
-		Text:         fullReasoning,
-	}))
+	if i.hasReasoningSummaryStarted {
+		// Emit reasoning_summary_text.done
+		events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
+			Type:         "response.reasoning_summary_text.done",
+			ItemID:       &i.currentItemID,
+			OutputIndex:  lo.ToPtr(i.currentOutputIndex),
+			SummaryIndex: lo.ToPtr(0),
+			Text:         fullReasoning,
+		}))
 
-	// Emit reasoning_summary_part.done
-	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
-		Type:         "response.reasoning_summary_part.done",
-		ItemID:       &i.currentItemID,
-		OutputIndex:  lo.ToPtr(i.currentOutputIndex),
-		SummaryIndex: lo.ToPtr(0),
-		Part:         &ResponsesContentPart{Type: "summary_text", Text: &fullReasoning},
-	}))
+		// Emit reasoning_summary_part.done
+		events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
+			Type:         "response.reasoning_summary_part.done",
+			ItemID:       &i.currentItemID,
+			OutputIndex:  lo.ToPtr(i.currentOutputIndex),
+			SummaryIndex: lo.ToPtr(0),
+			Part:         &ResponsesContentPart{Type: "summary_text", Text: &fullReasoning},
+		}))
 
-	// Emit output_item.done
+	}
+
 	item := ResponsesItem{
-		ID:   i.currentItemID,
-		Type: "reasoning",
-		Summary: []ResponsesReasoningSummary{{
+		ID:               i.currentItemID,
+		Type:             "reasoning",
+		Summary:          []ResponsesReasoningSummary{},
+		EncryptedContent: i.accumulatedReasoningSignature,
+	}
+	if i.hasReasoningSummaryStarted {
+		item.Summary = append(item.Summary, ResponsesReasoningSummary{
 			Type: "summary_text",
 			Text: fullReasoning,
-		}},
+		})
 	}
 
 	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
@@ -539,6 +686,8 @@ func (i *ResponseInbound) closeReasoningItem() [][]byte {
 	i.recordOutputItemDone(i.currentOutputIndex, item)
 
 	i.accumulatedReasoning.Reset()
+	i.accumulatedReasoningSignature = nil
+	i.hasReasoningSummaryStarted = false
 
 	return events
 }
@@ -550,10 +699,13 @@ func (i *ResponseInbound) closeMessageItem() [][]byte {
 
 	var events [][]byte
 	i.hasMessageItemStarted = false
-	fullText := i.accumulatedText.String()
-
-	// Close content part first
 	events = append(events, i.closeCurrentContentPart()...)
+	events = append(events, i.closeRefusalPart()...)
+
+	contentItems := i.messageContentParts
+	if len(contentItems) == 0 {
+		contentItems = []ResponsesItem{{Type: "output_text", Text: lo.ToPtr("")}}
+	}
 
 	// Emit output_item.done
 	item := ResponsesItem{
@@ -562,10 +714,7 @@ func (i *ResponseInbound) closeMessageItem() [][]byte {
 		Status: lo.ToPtr("completed"),
 		Role:   "assistant",
 		Content: &ResponsesInput{
-			Items: []ResponsesItem{{
-				Type: "output_text",
-				Text: &fullText,
-			}},
+			Items: contentItems,
 		},
 	}
 
@@ -577,7 +726,9 @@ func (i *ResponseInbound) closeMessageItem() [][]byte {
 	i.recordOutputItemDone(i.currentOutputIndex, item)
 
 	i.contentIndex = 0
+	i.messageContentParts = nil
 	i.accumulatedText.Reset()
+	i.accumulatedRefusal.Reset()
 
 	return events
 }
@@ -611,6 +762,13 @@ func (i *ResponseInbound) closeCurrentContentPart() [][]byte {
 			Text: lo.ToPtr(fullText),
 		},
 	}))
+
+	i.messageContentParts = append(i.messageContentParts, ResponsesItem{
+		Type: "output_text",
+		Text: lo.ToPtr(fullText),
+	})
+	i.contentIndex++
+	i.accumulatedText.Reset()
 
 	return events
 }
@@ -755,14 +913,23 @@ func (i *ResponseInbound) GetInternalResponse(ctx context.Context) (*model.Inter
 					*existingChoice.Message.ReasoningContent += *delta.ReasoningContent
 				}
 
+				if delta.ReasoningSignature != nil {
+					signature := *delta.ReasoningSignature
+					if delta.ReasoningSignatureFormat != model.APIFormatOpenAIResponse && existingChoice.Message.ReasoningSignature != nil {
+						signature = *existingChoice.Message.ReasoningSignature + signature
+					}
+					existingChoice.Message.ReasoningSignature = &signature
+					existingChoice.Message.ReasoningSignatureFormat = delta.ReasoningSignatureFormat
+				}
+
 				// Aggregate tool calls
 				for _, toolCall := range delta.ToolCalls {
 					existingChoice.Message.ToolCalls = mergeToolCall(existingChoice.Message.ToolCalls, toolCall)
 				}
 
-				// Set refusal if present
+				// Append refusal if present
 				if delta.Refusal != "" {
-					existingChoice.Message.Refusal = delta.Refusal
+					existingChoice.Message.Refusal += delta.Refusal
 				}
 			}
 
@@ -826,6 +993,11 @@ func (i ResponsesInput) MarshalJSON() ([]byte, error) {
 	if i.Text != nil {
 		return transformer.Marshal(i.Text)
 	}
+	// Responses API requires input to be a string or an array. A nil Items
+	// slice would serialize to `null`, which is a protocol type error.
+	if i.Items == nil {
+		return []byte("[]"), nil
+	}
 	return transformer.Marshal(i.Items)
 }
 
@@ -852,6 +1024,7 @@ type ResponsesItem struct {
 	Text     *string         `json:"text,omitempty"`
 	ImageURL *string         `json:"image_url,omitempty"`
 	Detail   *string         `json:"detail,omitempty"`
+	Refusal  *string         `json:"refusal,omitempty"`
 
 	// Annotations for output_text content
 	Annotations *[]ResponsesAnnotation `json:"annotations,omitempty"`
@@ -874,6 +1047,22 @@ type ResponsesItem struct {
 	// Reasoning fields
 	Summary          []ResponsesReasoningSummary `json:"summary,omitempty"`
 	EncryptedContent *string                     `json:"encrypted_content,omitempty"`
+}
+
+func (item ResponsesItem) MarshalJSON() ([]byte, error) {
+	type alias ResponsesItem
+	var summary *[]ResponsesReasoningSummary
+	if item.Type == "reasoning" {
+		items := item.Summary
+		if items == nil {
+			items = []ResponsesReasoningSummary{}
+		}
+		summary = &items
+	}
+	return transformer.Marshal(struct {
+		alias
+		Summary *[]ResponsesReasoningSummary `json:"summary,omitempty"`
+	}{alias: alias(item), Summary: summary})
 }
 
 func (item ResponsesItem) isOutputMessageContent() bool {
@@ -1020,6 +1209,7 @@ type ResponsesStreamEvent struct {
 	ContentIndex   *int                  `json:"content_index,omitempty"`
 	Delta          string                `json:"delta,omitempty"`
 	Text           string                `json:"text,omitempty"`
+	Refusal        string                `json:"refusal,omitempty"`
 	Name           string                `json:"name,omitempty"`
 	CallID         string                `json:"call_id,omitempty"`
 	Arguments      string                `json:"arguments,omitempty"`
@@ -1030,6 +1220,7 @@ type ResponsesStreamEvent struct {
 type ResponsesContentPart struct {
 	Type        string                `json:"type"`
 	Text        *string               `json:"text,omitempty"`
+	Refusal     *string               `json:"refusal,omitempty"`
 	Annotations []ResponsesAnnotation `json:"annotations,omitempty"`
 }
 
@@ -1251,6 +1442,7 @@ func convertItemToMessage(item *ResponsesItem) (*model.Message, error) {
 
 		if item.EncryptedContent != nil && *item.EncryptedContent != "" {
 			msg.ReasoningSignature = item.EncryptedContent
+			msg.ReasoningSignatureFormat = model.APIFormatOpenAIResponse
 		}
 
 		return msg, nil
@@ -1378,19 +1570,22 @@ func convertToResponsesAPIResponse(resp *model.InternalLLMResponse) *ResponsesRe
 			continue
 		}
 
-		// Handle reasoning content
-		if message.ReasoningContent != nil && *message.ReasoningContent != "" {
-			result.Output = append(result.Output, ResponsesItem{
-				ID:     generateItemID(),
-				Type:   "reasoning",
-				Status: lo.ToPtr("completed"),
-				Summary: []ResponsesReasoningSummary{
-					{
-						Type: "summary_text",
-						Text: *message.ReasoningContent,
-					},
-				},
-			})
+		signature := message.ReasoningSignatureFor(model.APIFormatOpenAIResponse)
+		if message.GetReasoningContent() != "" || (signature != nil && *signature != "") {
+			item := ResponsesItem{
+				ID:               generateItemID(),
+				Type:             "reasoning",
+				Status:           lo.ToPtr("completed"),
+				Summary:          []ResponsesReasoningSummary{},
+				EncryptedContent: signature,
+			}
+			if text := message.GetReasoningContent(); text != "" {
+				item.Summary = append(item.Summary, ResponsesReasoningSummary{
+					Type: "summary_text",
+					Text: text,
+				})
+			}
+			result.Output = append(result.Output, item)
 		}
 
 		// Handle tool calls
@@ -1407,35 +1602,21 @@ func convertToResponsesAPIResponse(resp *model.InternalLLMResponse) *ResponsesRe
 			}
 		}
 
-		// Handle text content
+		contentItems := make([]ResponsesItem, 0)
 		if message.Content.Content != nil && *message.Content.Content != "" {
-			text := *message.Content.Content
-			result.Output = append(result.Output, ResponsesItem{
-				ID:   generateItemID(),
-				Type: "message",
-				Role: "assistant",
-				Content: &ResponsesInput{
-					Items: []ResponsesItem{
-						{
-							Type:        "output_text",
-							Text:        &text,
-							Annotations: &[]ResponsesAnnotation{},
-						},
-					},
-				},
-				Status: lo.ToPtr("completed"),
+			contentItems = append(contentItems, ResponsesItem{
+				Type:        "output_text",
+				Text:        message.Content.Content,
+				Annotations: &[]ResponsesAnnotation{},
 			})
-		} else if len(message.Content.MultipleContent) > 0 {
-			contentItems := make([]ResponsesItem, 0)
-
+		} else {
 			for _, part := range message.Content.MultipleContent {
 				switch part.Type {
 				case "text":
 					if part.Text != nil {
-						text := *part.Text
 						contentItems = append(contentItems, ResponsesItem{
 							Type:        "output_text",
-							Text:        &text,
+							Text:        part.Text,
 							Annotations: &[]ResponsesAnnotation{},
 						})
 					}
@@ -1451,30 +1632,27 @@ func convertToResponsesAPIResponse(resp *model.InternalLLMResponse) *ResponsesRe
 					}
 				}
 			}
-
-			if len(contentItems) > 0 {
-				result.Output = append(result.Output, ResponsesItem{
-					ID:      generateItemID(),
-					Type:    "message",
-					Role:    "assistant",
-					Content: &ResponsesInput{Items: contentItems},
-					Status:  lo.ToPtr("completed"),
-				})
-			}
+		}
+		if message.Refusal != "" {
+			contentItems = append(contentItems, ResponsesItem{
+				Type:    "refusal",
+				Refusal: lo.ToPtr(message.Refusal),
+			})
+		}
+		if len(contentItems) > 0 {
+			result.Output = append(result.Output, ResponsesItem{
+				ID:      generateItemID(),
+				Type:    "message",
+				Role:    "assistant",
+				Content: &ResponsesInput{Items: contentItems},
+				Status:  lo.ToPtr("completed"),
+			})
 		}
 
-		// Set status based on finish reason
+		// Set status based on finish reason. Use the same mapping as the
+		// streaming branch so non-streaming and streaming agree on the wire.
 		if choice.FinishReason != nil {
-			switch *choice.FinishReason {
-			case "stop":
-				result.Status = lo.ToPtr("completed")
-			case "length":
-				result.Status = lo.ToPtr("incomplete")
-			case "tool_calls":
-				result.Status = lo.ToPtr("completed")
-			case "error":
-				result.Status = lo.ToPtr("failed")
-			}
+			result.Status = lo.ToPtr(responsesStatusFromFinishReason(*choice.FinishReason))
 		}
 	}
 

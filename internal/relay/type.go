@@ -126,11 +126,14 @@ func getReasoningBufferStrategy(group *dbmodel.Group) string {
 	return "immediate"
 }
 
-// messageHasVisibleContent 检查 Message 是否包含可见内容（文本、多模态、工具调用、音频）。
+// messageHasVisibleContent 检查 Message 是否包含可见内容（文本、拒答、多模态、工具调用、音频）。
 // reasoning_content / reasoning 不算可见内容（issue #155）。
 func messageHasVisibleContent(msg *model.Message) bool {
 	if msg == nil {
 		return false
+	}
+	if strings.TrimSpace(msg.Refusal) != "" {
+		return true
 	}
 	if msg.Content.Content != nil && strings.TrimSpace(*msg.Content.Content) != "" {
 		return true

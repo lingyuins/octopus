@@ -1477,13 +1477,7 @@ func isReasoningExhaustedResponse(resp *model.InternalLLMResponse) bool {
 		return false
 	}
 	for _, choice := range resp.Choices {
-		if choice.Message == nil {
-			continue
-		}
-		if choice.Message.Content.Content != nil && strings.TrimSpace(*choice.Message.Content.Content) != "" {
-			return false
-		}
-		if len(choice.Message.Content.MultipleContent) > 0 || len(choice.Message.ToolCalls) > 0 {
+		if messageHasVisibleContent(choice.Message) {
 			return false
 		}
 	}

@@ -536,8 +536,9 @@ type Message struct {
 	// Both fields serve the same purpose, use GetReasoningContent() to get the value.
 	Reasoning *string `json:"reasoning,omitempty"`
 
-	// Help field, will not be sent to the llm service, to adapt the anthropic think signature.
-	ReasoningSignature *string `json:"reasoning_signature,omitempty"`
+	// Signatures and encrypted reasoning are opaque and cannot cross protocols.
+	ReasoningSignature       *string   `json:"reasoning_signature,omitempty"`
+	ReasoningSignatureFormat APIFormat `json:"-"`
 
 	// CacheControl is used for provider-specific cache control (e.g., Anthropic).
 	// This field is not serialized in JSON.
@@ -548,6 +549,16 @@ func (m *Message) ClearHelpFields() {
 	m.ReasoningContent = nil
 	m.Reasoning = nil
 	m.ReasoningSignature = nil
+	m.ReasoningSignatureFormat = ""
+}
+
+// Untagged signatures retain the legacy Anthropic interpretation.
+func (m *Message) ReasoningSignatureFor(format APIFormat) *string {
+	if m.ReasoningSignatureFormat == format ||
+		(m.ReasoningSignatureFormat == "" && format == APIFormatAnthropicMessage) {
+		return m.ReasoningSignature
+	}
+	return nil
 }
 
 // GetReasoningContent returns the reasoning content from either ReasoningContent or Reasoning field.
