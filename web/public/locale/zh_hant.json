@@ -1742,7 +1742,7 @@
     },
     "redis": {
       "title": "快取後端",
-      "description": "設定可選的 Redis 後端，將統計、執行時狀態、限流冷卻、失敗提示等從行程記憶體卸載到 Redis，支援多實例水平擴展（issue #123）。未設定時使用記憶體模式（預設）。",
+      "description": "設定可選的 Redis 後端，將統計、執行時狀態、限流冷卻、失敗提示等從行程記憶體卸載到 Redis，支援多實例水平擴展。未設定時使用記憶體模式（預設）。",
       "type": {
         "label": "後端類型",
         "memory": "記憶體（預設）",
@@ -3367,6 +3367,7 @@
     "tooManyRequests": "請求過多",
     "permissionDenied": "權限不足",
     "channelNotFound": "供應源不存在",
+    "channelSkipModelTest": "該供應源已設定跳過模型可用性測試，可在供應源編輯中關閉該開關後重試",
     "invalidThinkingMode": "無效的思考模式：請選擇 auto、off 或 on",
     "groupNotFound": "分組不存在",
     "groupTestProgressNotFound": "分組檢測進度不存在",

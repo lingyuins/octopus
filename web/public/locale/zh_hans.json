@@ -1742,7 +1742,7 @@
     },
     "redis": {
       "title": "缓存后端",
-      "description": "配置可选的 Redis 缓存与状态存储后端，将统计/运行时状态/限流冷却等卸载到 Redis，支持多实例水平扩展（issue #123）。未配置时使用内存模式。",
+      "description": "配置可选的 Redis 缓存与状态存储后端，将统计/运行时状态/限流冷却等卸载到 Redis，支持多实例水平扩展。未配置时使用内存模式。",
       "type": {
         "label": "后端类型",
         "memory": "内存（默认）",
@@ -3367,6 +3367,7 @@
     "tooManyRequests": "请求过多",
     "permissionDenied": "权限不足",
     "channelNotFound": "渠道不存在",
+    "channelSkipModelTest": "该渠道已设置跳过模型可用性测试，可在渠道编辑中关闭该开关后重试",
     "invalidThinkingMode": "无效的思考模式：请选择 auto、off 或 on",
     "groupNotFound": "分组不存在",
     "groupTestProgressNotFound": "分组检测进度不存在",

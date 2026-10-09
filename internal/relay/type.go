@@ -449,7 +449,7 @@ func classifyHTTPError(statusCode int, err error) RetryDecision {
 	case statusCode == 403:
 		return RetryDecision{
 			Scope:   ScopeSameChannel,
-			Reason:  "forbidden, key permission issue",
+			Reason:  "forbidden, key permission denied",
 			Code:    statusCode,
 			IsError: true,
 		}

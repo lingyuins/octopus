@@ -353,7 +353,7 @@ func testChannelModel(c *gin.Context) {
 
 	// issue #98：部分上游渠道会因低字节请求扣额度/封禁，允许按渠道排除模型可用性测试。
 	if channel.SkipModelTest {
-		resp.Error(c, http.StatusBadRequest, "该渠道已设置跳过模型可用性测试（issue #98），可在渠道编辑中关闭该开关后重试")
+		resp.ErrorWithKey(c, http.StatusBadRequest, "该渠道已设置跳过模型可用性测试，可在渠道编辑中关闭该开关后重试", "errors.channelSkipModelTest", nil)
 		return
 	}
 

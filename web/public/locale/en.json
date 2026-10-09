@@ -1786,7 +1786,7 @@
     },
     "redis": {
       "title": "Cache Backend",
-      "description": "Configure an optional Redis backend to offload stats, runtime state, rate-limit cooldowns, and failure hints from process memory (issue #123). Takes effect after restart.",
+      "description": "Configure an optional Redis backend to offload stats, runtime state, rate-limit cooldowns, and failure hints from process memory. Takes effect after restart.",
       "type": {
         "label": "Backend Type",
         "memory": "Memory (default)",
@@ -3411,6 +3411,7 @@
     "tooManyRequests": "Too many requests",
     "permissionDenied": "Permission denied",
     "channelNotFound": "Channel not found",
+    "channelSkipModelTest": "This channel is set to skip model availability tests. Turn off the toggle in the channel editor and try again",
     "invalidThinkingMode": "Invalid thinking mode: use auto, off, or on",
     "groupNotFound": "Group not found",
     "groupTestProgressNotFound": "Group test progress not found",

@@ -396,7 +396,7 @@ func testGroupModelItem(ctx context.Context, endpointType string, item appmodel.
 	}
 	if channel.SkipModelTest {
 		// issue #98：部分上游渠道会因低字节请求扣额度/封禁，允许按渠道排除可用性测试。
-		result.Message = "channel skipped model test (issue #98)"
+		result.Message = "channel skipped model test"
 		result.Passed = false
 		recordTestLog(ctx, endpointType, item, result, channel, nil, 0, nil, nil)
 		return result

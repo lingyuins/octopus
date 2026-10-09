@@ -53,7 +53,7 @@ func TestTestGroupModelItem_SkipsChannelWithSkipModelTest(t *testing.T) {
 	if result.Passed {
 		t.Fatalf("expected Passed=false for skipped channel, got true")
 	}
-	if result.Message != "channel skipped model test (issue #98)" {
+	if result.Message != "channel skipped model test" {
 		t.Fatalf("expected skip message, got %q", result.Message)
 	}
 }
@@ -70,7 +70,7 @@ func TestTestGroupModelItem_DoesNotSkipWhenFlagFalse(t *testing.T) {
 
 	result := testGroupModelItem(context.Background(), appmodel.EndpointTypeChat, item, channels)
 
-	if result.Message == "channel skipped model test (issue #98)" {
+	if result.Message == "channel skipped model test" {
 		t.Fatalf("channel without SkipModelTest should not be skipped")
 	}
 	// 无 key 时应走到 "no available key" 分支，证明未被跳过逻辑提前返回。
