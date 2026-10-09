@@ -46,6 +46,7 @@ docs/
 .husky/
 
 # editor/IDE/tooling
+/.mimosa/
 .antigravitycli/d858c6a6-08cb-4ae8-ba81-44cf562fe7eb.json
 .claude/
 .idea/
@@ -74,6 +75,7 @@ octopus
 # ad-hoc scroll/layout debug harness (not for CI)
 web/scroll-test*.html
 web/test-server*.js
+web/src/app/layout-check/
 
 # Reasonix tooling
 .reasonix/
