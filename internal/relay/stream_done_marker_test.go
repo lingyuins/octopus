@@ -228,6 +228,7 @@ func TestHandleStreamResponseDoneMarkerStillRetriesEmptyOutput(t *testing.T) {
 	t.Cleanup(cancel)
 
 	ra, _ := newStreamTestAttempt(t, clientCtx)
+	ra.group = &dbmodel.Group{ReasoningBufferStrategy: "buffer"}
 	// 空输出重试分支嵌在 `if ra.streamSession != nil` 内部，必须带会话才能命中。
 	attachStreamSession(t, ra)
 

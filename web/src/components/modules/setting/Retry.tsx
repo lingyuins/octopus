@@ -28,7 +28,7 @@ export function SettingRetry() {
         }, {});
         nextValues[SettingKey.KeySelectionStrategy] = settings.find((item) => item.key === SettingKey.KeySelectionStrategy)?.value ?? 'cost';
         nextValues[SettingKey.RetryEmptyOutput] = settings.find((item) => item.key === SettingKey.RetryEmptyOutput)?.value ?? 'true';
-        nextValues[SettingKey.ReasoningBufferStrategy] = settings.find((item) => item.key === SettingKey.ReasoningBufferStrategy)?.value ?? 'buffer';
+        nextValues[SettingKey.ReasoningBufferStrategy] = settings.find((item) => item.key === SettingKey.ReasoningBufferStrategy)?.value ?? 'immediate';
         nextValues[SettingKey.RelayLogQueueDropPolicy] = settings.find((item) => item.key === SettingKey.RelayLogQueueDropPolicy)?.value ?? 'oldest';
         nextValues[SettingKey.StreamSessionReplayEnabled] = settings.find((item) => item.key === SettingKey.StreamSessionReplayEnabled)?.value ?? 'true';
         nextValues[SettingKey.KeyHealthCheckEnabled] = settings.find((item) => item.key === SettingKey.KeyHealthCheckEnabled)?.value ?? 'false';
@@ -197,7 +197,7 @@ export function SettingRetry() {
                     </span>
                 </div>
                 <Select
-                    value={values[SettingKey.ReasoningBufferStrategy] || 'buffer'}
+                    value={values[SettingKey.ReasoningBufferStrategy] || 'immediate'}
                     onValueChange={(value) => {
                         setValues((prev) => ({ ...prev, [SettingKey.ReasoningBufferStrategy]: value }));
                         setSetting.mutate(

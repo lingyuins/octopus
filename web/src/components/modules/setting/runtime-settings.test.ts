@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 
 import { AUTO_STRATEGY_FIELDS, RETRY_FIELDS } from './runtime-settings.ts';
+
+const retrySource = readFileSync(new URL('./Retry.tsx', import.meta.url), 'utf8');
+
+test('reasoning strategy defaults to immediate in initialization and selection', () => {
+    assert.match(retrySource, /nextValues\[SettingKey\.ReasoningBufferStrategy\] = .*\?\? 'immediate';/);
+    assert.match(retrySource, /value=\{values\[SettingKey\.ReasoningBufferStrategy\] \|\| 'immediate'\}/);
+});
 
 test('retry fields expose count, route retries, total attempts, cooldown and 429 hold timings in order', () => {
     assert.deepEqual(

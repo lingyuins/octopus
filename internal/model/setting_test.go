@@ -4,6 +4,13 @@ import (
 	"testing"
 )
 
+func TestDefaultReasoningBufferStrategy(t *testing.T) {
+	value, ok := DefaultSettingValue(SettingKeyReasoningBufferStrategy)
+	if !ok || value != "immediate" {
+		t.Fatalf("default reasoning buffer strategy = %q, registered = %v, want immediate", value, ok)
+	}
+}
+
 func TestSettingValidateRelayRetry(t *testing.T) {
 	tests := []struct {
 		name    string

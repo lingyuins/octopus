@@ -1576,7 +1576,7 @@
       },
       "reasoningBufferStrategy": {
         "label": "Reasoning buffer strategy",
-        "hint": "Controls how reasoning tokens (thinking process) are streamed. 'buffer' waits for visible content before sending reasoning (safe retry, but may trigger Cloudflare/Nginx timeouts on long reasoning). 'immediate' sends reasoning chunks instantly (real-time thinking display, but empty-output retry is unavailable).",
+        "hint": "Controls how reasoning tokens (thinking process) are streamed. Defaults to 'immediate'. 'buffer' waits for visible content before sending reasoning (safe retry, but may trigger Cloudflare/Nginx timeouts on long reasoning). 'immediate' sends reasoning chunks instantly (real-time thinking display, but empty-output retry is unavailable).",
         "buffer": "Buffer (safe retry, CF timeout risk)",
         "immediate": "Immediate (real-time, no retry)"
       }
