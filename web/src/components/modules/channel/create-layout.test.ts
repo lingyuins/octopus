@@ -5,6 +5,7 @@ import test from 'node:test';
 const create = readFileSync(new URL('./Create.tsx', import.meta.url), 'utf8');
 const form = readFileSync(new URL('./Form.tsx', import.meta.url), 'utf8');
 const toolbar = readFileSync(new URL('../toolbar/index.tsx', import.meta.url), 'utf8');
+const dialog = readFileSync(new URL('../../ui/morphing-dialog.tsx', import.meta.url), 'utf8');
 
 test('channel creation starts with the form and allows presets on every viewport', () => {
   assert.match(create, /\[showPresetPicker, setShowPresetPicker\] = useState\(false\)/);
@@ -21,6 +22,30 @@ test('channel dialog overrides default width and height constraints without nest
   assert.match(toolbar, /md:w-\[min\(100vw-3rem,64rem\)\]/);
   assert.doesNotMatch(create, /radial-gradient|shadow-inner|tracking-tight/);
   assert.match(create, /disableLayoutAnimation className="flex min-h-0 flex-1 flex-col overflow-hidden"/);
+});
+
+test('channel creation uses the independent dialog exit lifecycle and closes before any form reset', () => {
+  assert.match(toolbar, /<MorphingDialog disableSharedLayout=\{toolbarItem === 'channel'\}>/);
+  assert.doesNotMatch(create, /resetFormData\(\)/);
+  const successHandler = create.slice(create.indexOf('onSuccess: () => {'), create.indexOf('onSuccess: () => {') + 300);
+  assert.match(successHandler, /setIsOpen\(false\)/);
+  assert.doesNotMatch(successHandler, /setFormData|setShowPresetPicker/);
+});
+
+test('shared-layout dialogs keep the shared exit lifecycle while non-shared dialogs use explicit exit motion', () => {
+  const contentProps = dialog.slice(dialog.indexOf('export type MorphingDialogContentProps'), dialog.indexOf('function MorphingDialogContent'));
+  const containerProps = dialog.slice(dialog.indexOf('function MorphingDialogContainer'), dialog.indexOf('export type MorphingDialogTitleProps'));
+  assert.match(dialog, /function MorphingDialogContainer\(\{ children \}: MorphingDialogContainerProps\)/);
+  assert.match(containerProps, /if \(disableSharedLayout\) \{/);
+  assert.match(containerProps, /exit=\{\{ opacity: 0, transition: \{ duration: 0\.12 \} \}\}/);
+  assert.match(containerProps, /bg-black\/40 backdrop-blur-sm/);
+  assert.match(dialog, /exit=\{disableSharedLayout \? \{ opacity: 0, scale: 0\.98 \} : undefined\}/);
+  assert.doesNotMatch(contentProps, /onExitComplete/);
+  assert.doesNotMatch(containerProps, /onExitComplete/);
+  const title = dialog.slice(dialog.indexOf('function MorphingDialogTitle'), dialog.indexOf('export type MorphingDialogSubtitleProps'));
+  const description = dialog.slice(dialog.indexOf('function MorphingDialogDescription'), dialog.indexOf('export type MorphingDialogImageProps'));
+  assert.match(title, /if \(disableSharedLayout\) \{[\s\S]*?<div className=\{className\} style=\{style\}>/);
+  assert.match(description, /if \(disableSharedLayout\) \{[\s\S]*?<div className=\{className\}/);
 });
 
 test('pool binding and key strategy stay inside advanced settings alongside proxy mode', () => {

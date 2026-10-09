@@ -58,36 +58,6 @@ export function CreateDialogContent() {
     const tForm = useTranslations('channel.form');
     const tProxy = useTranslations('proxyPool');
 
-    const resetFormData = () => {
-        setFormData({
-            name: '',
-            group_id: 0,
-            type: DEFAULT_CHANNEL_TYPE,
-            base_urls: [{ url: '', delay: 0, suffix_mode: 'auto' }],
-            custom_header: [],
-            channel_proxy: '',
-            param_override: '',
-            request_rewrite: createDefaultRequestRewriteFormData(),
-            keys: [{ enabled: true, channel_key: '', priority: 0, remark: '' }],
-            model: '',
-            custom_model: '',
-            auto_sync: false,
-            auto_sync_key_models: false,
-            auto_group: AutoGroupType.None,
-            skip_model_test: false,
-            disposable: false,
-            expire_at: '',
-            notif_channel_id: null,
-            key_selection_strategy: '',
-            enabled: true,
-            proxy_mode: 'direct',
-            proxy_config_id: null,
-            match_regex: '',
-            pool_id: 0,
-        });
-        setShowPresetPicker(false);
-    };
-
     const handleApplyTemplate = (templateKey: string) => {
         const template = channelTemplates.find((item) => item.key === templateKey);
         if (!template) return;
@@ -153,7 +123,6 @@ export function CreateDialogContent() {
             },
             {
                 onSuccess: () => {
-                    resetFormData();
                     setIsOpen(false);
                 }
             });

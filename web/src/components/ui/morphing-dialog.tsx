@@ -337,7 +337,7 @@ export type MorphingDialogContainerProps = {
 };
 
 function MorphingDialogContainer({ children }: MorphingDialogContainerProps) {
-  const { isOpen, uniqueId } = useMorphingDialog();
+  const { isOpen, uniqueId, disableSharedLayout } = useMorphingDialog();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -350,6 +350,27 @@ function MorphingDialogContainer({ children }: MorphingDialogContainerProps) {
   }, []);
 
   if (!mounted) return null;
+
+  if (disableSharedLayout) {
+    return createPortal(
+      <AnimatePresence initial={false} mode='sync'>
+        {isOpen && (
+          <motion.div
+            key={`dialog-${uniqueId}`}
+            className='fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-2 sm:items-center sm:p-4 bg-black/40 backdrop-blur-sm'
+            data-slot='morphing-dialog-layer'
+            data-dialog-id={uniqueId}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>,
+      document.body
+    );
+  }
 
   return createPortal(
     <AnimatePresence initial={false} mode='sync'>
@@ -389,7 +410,15 @@ function MorphingDialogTitle({
   className,
   style,
 }: MorphingDialogTitleProps) {
-  const { uniqueId } = useMorphingDialog();
+  const { uniqueId, disableSharedLayout } = useMorphingDialog();
+
+  if (disableSharedLayout) {
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -414,7 +443,15 @@ function MorphingDialogSubtitle({
   className,
   style,
 }: MorphingDialogSubtitleProps) {
-  const { uniqueId } = useMorphingDialog();
+  const { uniqueId, disableSharedLayout } = useMorphingDialog();
+
+  if (disableSharedLayout) {
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -444,7 +481,15 @@ function MorphingDialogDescription({
   variants,
   disableLayoutAnimation,
 }: MorphingDialogDescriptionProps) {
-  const { uniqueId } = useMorphingDialog();
+  const { uniqueId, disableSharedLayout } = useMorphingDialog();
+
+  if (disableSharedLayout) {
+    return (
+      <div className={className} id={`dialog-description-${uniqueId}`}>
+        {children}
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -479,14 +524,14 @@ function MorphingDialogImage({
   className,
   style,
 }: MorphingDialogImageProps) {
-  const { uniqueId } = useMorphingDialog();
+  const { uniqueId, disableSharedLayout } = useMorphingDialog();
 
   return (
     <motion.img
       src={src}
       alt={alt}
       className={cn(className)}
-      layoutId={`dialog-img-${uniqueId}`}
+      layoutId={disableSharedLayout ? undefined : `dialog-img-${uniqueId}`}
       style={style}
     />
   );
@@ -508,11 +553,28 @@ function MorphingDialogClose({
   variants,
 }: MorphingDialogCloseProps) {
   const t = useTranslations('common.dialog');
-  const { setIsOpen, uniqueId } = useMorphingDialog();
+  const { setIsOpen, uniqueId, disableSharedLayout } = useMorphingDialog();
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
   }, [setIsOpen]);
+
+  if (disableSharedLayout) {
+    return (
+      <button
+        onClick={handleClose}
+        type='button'
+        aria-label={t('close')}
+        key={`dialog-close-${uniqueId}`}
+        className={cn(
+          'absolute top-2 right-2 sm:top-4 sm:right-4 flex items-center justify-center rounded-md border border-border bg-card p-2 sm:p-1.5 min-w-[44px] min-h-[44px] sm:min-w-0 sm:min-h-0 opacity-80 transition-all duration-150 hover:opacity-100 hover:bg-muted',
+          className
+        )}
+      >
+        {children || <XIcon size={24} />}
+      </button>
+    );
+  }
 
   return (
     <motion.button
