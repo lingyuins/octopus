@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v2.6.3-fix2] - 2026-10-09
+
+### Fixed
+
+- Reliably unmount the channel creation dialog and its overlay after successful creation or cancellation, while preserving inputs after failed submissions.
+- Preserve protocol stream lifecycle events and final results through relay conversions.
+- Preserve refusals and protocol-scoped reasoning end to end across supported relay protocols.
+- Remove internal issue references from user-facing messages and localize skipped model-test results.
+
+### Changed
+
+- Default reasoning streaming to immediate delivery.
+- Refresh documentation and desktop/mobile console screenshots to match the implementation.
+- Align application, frontend package, and Docker Compose versions to v2.6.3-fix2.
+
 ## [v2.6.3-fix] - 2026-10-06
 
 ### Fixed
