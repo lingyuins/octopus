@@ -304,6 +304,7 @@ func Handler(endpointType string, inboundType inbound.InboundType, c *gin.Contex
 		clientCtx:         c.Request.Context(),
 		operationCtx:      operationCtx,
 		inAdapter:         inAdapter,
+		newInAdapter:      func() model.Inbound { return inbound.Get(inboundType) },
 		internalRequest:   internalRequest,
 		metrics:           metrics,
 		apiKeyID:          apiKeyID,
@@ -350,6 +351,7 @@ func Handler(endpointType string, inboundType inbound.InboundType, c *gin.Contex
 		})
 		// The leader has already written its response and saved its metrics, even on failure.
 		if executed {
+			lastErr = sfErr
 			return
 		}
 		if sfErr == nil {
@@ -389,9 +391,7 @@ func Handler(endpointType string, inboundType inbound.InboundType, c *gin.Contex
 		}
 	}
 
-	if _, err := executeRelay(req, group, requestModel, maxKeyRetriesPerRoute, maxRouteRetries, ratelimitCooldown, maxTotalAttempts); err != nil {
-		return
-	}
+	_, lastErr = executeRelay(req, group, requestModel, maxKeyRetriesPerRoute, maxRouteRetries, ratelimitCooldown, maxTotalAttempts)
 	return
 }
 
@@ -407,13 +407,35 @@ func (ra *relayAttempt) attachEvidence(d RetryDecision) RetryDecision {
 	return d
 }
 
+func (ra *relayAttempt) resetInboundAdapter() error {
+	if ra.newInAdapter == nil {
+		return nil
+	}
+	if !ra.inAdapterUsed {
+		ra.inAdapterUsed = true
+		return nil
+	}
+	adapter := ra.newInAdapter()
+	if adapter == nil {
+		return errors.New("missing inbound adapter")
+	}
+	if _, err := adapter.TransformRequest(ra.operationCtx, ra.internalRequest.RawRequest); err != nil {
+		return fmt.Errorf("failed to initialize inbound adapter: %w", err)
+	}
+	ra.inAdapter = adapter
+	return nil
+}
+
 // attempt 统一管理一次通道尝试的完整生命周期
 func (ra *relayAttempt) attempt() attemptResult {
 	span := ra.iter.StartAttempt(ra.channel.ID, ra.usedKey.ID, ra.channel.Name, ra.internalRequest.Model)
 	span.SetAdapterType(ra.adapterType.String())
 
-	// 转发请求
-	statusCode, fwdErr := ra.forward()
+	var statusCode int
+	fwdErr := ra.resetInboundAdapter()
+	if fwdErr == nil {
+		statusCode, fwdErr = ra.forward()
+	}
 
 	// Client disconnected —— 不记失败统计、不记熔断、不写 failure hint。
 	// 客户端是自己选择停止的，不是渠道出了问题。
@@ -667,14 +689,22 @@ func (ra *relayAttempt) forward() (int, error) {
 	// 处理响应
 	if ra.internalRequest.Stream != nil && *ra.internalRequest.Stream {
 		if err := ra.handleStreamResponse(ctx, response); err != nil {
-			return response.StatusCode, err
+			return relayProtocolErrorStatus(response.StatusCode, err), err
 		}
 		return response.StatusCode, nil
 	}
 	if err := ra.handleResponse(ctx, response); err != nil {
-		return response.StatusCode, err
+		return relayProtocolErrorStatus(response.StatusCode, err), err
 	}
 	return response.StatusCode, nil
+}
+
+func relayProtocolErrorStatus(status int, err error) int {
+	var protocolErr *model.ResponseError
+	if errors.As(err, &protocolErr) && protocolErr.StatusCode >= http.StatusBadRequest {
+		return protocolErr.StatusCode
+	}
+	return status
 }
 
 // applyPoolCredentialHeaders 按号池账号 platform/type 调整出站鉴权头。
@@ -859,6 +889,14 @@ func writeClientTerminalError(c *gin.Context, statusCode int, err error) {
 		return
 	}
 
+	var protocolErr *model.ResponseError
+	if errors.As(err, &protocolErr) {
+		if body, marshalErr := jsonAPI.Marshal(protocolErr); marshalErr == nil {
+			c.Data(statusCode, "application/json", body)
+			c.Abort()
+			return
+		}
+	}
 	detail := extractUpstreamErrorDetail(err)
 	bodyText := strings.TrimSpace(detail)
 	if prefix := fmt.Sprintf("%d: ", statusCode); strings.HasPrefix(bodyText, prefix) {
@@ -971,10 +1009,16 @@ func (ra *relayAttempt) sendRequest(req *http.Request) (*http.Response, error) {
 func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http.Response) (retErr error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	defer response.Body.Close()
 
-	// 安全网：确保 stream session 在所有退出路径上都被关闭，
-	// 避免外层 defer 产生 "relay stream ended without a terminal result"。
 	defer func() {
+		if retErr == nil || !ra.c.Writer.Written() {
+			return
+		}
+		if !errors.Is(retErr, errClientDisconnected) && !errors.Is(retErr, errResponseFilterBlocked) {
+			writeSSEErrorEvent(ra.c.Writer, retErr.Error())
+			ra.c.Writer.Flush()
+		}
 		if ra.streamSession != nil && !ra.streamSession.IsDone() {
 			ra.streamSession.Finish(retErr)
 		}
@@ -996,12 +1040,9 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 
 	firstToken := true
 	hasVisibleContent := false // 是否已产生可见内容（issue #155 流式空输出检测）
-	// sawDoneMarker 记录是否已收到上游的 SSE 终止标记 `data: [DONE]`。
-	// 不在收到标记的当场 return：[DONE] 本身仍需要走完正常的 chunk 处理，
-	// 因为入站适配器会把它渲染成客户端协议对应的终止帧（openai: `data: [DONE]\n\n`，
-	// anthropic: message_stop 系列），直接 return 会吞掉客户端期待的流终止帧。
-	// 标记由循环顶部的 finalizeStream 在本轮写入完成后收尾。
-	sawDoneMarker := false
+	streamFinished := false
+	finishedChoices := make(map[int]bool)
+	seenChoices := make(map[int]bool)
 	strategy := getReasoningBufferStrategy(ra.group)
 	shouldBuffer := (strategy == "buffer") // buffer=暂存; immediate=立即发送
 	var reasoningBuffer [][]byte           // 暂存仅含 reasoning 的 chunk，待可见内容到达后 flush
@@ -1018,7 +1059,9 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 		// 启动断连宽限计时。带 stream session 时循环会继续读上游（以支持断线
 		// 重连重放），这段时间里会话既不是 done、也无法被驱逐，其缓冲会一直占
 		// 着内存。宽限期到后由下面的 clientGoneTicker 强制收尾（issue #196）。
-		ra.streamSession.MarkClientGone()
+		if ra.streamSession != nil {
+			ra.streamSession.MarkClientGone()
+		}
 	}
 	logClientDisconnected := func() {
 		if !clientDisconnected || clientDisconnectLogged {
@@ -1074,11 +1117,8 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 		}()
 	}
 
-	// SSE 心跳：当上游在可见内容后出现较长间隔（如 reasoning 阶段）时，定期写入
-	// SSE comment（": ping\n\n"）防止反向代理因 proxy_read_timeout 判定后端无响应而
-	// 切断连接返回 502。仅在 hasVisibleContent 之后发送——首 token 前的心跳会让
-	// c.Writer.Written() 变 true，破坏 buffer 策略下 reasoning 阶段的安全重试语义
-	//（见 issue #155），且首 token 超时已由 firstTokenTimer 兜底。
+	// Heartbeats only follow committed output, including immediate reasoning.
+	// Writing earlier would prevent safe retries of buffered empty attempts.
 	heartbeatTicker := time.NewTicker(conf.SSEHeartbeatInterval)
 	defer heartbeatTicker.Stop()
 
@@ -1092,61 +1132,71 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 		defer clientGoneTicker.Stop()
 	}
 
-	// finalizeStream 流式响应的正常收尾路径。
-	//
-	// 上游关闭（SSE reader 遇到 EOF）与上游发来 `data: [DONE]` 两种终止方式在语义上
-	// 完全等价：流已结束，可以按成功收尾。部分上游（以及部分中间代理）发完 [DONE]
-	// 后并不关闭连接，这时若继续等 EOF，会一直阻塞到客户端/中间层先超时断开，
-	// 被记成 client disconnected 并计入熔断器——把一个本来成功的响应变成失败。
-	// 因此收到 [DONE] 后主动收尾（见下方 isSSEDoneMarker 分支）。
-	//
-	// 两条路径共用本闭包（而非复制一份逻辑），保证 [DONE] 早退与 EOF 收尾逐字一致：
-	// 空输出重试（issue #106/#155）、reasoningBuffer 释放、stream session Finish
-	// 都不因终止方式不同而产生分叉。
-	finalizeStream := func() error {
-		// 需要区分正常结束（上游 EOF / [DONE]）和异常中断（ctx 取消/超时）。
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			if ra.streamSession != nil {
-				ra.streamSession.Finish(ctxErr)
-			}
-			return fmt.Errorf("stream interrupted: %w", ctxErr)
+	writeStreamData := func(data []byte) error {
+		if len(data) == 0 {
+			return nil
 		}
-		logClientDisconnected()
 		if ra.streamSession != nil {
-			ra.streamSession.Finish(nil)
-			log.Infof("stream end")
-			// 流结束显式释放 reasoningBuffer（虽随函数返回被 GC，但提前释放降低峰值持续时间）。
-			reasoningBuffer = nil
-			reasoningBufferBytes = 0
-			// 空输出检测（issue #106/#155）：整个流式响应没有产生任何可见内容。
-			// buffer 策略：reasoning-only chunk 被暂存到 reasoningBuffer，未写入客户端（Written()=false），
-			// 可以安全重试。immediate 策略：reasoning 已发送，不可重试（只记录日志）。
-			// 仅当启用空输出重试且使用 buffer 策略时触发重试。
-			// 收到 [DONE] 不等于有可见内容：上游完全可以只发 reasoning 就终止，
-			// 所以这里不能无条件记成功，必须继续走空输出重试判定。
-			if isRetryEmptyOutputEnabled() && shouldBuffer && !hasVisibleContent {
-				log.Infof("channel %s returned empty stream (no visible content), will retry", ra.channel.Name)
-				if ra.streamSession != nil {
-					ra.streamSession.Finish(nil)
-				}
-				return errEmptyOutput
+			events := ra.streamSession.AddPayload(data)
+			if clientDisconnected {
+				return nil
 			}
-			if !shouldBuffer && !hasVisibleContent {
-				log.Warnf("channel %s returned empty stream (immediate strategy, no retry)", ra.channel.Name)
+			for _, event := range events {
+				if _, err := ra.c.Writer.Write(formatRelaySSEEvent(event.Sequence, event.Payload)); err != nil {
+					markClientDisconnected()
+					return nil
+				}
+				ra.c.Writer.Flush()
 			}
 			return nil
 		}
+		if clientDisconnected {
+			return errClientDisconnected
+		}
+		if _, err := ra.c.Writer.Write(data); err != nil {
+			markClientDisconnected()
+			return errClientDisconnected
+		}
+		ra.c.Writer.Flush()
+		return nil
+	}
+
+	// EOF and protocol terminal events share one downstream finalization path.
+	// Empty buffered attempts must remain unwritten so another channel can be tried.
+	finalizeStream := func() error {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return fmt.Errorf("stream interrupted: %w", ctxErr)
+		}
+		if isRetryEmptyOutputEnabled() && shouldBuffer && !hasVisibleContent {
+			log.Infof("channel %s returned empty stream (no visible content), will retry", ra.channel.Name)
+			return errEmptyOutput
+		}
+		if !shouldBuffer && !hasVisibleContent {
+			log.Warnf("channel %s returned empty stream (immediate strategy, no retry)", ra.channel.Name)
+		}
+		for _, data := range reasoningBuffer {
+			if err := writeStreamData(data); err != nil {
+				return err
+			}
+		}
+		reasoningBuffer = nil
+		reasoningBufferBytes = 0
+		data, err := ra.inAdapter.TransformStream(ctx, &model.InternalLLMResponse{Object: "[DONE]"})
+		if err != nil {
+			return fmt.Errorf("failed to finalize stream: %w", err)
+		}
+		if err := writeStreamData(data); err != nil {
+			return err
+		}
+		if ra.streamSession != nil {
+			ra.streamSession.Finish(nil)
+		}
+		logClientDisconnected()
 		return nil
 	}
 
 	for {
-		// 上游已发出 [DONE] 且该标记已经过下方正常 chunk 处理写入客户端：主动收尾，
-		// 不再阻塞等 EOF。
-		// 动机：部分上游（及部分中间代理）发完 [DONE] 后并不关闭连接，继续等 EOF
-		// 会一直阻塞到客户端/中间层先超时断开，被记成 client disconnected 并计入
-		// 熔断器——把一个本来成功的响应变成失败，进而误熔断健康渠道。
-		// 与 EOF 收尾共用 finalizeStream（见其定义处注释），两条路径语义一致。
-		if sawDoneMarker {
+		if streamFinished {
 			return finalizeStream()
 		}
 		select {
@@ -1188,7 +1238,7 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 			}
 			return fmt.Errorf("first token timeout (%ds)", ra.firstTokenTimeOutSec)
 		case <-heartbeatTicker.C:
-			if hasVisibleContent {
+			if ra.c.Writer.Written() && !clientDisconnected {
 				if _, err := ra.c.Writer.Write([]byte(": ping\n\n")); err != nil {
 					markClientDisconnected()
 					logClientDisconnected()
@@ -1198,8 +1248,10 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 			}
 		case r, ok := <-results:
 			if !ok {
-				// results channel 被 SSE reader goroutine 关闭（上游 EOF / 连接关闭）。
-				// 收尾逻辑与下方 [DONE] 早退共用 finalizeStream，保证两者语义一致。
+				// A closed response body alone is not evidence of completed generation.
+				if len(seenChoices) == 0 || len(finishedChoices) != len(seenChoices) {
+					return fmt.Errorf("upstream stream ended before completion: %w", io.ErrUnexpectedEOF)
+				}
 				return finalizeStream()
 			}
 			if r.err != nil {
@@ -1208,7 +1260,13 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 				return fmt.Errorf("failed to read stream event: %w", r.err)
 			}
 
-			data, chunkHasVisible, err := ra.transformStreamData(ctx, r.data)
+			if strings.TrimSpace(r.data) == "" {
+				continue
+			}
+			if isSSEDoneMarker(r.data) {
+				return finalizeStream()
+			}
+			data, internalStream, err := ra.transformStreamData(ctx, r.data)
 			if err != nil {
 				if errors.Is(err, errResponseFilterBlocked) {
 					// 关键词拦截：发送错误 SSE 事件并终止流
@@ -1241,19 +1299,19 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 					// 不可达死码，拦截失败退化成普通 transformer 错误 → 记熔断 + 换渠道重试。
 					return fmt.Errorf("response filter blocked streaming output: %w", errResponseFilterBlocked)
 				}
+				return fmt.Errorf("failed to transform stream event: %w", err)
+			}
+			if internalStream == nil {
 				continue
 			}
-			// 上游流终止标记：记下但不在这里 return。[DONE] 仍要走完下方正常的
-			// chunk 写入（buffer flush / stream session AddPayload / Write+Flush），
-			// 因为入站适配器会把它渲染成客户端协议对应的终止帧（openai 渲染
-			// `data: [DONE]\n\n`，anthropic 渲染为 nil 由其自身的 message_stop 收尾）；
-			// 当场 return 会吞掉客户端期待的终止帧。收尾由下一轮循环顶部的
-			// sawDoneMarker 分支调 finalizeStream 完成。
-			// 故意放在 transformStreamData 的错误处理之后：[DONE] chunk 上的真实
-			// 转换错误仍应优先返回，不该被终止标记掩盖。
-			if isSSEDoneMarker(r.data) {
-				sawDoneMarker = true
+			for _, choice := range internalStream.Choices {
+				seenChoices[choice.Index] = true
+				if choice.FinishReason != nil && *choice.FinishReason != "" {
+					finishedChoices[choice.Index] = true
+				}
 			}
+			streamFinished = internalStream.StreamFinished || internalStream.Object == "[DONE]"
+			chunkHasVisible := streamChunkHasVisibleContent(internalStream)
 			if len(data) == 0 {
 				continue
 			}
@@ -1289,40 +1347,17 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 			}
 
 			// 可见内容到达，先 flush 暂存的 reasoning buffer
-			if len(reasoningBuffer) > 0 {
-				writeReasoningBuffer(ra, reasoningBuffer, &clientDisconnected, markClientDisconnected, logClientDisconnected)
-				reasoningBuffer = nil
-				reasoningBufferBytes = 0
-			}
-			hasVisibleContent = true
-
-			if ra.streamSession != nil {
-				sessionEvents := ra.streamSession.AddPayload(data)
-				if clientDisconnected {
-					logClientDisconnected()
-					continue
+			for _, buffered := range reasoningBuffer {
+				if err := writeStreamData(buffered); err != nil {
+					return err
 				}
-				for _, event := range sessionEvents {
-					if _, err := ra.c.Writer.Write(formatRelaySSEEvent(event.Sequence, event.Payload)); err != nil {
-						markClientDisconnected()
-						logClientDisconnected()
-						break
-					}
-					ra.c.Writer.Flush()
-				}
-				continue
 			}
-
-			if clientDisconnected {
-				logClientDisconnected()
-				continue
+			reasoningBuffer = nil
+			reasoningBufferBytes = 0
+			hasVisibleContent = hasVisibleContent || chunkHasVisible
+			if err := writeStreamData(data); err != nil {
+				return err
 			}
-			if _, err := ra.c.Writer.Write(data); err != nil {
-				markClientDisconnected()
-				logClientDisconnected()
-				continue
-			}
-			ra.c.Writer.Flush()
 		}
 	}
 }
@@ -1358,34 +1393,27 @@ func writeReasoningBuffer(ra *relayAttempt, buffer [][]byte, clientDisconnected 
 	}
 }
 
-// transformStreamData 转换流式数据，返回转换后的 SSE 字节、该 chunk 是否包含可见内容、以及错误。
-// hasVisibleContent 用于流式空输出检测：仅含 reasoning 的 chunk 不算可见内容（issue #155）。
-func (ra *relayAttempt) transformStreamData(ctx context.Context, data string) ([]byte, bool, error) {
+func (ra *relayAttempt) transformStreamData(ctx context.Context, data string) ([]byte, *model.InternalLLMResponse, error) {
 	internalStream, err := ra.outAdapter.TransformStream(ctx, []byte(data))
 	if err != nil {
-		logRelayErrorfByContext(err, "failed to transform stream: %v", err)
-		return nil, false, err
+		return nil, nil, err
 	}
 	if internalStream == nil {
-		return nil, false, nil
+		return nil, nil, nil
 	}
-
-	hasVisible := streamChunkHasVisibleContent(internalStream)
-
-	// 输出结果关键词拦截（流式）
 	filterCfg := ra.getResponseFilterConfig()
 	if blocked, keyword := applyResponseFilter(internalStream, filterCfg); blocked {
 		log.Infof("response filter blocked streaming chunk with keyword %q", keyword)
-		return nil, false, errResponseFilterBlocked
+		return nil, nil, errResponseFilterBlocked
 	}
-
+	if internalStream.Object == "[DONE]" {
+		return nil, internalStream, nil
+	}
 	inStream, err := ra.inAdapter.TransformStream(ctx, internalStream)
 	if err != nil {
-		logRelayErrorfByContext(err, "failed to transform stream: %v", err)
-		return nil, false, err
+		return nil, nil, err
 	}
-
-	return inStream, hasVisible, nil
+	return inStream, internalStream, nil
 }
 
 // handleResponse 处理非流式响应

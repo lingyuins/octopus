@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/lingyuins/octopus/internal/transformer"
+	"sort"
 	"strings"
 
 	"github.com/samber/lo"
@@ -22,25 +23,37 @@ type ResponseInbound struct {
 	hasFinished             bool
 	responseCompleted       bool
 
+	// finishStatus records the mapped Responses status for the final
+	// response.completed event ("completed", "incomplete", "failed").
+	finishStatus string
+
 	// Response metadata
 	responseID string
 	model      string
 	createdAt  int64
 
 	// Content tracking
-	outputIndex    int
-	contentIndex   int
-	sequenceNumber int
-	currentItemID  string
+	outputIndex        int
+	currentOutputIndex int
+	contentIndex       int
+	sequenceNumber     int
+	currentItemID      string
 
 	// Content accumulation
 	accumulatedText      strings.Builder
 	accumulatedReasoning strings.Builder
 
+	// completedOutputItems captures each output item as it is closed via
+	// output_item.done, keyed by the output index it was emitted at. The final
+	// response.completed event replays these items (in output-index order) as
+	// the full output snapshot.
+	completedOutputItems map[int]ResponsesItem
+
 	// Tool call tracking
 	toolCalls           map[int]*model.ToolCall
 	toolCallItemStarted map[int]bool
 	toolCallOutputIndex map[int]int
+	toolCallItemID      map[int]string
 
 	// Usage tracking
 	usage *model.Usage
@@ -84,9 +97,14 @@ func (i *ResponseInbound) TransformResponse(ctx context.Context, response *model
 }
 
 func (i *ResponseInbound) TransformStream(ctx context.Context, stream *model.InternalLLMResponse) ([]byte, error) {
-	// Handle [DONE] marker
+	// Only a protocol terminal marker makes cached usage final.
 	if stream.Object == "[DONE]" {
-		return []byte("data: [DONE]\n\n"), nil
+		if i.responseCompleted {
+			return nil, nil
+		}
+		events := i.finalizeResponse()
+		events = append(events, []byte("data: [DONE]\n\n"))
+		return joinEvents(events), nil
 	}
 
 	// Store the chunk for aggregation
@@ -99,6 +117,10 @@ func (i *ResponseInbound) TransformStream(ctx context.Context, stream *model.Int
 		i.toolCalls = make(map[int]*model.ToolCall)
 		i.toolCallItemStarted = make(map[int]bool)
 		i.toolCallOutputIndex = make(map[int]int)
+		i.toolCallItemID = make(map[int]string)
+	}
+	if i.completedOutputItems == nil {
+		i.completedOutputItems = make(map[int]ResponsesItem)
 	}
 
 	// Update metadata from chunk
@@ -161,50 +183,120 @@ func (i *ResponseInbound) TransformStream(ctx context.Context, stream *model.Int
 		// Handle finish reason
 		if choice.FinishReason != nil && !i.hasFinished {
 			i.hasFinished = true
+			i.finishStatus = responsesStatusFromFinishReason(*choice.FinishReason)
 
-			// Close any open content parts and output items
-			events = append(events, i.closeCurrentContentPart()...)
 			events = append(events, i.closeCurrentOutputItem()...)
+			events = append(events, i.closeToolCallItems()...)
 		}
-	}
-
-	// Handle response completion once both finish_reason has arrived and we have
-	// not yet emitted the completed event. Usage may arrive before or after the
-	// finish_reason, so we check here independently of the current chunk's Usage
-	// field (usage was already captured into i.usage on line 114).
-	if i.hasFinished && !i.responseCompleted {
-		i.responseCompleted = true
-
-		status := "completed"
-		response := &ResponsesResponse{
-			Object:    "response",
-			ID:        i.responseID,
-			Model:     i.model,
-			CreatedAt: i.createdAt,
-			Status:    &status,
-			Output:    []ResponsesItem{},
-			Usage:     convertUsageToResponses(i.usage),
-		}
-
-		events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
-			Type:     "response.completed",
-			Response: response,
-		}))
 	}
 
 	if len(events) == 0 {
 		return nil, nil
 	}
 
-	// Join events
+	return joinEvents(events), nil
+}
+
+// responsesStatusFromFinishReason maps a Chat Completions finish_reason to the
+// corresponding Responses API status.
+func responsesStatusFromFinishReason(reason string) string {
+	switch reason {
+	case "length":
+		return "incomplete"
+	case "content_filter":
+		return "incomplete"
+	case "error":
+		return "failed"
+	default:
+		// stop, tool_calls, function_call and anything else counts as a
+		// normal completion.
+		return "completed"
+	}
+}
+
+// finalizeResponse closes any still-open items, then emits the terminal event
+// carrying the full output snapshot (all items in output-index order) and the
+// cached usage. The event type mirrors the final status
+// (response.completed / response.incomplete / response.failed). It is
+// idempotent: subsequent calls return no events.
+func (i *ResponseInbound) finalizeResponse() [][]byte {
+	if i.responseCompleted {
+		return nil
+	}
+	i.responseCompleted = true
+
+	var events [][]byte
+	events = append(events, i.closeCurrentOutputItem()...)
+	events = append(events, i.closeToolCallItems()...)
+
+	status := i.finishStatus
+	if status == "" {
+		status = "completed"
+	}
+	eventType := "response.completed"
+	switch status {
+	case "incomplete":
+		eventType = "response.incomplete"
+	case "failed":
+		eventType = "response.failed"
+	}
+
+	response := &ResponsesResponse{
+		Object:    "response",
+		ID:        i.responseID,
+		Model:     i.model,
+		CreatedAt: i.createdAt,
+		Status:    &status,
+		Output:    i.buildOutputSnapshot(),
+		Usage:     convertUsageToResponses(i.usage),
+	}
+
+	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
+		Type:     eventType,
+		Response: response,
+	}))
+
+	return events
+}
+
+// buildOutputSnapshot returns all completed output items ordered by their
+// original output_index so the snapshot mirrors the stream emission order.
+func (i *ResponseInbound) buildOutputSnapshot() []ResponsesItem {
+	if len(i.completedOutputItems) == 0 {
+		return []ResponsesItem{}
+	}
+
+	indexes := make([]int, 0, len(i.completedOutputItems))
+	for idx := range i.completedOutputItems {
+		indexes = append(indexes, idx)
+	}
+	sort.Ints(indexes)
+
+	items := make([]ResponsesItem, 0, len(indexes))
+	for _, idx := range indexes {
+		items = append(items, i.completedOutputItems[idx])
+	}
+	return items
+}
+
+// recordOutputItemDone captures an item as it is closed so the final
+// response.completed snapshot can replay it.
+func (i *ResponseInbound) recordOutputItemDone(outputIndex int, item ResponsesItem) {
+	if i.completedOutputItems == nil {
+		i.completedOutputItems = make(map[int]ResponsesItem)
+	}
+	item.Status = lo.ToPtr("completed")
+	i.completedOutputItems[outputIndex] = item
+}
+
+func joinEvents(events [][]byte) []byte {
 	result := make([]byte, 0)
 	for _, event := range events {
 		if event != nil {
 			result = append(result, event...)
 		}
 	}
-
-	return result, nil
+	return result
 }
 
 func (i *ResponseInbound) enqueueEvent(ev *ResponsesStreamEvent) []byte {
@@ -229,6 +321,8 @@ func (i *ResponseInbound) handleReasoningContent(content *string) [][]byte {
 
 		i.hasReasoningItemStarted = true
 		i.currentItemID = generateItemID()
+		i.currentOutputIndex = i.outputIndex
+		i.outputIndex++
 
 		item := &ResponsesItem{
 			ID:      i.currentItemID,
@@ -239,7 +333,7 @@ func (i *ResponseInbound) handleReasoningContent(content *string) [][]byte {
 
 		events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 			Type:        "response.output_item.added",
-			OutputIndex: lo.ToPtr(i.outputIndex),
+			OutputIndex: lo.ToPtr(i.currentOutputIndex),
 			Item:        item,
 		}))
 
@@ -247,7 +341,7 @@ func (i *ResponseInbound) handleReasoningContent(content *string) [][]byte {
 		events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 			Type:         "response.reasoning_summary_part.added",
 			ItemID:       &i.currentItemID,
-			OutputIndex:  lo.ToPtr(i.outputIndex),
+			OutputIndex:  lo.ToPtr(i.currentOutputIndex),
 			SummaryIndex: lo.ToPtr(0),
 			Part:         &ResponsesContentPart{Type: "summary_text"},
 		}))
@@ -260,7 +354,7 @@ func (i *ResponseInbound) handleReasoningContent(content *string) [][]byte {
 	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 		Type:         "response.reasoning_summary_text.delta",
 		ItemID:       &i.currentItemID,
-		OutputIndex:  lo.ToPtr(i.outputIndex),
+		OutputIndex:  lo.ToPtr(i.currentOutputIndex),
 		SummaryIndex: lo.ToPtr(0),
 		Delta:        *content,
 	}))
@@ -280,10 +374,12 @@ func (i *ResponseInbound) handleTextContent(content *string) [][]byte {
 	if !i.hasMessageItemStarted {
 		i.hasMessageItemStarted = true
 		i.currentItemID = generateItemID()
+		i.currentOutputIndex = i.outputIndex
+		i.outputIndex++
 
 		events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 			Type:        "response.output_item.added",
-			OutputIndex: lo.ToPtr(i.outputIndex),
+			OutputIndex: lo.ToPtr(i.currentOutputIndex),
 			Item: &ResponsesItem{
 				ID:      i.currentItemID,
 				Type:    "message",
@@ -301,7 +397,7 @@ func (i *ResponseInbound) handleTextContent(content *string) [][]byte {
 		events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 			Type:         "response.content_part.added",
 			ItemID:       &i.currentItemID,
-			OutputIndex:  lo.ToPtr(i.outputIndex),
+			OutputIndex:  lo.ToPtr(i.currentOutputIndex),
 			ContentIndex: &i.contentIndex,
 			Part: &ResponsesContentPart{
 				Type: "output_text",
@@ -317,7 +413,7 @@ func (i *ResponseInbound) handleTextContent(content *string) [][]byte {
 	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 		Type:         "response.output_text.delta",
 		ItemID:       &i.currentItemID,
-		OutputIndex:  lo.ToPtr(i.outputIndex),
+		OutputIndex:  lo.ToPtr(i.currentOutputIndex),
 		ContentIndex: &i.contentIndex,
 		Delta:        *content,
 	}))
@@ -343,9 +439,6 @@ func (i *ResponseInbound) handleToolCalls(toolCalls []model.ToolCall) [][]byte {
 
 		// Initialize tool call tracking if needed
 		if _, ok := i.toolCalls[toolCallIndex]; !ok {
-			events = append(events, i.closeCurrentContentPart()...)
-			events = append(events, i.closeCurrentOutputItem()...)
-
 			i.toolCalls[toolCallIndex] = &model.ToolCall{
 				Index: toolCallIndex,
 				ID:    tc.ID,
@@ -377,7 +470,7 @@ func (i *ResponseInbound) handleToolCalls(toolCalls []model.ToolCall) [][]byte {
 
 			i.toolCallItemStarted[toolCallIndex] = true
 			i.toolCallOutputIndex[toolCallIndex] = i.outputIndex
-			i.currentItemID = itemID
+			i.toolCallItemID[toolCallIndex] = itemID
 			i.outputIndex++
 		}
 
@@ -386,15 +479,12 @@ func (i *ResponseInbound) handleToolCalls(toolCalls []model.ToolCall) [][]byte {
 
 		// Emit function_call_arguments.delta
 		if tc.Function.Arguments != "" {
-			itemID := i.toolCalls[toolCallIndex].ID
-			if itemID == "" {
-				itemID = i.currentItemID
-			}
+			itemID := i.toolCallItemID[toolCallIndex]
 
 			events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 				Type:         "response.function_call_arguments.delta",
 				ItemID:       &itemID,
-				OutputIndex:  lo.ToPtr(i.outputIndex - 1),
+				OutputIndex:  lo.ToPtr(i.toolCallOutputIndex[toolCallIndex]),
 				ContentIndex: lo.ToPtr(0),
 				Delta:        tc.Function.Arguments,
 			}))
@@ -417,7 +507,7 @@ func (i *ResponseInbound) closeReasoningItem() [][]byte {
 	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 		Type:         "response.reasoning_summary_text.done",
 		ItemID:       &i.currentItemID,
-		OutputIndex:  lo.ToPtr(i.outputIndex),
+		OutputIndex:  lo.ToPtr(i.currentOutputIndex),
 		SummaryIndex: lo.ToPtr(0),
 		Text:         fullReasoning,
 	}))
@@ -426,7 +516,7 @@ func (i *ResponseInbound) closeReasoningItem() [][]byte {
 	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 		Type:         "response.reasoning_summary_part.done",
 		ItemID:       &i.currentItemID,
-		OutputIndex:  lo.ToPtr(i.outputIndex),
+		OutputIndex:  lo.ToPtr(i.currentOutputIndex),
 		SummaryIndex: lo.ToPtr(0),
 		Part:         &ResponsesContentPart{Type: "summary_text", Text: &fullReasoning},
 	}))
@@ -443,11 +533,11 @@ func (i *ResponseInbound) closeReasoningItem() [][]byte {
 
 	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 		Type:        "response.output_item.done",
-		OutputIndex: lo.ToPtr(i.outputIndex),
+		OutputIndex: lo.ToPtr(i.currentOutputIndex),
 		Item:        &item,
 	}))
+	i.recordOutputItemDone(i.currentOutputIndex, item)
 
-	i.outputIndex++
 	i.accumulatedReasoning.Reset()
 
 	return events
@@ -481,11 +571,11 @@ func (i *ResponseInbound) closeMessageItem() [][]byte {
 
 	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 		Type:        "response.output_item.done",
-		OutputIndex: lo.ToPtr(i.outputIndex),
+		OutputIndex: lo.ToPtr(i.currentOutputIndex),
 		Item:        &item,
 	}))
+	i.recordOutputItemDone(i.currentOutputIndex, item)
 
-	i.outputIndex++
 	i.contentIndex = 0
 	i.accumulatedText.Reset()
 
@@ -505,7 +595,7 @@ func (i *ResponseInbound) closeCurrentContentPart() [][]byte {
 	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 		Type:         "response.output_text.done",
 		ItemID:       &i.currentItemID,
-		OutputIndex:  lo.ToPtr(i.outputIndex),
+		OutputIndex:  lo.ToPtr(i.currentOutputIndex),
 		ContentIndex: &i.contentIndex,
 		Text:         fullText,
 	}))
@@ -514,7 +604,7 @@ func (i *ResponseInbound) closeCurrentContentPart() [][]byte {
 	events = append(events, i.enqueueEvent(&ResponsesStreamEvent{
 		Type:         "response.content_part.done",
 		ItemID:       &i.currentItemID,
-		OutputIndex:  lo.ToPtr(i.outputIndex),
+		OutputIndex:  lo.ToPtr(i.currentOutputIndex),
 		ContentIndex: &i.contentIndex,
 		Part: &ResponsesContentPart{
 			Type: "output_text",
@@ -538,13 +628,22 @@ func (i *ResponseInbound) closeCurrentOutputItem() [][]byte {
 		events = append(events, i.closeReasoningItem()...)
 	}
 
-	// Close any open tool call items
-	for idx, tc := range i.toolCalls {
+	return events
+}
+
+func (i *ResponseInbound) closeToolCallItems() [][]byte {
+	var events [][]byte
+	indices := make([]int, 0, len(i.toolCalls))
+	for idx := range i.toolCalls {
+		indices = append(indices, idx)
+	}
+	sort.Slice(indices, func(a, b int) bool {
+		return i.toolCallOutputIndex[indices[a]] < i.toolCallOutputIndex[indices[b]]
+	})
+	for _, idx := range indices {
+		tc := i.toolCalls[idx]
 		if i.toolCallItemStarted[idx] {
-			itemID := tc.ID
-			if itemID == "" {
-				itemID = i.currentItemID
-			}
+			itemID := i.toolCallItemID[idx]
 
 			// Emit function_call_arguments.done
 			toolCallOutputIdx := i.toolCallOutputIndex[idx]
@@ -570,6 +669,7 @@ func (i *ResponseInbound) closeCurrentOutputItem() [][]byte {
 				OutputIndex: &toolCallOutputIdx,
 				Item:        &item,
 			}))
+			i.recordOutputItemDone(toolCallOutputIdx, item)
 
 			i.toolCallItemStarted[idx] = false
 		}
@@ -868,9 +968,11 @@ type ResponsesTextOptions struct {
 }
 
 type ResponsesTextFormat struct {
-	Type   string                 `json:"type,omitempty"`
-	Name   string                 `json:"name,omitempty"`
-	Schema transformer.RawMessage `json:"schema,omitempty"`
+	Type        string                 `json:"type,omitempty"`
+	Name        string                 `json:"name,omitempty"`
+	Description string                 `json:"description,omitempty"`
+	Schema      transformer.RawMessage `json:"schema,omitempty"`
+	Strict      *bool                  `json:"strict,omitempty"`
 }
 
 type ResponsesReasoning struct {
@@ -1002,6 +1104,14 @@ func convertToInternalRequest(req *ResponsesRequest) (*model.InternalLLMRequest,
 	if req.Text != nil && req.Text.Format != nil && req.Text.Format.Type != "" {
 		chatReq.ResponseFormat = &model.ResponseFormat{
 			Type: req.Text.Format.Type,
+		}
+		if req.Text.Format.Type == "json_schema" {
+			chatReq.ResponseFormat.JSONSchema = &model.ResponseFormatJSONSchema{
+				Name:        req.Text.Format.Name,
+				Description: req.Text.Format.Description,
+				Schema:      req.Text.Format.Schema,
+				Strict:      req.Text.Format.Strict,
+			}
 		}
 	}
 

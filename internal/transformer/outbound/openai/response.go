@@ -7,6 +7,7 @@ import (
 	"github.com/lingyuins/octopus/internal/transformer"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
@@ -20,6 +21,10 @@ type ResponseOutbound struct {
 	streamID    string
 	streamModel string
 	initialized bool
+
+	// sawFunctionCall tracks whether the stream contained at least one
+	// function_call output item so the final finish_reason can be tool_calls.
+	sawFunctionCall bool
 }
 
 func (o *ResponseOutbound) TransformRequest(ctx context.Context, request *model.InternalLLMRequest, baseUrl, key string) (*http.Request, error) {
@@ -94,6 +99,22 @@ func (o *ResponseOutbound) TransformResponse(ctx context.Context, response *http
 	var resp ResponsesResponse
 	if err := transformer.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal responses api response: %w", err)
+	}
+
+	// A failed status on a 2xx body is still an error: surface it with a
+	// mapped status code so the relay retry classifier can act on it.
+	if resp.Status != nil && *resp.Status == "failed" {
+		if resp.Error != nil && resp.Error.Message != "" {
+			return nil, &model.ResponseError{
+				StatusCode: responsesErrorStatusCode(resp.Error.String()),
+				Detail: model.ErrorDetail{
+					Code:    resp.Error.String(),
+					Message: resp.Error.Message,
+					Type:    "responses_error",
+				},
+			}
+		}
+		return nil, fmt.Errorf("responses api failed: response status is failed")
 	}
 
 	// Convert to internal response
@@ -188,6 +209,7 @@ func (o *ResponseOutbound) TransformStream(ctx context.Context, eventData []byte
 
 	case "response.output_item.added":
 		if streamEvent.Item != nil && streamEvent.Item.Type == "function_call" {
+			o.sawFunctionCall = true
 			resp.Choices = []model.Choice{
 				{
 					Index: 0,
@@ -224,32 +246,77 @@ func (o *ResponseOutbound) TransformStream(ctx context.Context, eventData []byte
 	case "response.completed":
 		if streamEvent.Response != nil {
 			var finishReason *string
+			status := ""
 			if streamEvent.Response.Status != nil {
-				switch *streamEvent.Response.Status {
-				case "completed":
-					finishReason = lo.ToPtr("stop")
-				case "incomplete":
-					finishReason = lo.ToPtr("length")
-				case "failed":
-					finishReason = lo.ToPtr("error")
-				}
+				status = *streamEvent.Response.Status
+			}
+			// A terminal event whose response carries an error payload must
+			// surface as a real error, not a successful finish.
+			if status == "failed" || streamEvent.Response.Error != nil {
+				resp.StreamFinished = true
+				return nil, responseFailedError(streamEvent.Response)
+			}
+			switch {
+			case status == "incomplete":
+				// Incomplete (token budget hit) takes precedence over
+				// tool_calls: the call stream was cut short.
+				finishReason = lo.ToPtr("length")
+			case o.sawFunctionCall:
+				finishReason = lo.ToPtr("tool_calls")
+			default:
+				finishReason = lo.ToPtr("stop")
 			}
 			resp.Choices = []model.Choice{
 				{
 					Index:        0,
+					Delta:        &model.Message{},
 					FinishReason: finishReason,
 				},
 			}
 			if streamEvent.Response.Usage != nil {
 				resp.Usage = convertResponsesUsage(streamEvent.Response.Usage)
 			}
+			resp.StreamFinished = true
 		}
 
-	case "response.failed", "response.incomplete", "error":
+	case "response.failed":
+		// A failed terminal event always surfaces as an error, even without
+		// an error payload; mark the stream as finished.
+		resp.StreamFinished = true
+		return nil, responseFailedError(streamEvent.Response)
+
+	case "response.incomplete":
+		// Incomplete is a normal termination (token budget hit), not an
+		// error: preserve the usage and finish with "length".
+		resp.StreamFinished = true
 		resp.Choices = []model.Choice{
 			{
 				Index:        0,
-				FinishReason: lo.ToPtr("error"),
+				Delta:        &model.Message{},
+				FinishReason: lo.ToPtr("length"),
+			},
+		}
+		if streamEvent.Response != nil {
+			if streamEvent.Response.Usage != nil {
+				resp.Usage = convertResponsesUsage(streamEvent.Response.Usage)
+			}
+		}
+
+	case "error":
+		// A stream-level error event always surfaces as an error.
+		resp.StreamFinished = true
+		code := streamEvent.Code
+		message := streamEvent.Message
+		if code == "" && message == "" {
+			code = "server_error"
+			message = "responses stream error"
+		}
+		return nil, &model.ResponseError{
+			StatusCode: responsesErrorStatusCode(code),
+			Detail: model.ErrorDetail{
+				Code:    code,
+				Message: message,
+				Type:    "responses_stream_error",
 			},
 		}
 
@@ -259,6 +326,41 @@ func (o *ResponseOutbound) TransformStream(ctx context.Context, eventData []byte
 	}
 
 	return resp, nil
+}
+
+// responseFailedError builds a model.ResponseError from a failed terminal
+// response payload, falling back to a generic error when no detail exists.
+func responseFailedError(r *ResponsesResponse) *model.ResponseError {
+	if r != nil && r.Error != nil && r.Error.Message != "" {
+		code := r.Error.String()
+		return &model.ResponseError{
+			StatusCode: responsesErrorStatusCode(code),
+			Detail: model.ErrorDetail{
+				Code:    code,
+				Message: r.Error.Message,
+				Type:    "responses_error",
+			},
+		}
+	}
+	if r != nil && r.Status != nil && *r.Status == "failed" {
+		return &model.ResponseError{
+			StatusCode: http.StatusBadGateway,
+			Detail: model.ErrorDetail{
+				Code:    "server_error",
+				Message: "responses api failed",
+				Type:    "responses_error",
+			},
+		}
+	}
+	// Error payload present but empty message: still a failure.
+	return &model.ResponseError{
+		StatusCode: http.StatusBadGateway,
+		Detail: model.ErrorDetail{
+			Code:    "server_error",
+			Message: "responses api failed with error",
+			Type:    "responses_error",
+		},
+	}
 }
 
 // ResponsesRequest represents the OpenAI Responses API request format.
@@ -389,9 +491,11 @@ type ResponsesTextOptions struct {
 }
 
 type ResponsesTextFormat struct {
-	Type   string                 `json:"type,omitempty"`
-	Name   string                 `json:"name,omitempty"`
-	Schema transformer.RawMessage `json:"schema,omitempty"`
+	Type        string                 `json:"type,omitempty"`
+	Name        string                 `json:"name,omitempty"`
+	Description string                 `json:"description,omitempty"`
+	Schema      transformer.RawMessage `json:"schema,omitempty"`
+	Strict      *bool                  `json:"strict,omitempty"`
 }
 
 type ResponsesReasoning struct {
@@ -423,8 +527,53 @@ type ResponsesUsage struct {
 }
 
 type ResponsesError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	// Code is a string enum in the official API (e.g. "server_error",
+	// "rate_limit_exceeded"); some OpenAI-compatible providers still send a
+	// numeric code, so both shapes are accepted on decode.
+	Code    any    `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// String returns the error code as a string regardless of the wire shape.
+func (e *ResponsesError) String() string {
+	if e == nil {
+		return ""
+	}
+	switch v := e.Code.(type) {
+	case string:
+		return v
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(v)
+	default:
+		return ""
+	}
+}
+
+// responsesErrorStatusCode maps an official Responses error code to an HTTP
+// status code so the relay retry classifier can act on it.
+func responsesErrorStatusCode(code string) int {
+	switch code {
+	case "rate_limit_error", "rate_limit_exceeded":
+		return http.StatusTooManyRequests
+	case "invalid_prompt", "invalid_request_error", "invalid_value":
+		return http.StatusBadRequest
+	case "context_length_exceeded":
+		return http.StatusBadRequest
+	case "server_error", "internal_error", "timeout_error", "overloaded":
+		return http.StatusBadGateway
+	case "insufficient_quota", "quota_exceeded", "billing_hard_limit_reached":
+		return http.StatusPaymentRequired
+	case "unauthorized", "authentication_error", "invalid_api_key", "api_key_not_active":
+		return http.StatusUnauthorized
+	case "model_not_found", "not_found":
+		return http.StatusNotFound
+	case "content_filter_violation":
+		return http.StatusForbidden
+	default:
+		return 0
+	}
 }
 
 type ResponsesStreamEvent struct {
@@ -486,10 +635,17 @@ func ConvertToResponsesRequest(req *model.InternalLLMRequest) *ResponsesRequest 
 
 	// Convert text options
 	if req.ResponseFormat != nil {
+		format := &ResponsesTextFormat{
+			Type: req.ResponseFormat.Type,
+		}
+		if js := req.ResponseFormat.JSONSchema; js != nil {
+			format.Name = js.Name
+			format.Description = js.Description
+			format.Schema = js.Schema
+			format.Strict = js.Strict
+		}
 		result.Text = &ResponsesTextOptions{
-			Format: &ResponsesTextFormat{
-				Type: req.ResponseFormat.Type,
-			},
+			Format: format,
 		}
 	}
 

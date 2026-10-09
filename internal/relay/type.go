@@ -214,6 +214,8 @@ type relayRequest struct {
 	clientCtx         context.Context
 	operationCtx      context.Context
 	inAdapter         model.Inbound
+	newInAdapter      func() model.Inbound
+	inAdapterUsed     bool
 	internalRequest   *model.InternalLLMRequest
 	metrics           *RelayMetrics
 	apiKeyID          int

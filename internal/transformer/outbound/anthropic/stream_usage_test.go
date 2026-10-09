@@ -68,3 +68,36 @@ func TestTransformStream_MessageStopStillCarriesUsage(t *testing.T) {
 		t.Fatalf("stop usage = prompt=%d completion=%d", stop.Usage.PromptTokens, stop.Usage.CompletionTokens)
 	}
 }
+
+func TestTransformStream_MessageStopMarksStreamFinished(t *testing.T) {
+	o := &MessageOutbound{}
+	_, err := o.TransformStream(context.Background(), []byte(`{
+		"type":"message_start",
+		"message":{"id":"msg_1","model":"claude-test","usage":{"input_tokens":3}}
+	}`))
+	if err != nil {
+		t.Fatalf("message_start: %v", err)
+	}
+	stop, err := o.TransformStream(context.Background(), []byte(`{"type":"message_stop"}`))
+	if err != nil {
+		t.Fatalf("message_stop: %v", err)
+	}
+	if stop == nil {
+		t.Fatal("message_stop returned nil")
+	}
+	if !stop.StreamFinished {
+		t.Fatal("message_stop must set StreamFinished=true")
+	}
+	// Non-terminal events must not set the flag.
+	other, err := o.TransformStream(context.Background(), []byte(`{
+		"type":"content_block_delta",
+		"index":0,
+		"delta":{"type":"text_delta","text":"hi"}
+	}`))
+	if err != nil {
+		t.Fatalf("content_block_delta: %v", err)
+	}
+	if other != nil && other.StreamFinished {
+		t.Fatal("content_block_delta must not set StreamFinished")
+	}
+}

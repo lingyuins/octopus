@@ -286,6 +286,7 @@ func (o *MessageOutbound) TransformStream(ctx context.Context, eventData []byte)
 
 	case "message_stop":
 		resp.Choices = []model.Choice{}
+		resp.StreamFinished = true
 		if o.streamUsage != nil {
 			resp.Usage = o.streamUsage
 		}

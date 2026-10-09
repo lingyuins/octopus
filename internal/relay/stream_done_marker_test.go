@@ -37,6 +37,10 @@ func (stubOutboundAdapter) TransformStream(_ context.Context, eventData []byte) 
 	if raw == "[DONE]" {
 		return &tmodel.InternalLLMResponse{Object: "[DONE]"}, nil
 	}
+	if raw == "finish" {
+		stop := "stop"
+		return &tmodel.InternalLLMResponse{Choices: []tmodel.Choice{{Index: 0, FinishReason: &stop}}}, nil
+	}
 	// 其余一律视为一个带可见内容的增量 chunk（hasVisibleContent = true）。
 	text := raw
 	return &tmodel.InternalLLMResponse{
@@ -115,18 +119,7 @@ func newStreamTestAttempt(t *testing.T, clientCtx context.Context) (*relayAttemp
 // 这是本次修改前就存在的既有行为，finalizeStream 原样保留了它，因此验证
 // [DONE] 不破坏 #155 语义必须走带会话的路径。
 //
-// 会话挂在**本测试私有的** store 上，不进包级全局 relayStreamSessions。
-//
-// 为何不用 acquireRelayStreamSession：它会把会话注册到全局 store，而
-// session.store 存的就是包级 relayStreamSessions 的地址。本包的
-// stream_session_test.go 会整体重写这个全局变量（把其中的 sync.RWMutex 归零），
-// 而 Finish / enforceSessionLimitLocked 的异步驱逐 goroutine 又会去锁同一个
-// s.store.mu；两者重叠时会出现 "sync: Unlock of unlocked RWMutex" 致命错误。
-// 该竞态是仓库既有问题（把本文件的测试全部 -run 过滤掉仍可复现），但本测试
-// 不该往全局 store 里多加会话去放大它，所以改用私有 store 完全隔离。
-//
-// 构造方式与 acquireRelayStreamSession 的会话初始化保持一致，以保证
-// handleStreamResponse 里用到的 AddPayload / Finish / HasSubscribers 语义不变。
+// 会话使用私有 store，避免后台驱逐与其他测试的全局会话状态互相影响。
 func attachStreamSession(t *testing.T, ra *relayAttempt) *relayStreamSession {
 	t.Helper()
 
@@ -266,6 +259,7 @@ func TestHandleStreamResponseStillFinalizesOnEOF(t *testing.T) {
 
 	done := runStreamWithUpstream(t, ra, func(w *io.PipeWriter) {
 		_, _ = w.Write([]byte("data: hello\n\n"))
+		_, _ = w.Write([]byte("data: finish\n\n"))
 		_ = w.Close() // 正常 EOF
 	})
 

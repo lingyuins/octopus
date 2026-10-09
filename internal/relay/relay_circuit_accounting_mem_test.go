@@ -257,9 +257,8 @@ func TestRelayGoHandlesSSEDoneMarkerViaSharedFinalize(t *testing.T) {
 			"缺少它时，发完 [DONE] 却不关连接的上游会让请求阻塞到客户端超时断开，" +
 			"被误记为 client disconnected")
 	}
-	if !strings.Contains(src, "sawDoneMarker = true") {
-		t.Fatal("relay.go 缺少 sawDoneMarker 标记；[DONE] 必须让该 chunk 走完正常写入" +
-			"（客户端要收到入站适配器渲染的终止帧）再收尾，不能当场 return")
+	if !strings.Contains(src, "streamFinished = internalStream.StreamFinished") {
+		t.Fatal("relay.go must recognize protocol terminal events as well as [DONE]")
 	}
 
 	finalizeCalls := strings.Count(src, "return finalizeStream()")
@@ -283,6 +282,7 @@ func TestRelayGoHandlesSSEDoneMarkerViaSharedFinalize(t *testing.T) {
 		"!hasVisibleContent",
 		"return errEmptyOutput",
 		"ra.streamSession.Finish(nil)",
+		`ra.inAdapter.TransformStream(ctx, &model.InternalLLMResponse{Object: "[DONE]"})`,
 	} {
 		if !strings.Contains(finalizeBody, required) {
 			t.Fatalf("finalizeStream 缺少 %q；[DONE] 早退会破坏 issue #155 的空输出重试语义"+

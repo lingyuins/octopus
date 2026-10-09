@@ -58,7 +58,7 @@ func TestPopulateRelayRequestSessionFields(t *testing.T) {
 }
 
 func TestAcquireRelayStreamSession_AllowsReconnectAndBlocksConcurrentDifferentRequest(t *testing.T) {
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
@@ -95,7 +95,7 @@ func TestAcquireRelayStreamSession_AllowsReconnectAndBlocksConcurrentDifferentRe
 }
 
 func TestAcquireRelayStreamSession_AllowsSameConversationAcrossAPIKeys(t *testing.T) {
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
@@ -195,7 +195,7 @@ func TestRelayStreamSessionSnapshotReportsReplayWindowExpiredWhenTrimmed(t *test
 		overrideStreamSessionMaxBytes = nil
 	}()
 
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
@@ -229,7 +229,7 @@ func TestRelayStreamSessionFinishRemovesExpiredSession(t *testing.T) {
 		overrideStreamSessionTTL = nil
 	}()
 
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
@@ -300,7 +300,7 @@ func TestHandleStreamResponseStopsImmediatelyWhenClientDisconnectsWithoutSession
 func TestServeRelayStreamSessionReplayExpiredBeforeHeadersReturns409(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
@@ -336,7 +336,7 @@ func TestServeRelayStreamSessionReplayExpiredBeforeHeadersReturns409(t *testing.
 func TestServeRelayStreamSessionDoneWithErrorBeforeHeadersReturnsBadGateway(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
@@ -369,7 +369,7 @@ func TestServeRelayStreamSessionDoneWithErrorBeforeHeadersReturnsBadGateway(t *t
 func TestServeRelayStreamSessionDoneWithErrorAfterHeadersWritesSSEError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
@@ -410,7 +410,7 @@ func TestServeRelayStreamSessionDoneWithErrorAfterHeadersWritesSSEError(t *testi
 
 func TestRelayStreamSessionFinishKeepsBufferForReconnect(t *testing.T) {
 	// Finish 不应立即清空 replay 缓冲：断线重连需要重放已生成内容。
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
@@ -432,11 +432,11 @@ func TestRelayStreamSessionFinishKeepsBufferForReconnect(t *testing.T) {
 }
 
 func TestEnforceSessionLimitEvictsOldestDoneSessions(t *testing.T) {
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
-	store := &relayStreamSessions
+	store := relayStreamSessions
 
 	// 填充超过上限的已完成会话，最旧的应被驱逐。
 	total := relayStreamMaxSessions + 10
@@ -465,11 +465,11 @@ func TestEnforceSessionLimitEvictsOldestDoneSessions(t *testing.T) {
 // 旧实现「若全是活跃会话则不驱逐」，客户端中途断连时会话会一直保持活跃，
 // 导致硬上限完全失效、map 无界增长直到进程被 OOM killer 杀掉（issue #196）。
 func TestEnforceSessionLimitEvictsOldestActiveSessionsBeyondGrace(t *testing.T) {
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
-	store := &relayStreamSessions
+	store := relayStreamSessions
 
 	limit := 8
 	overrideStreamSessionMaxSessions = &limit
@@ -510,11 +510,11 @@ func TestEnforceSessionLimitEvictsOldestActiveSessionsBeyondGrace(t *testing.T) 
 
 // 未超过宽限阈值时不应驱逐活跃会话，避免正常波动打断正在进行的生成。
 func TestEnforceSessionLimitKeepsActiveSessionsWithinGrace(t *testing.T) {
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
-	store := &relayStreamSessions
+	store := relayStreamSessions
 
 	limit := 8
 	overrideStreamSessionMaxSessions = &limit
@@ -545,7 +545,7 @@ func TestEnforceSessionLimitKeepsActiveSessionsWithinGrace(t *testing.T) {
 }
 
 func TestClientGoneGraceExceeded(t *testing.T) {
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
@@ -584,7 +584,7 @@ func TestClientGoneGraceExceeded(t *testing.T) {
 // 客户端重连（Subscribe）必须撤销断连宽限计时，否则原转发协程会在宽限期到点时
 // 把一个「正有人在读」的会话强行结束——原请求的 context 早已 Done，无法自行感知重连。
 func TestSubscribeCancelsClientGoneGrace(t *testing.T) {
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}
@@ -624,7 +624,7 @@ func TestSubscribeCancelsClientGoneGrace(t *testing.T) {
 
 // MarkClientGone 重复调用时宽限期应从第一次断连算起。
 func TestMarkClientGoneIsIdempotent(t *testing.T) {
-	relayStreamSessions = relayStreamSessionStore{
+	relayStreamSessions = &relayStreamSessionStore{
 		byKey:                make(map[string]*relayStreamSession),
 		activeByConversation: make(map[string]string),
 	}

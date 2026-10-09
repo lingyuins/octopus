@@ -713,6 +713,9 @@ type InternalLLMResponse struct {
 	// e.g. "chat.completion", "chat.completion.chunk", "list"
 	Object string `json:"object"`
 
+	// StreamFinished marks a protocol terminal event, not a finish_reason before final usage.
+	StreamFinished bool `json:"-"`
+
 	// Created is the timestamp of when the response was created.
 	Created int64 `json:"created"`
 

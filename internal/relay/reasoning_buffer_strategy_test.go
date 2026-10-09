@@ -130,6 +130,9 @@ func TestHandleStreamResponseDefaultSendsReasoningBeforeCompletion(t *testing.T)
 	case <-time.After(3 * time.Second):
 		t.Error("reasoning chunk was buffered until completion instead of flushed immediately")
 	}
+	if _, err := upstream.Write([]byte("data: [DONE]\n\n")); err != nil {
+		t.Fatalf("write terminator: %v", err)
+	}
 	if err := upstream.Close(); err != nil {
 		t.Fatalf("close upstream: %v", err)
 	}

@@ -156,7 +156,7 @@ type relayStreamSessionStore struct {
 	activeByConversation map[string]string
 }
 
-var relayStreamSessions = relayStreamSessionStore{
+var relayStreamSessions = &relayStreamSessionStore{
 	byKey:                make(map[string]*relayStreamSession),
 	activeByConversation: make(map[string]string),
 }
@@ -176,7 +176,7 @@ func acquireRelayStreamSession(conversationID string, apiKeyID int, requestHash 
 	}
 
 	now := time.Now()
-	store := &relayStreamSessions
+	store := relayStreamSessions
 	conversationScope := buildRelayConversationScope(conversationID, apiKeyID)
 	key := buildRelayStreamSessionKey(conversationScope, requestHash)
 
@@ -765,7 +765,7 @@ func ActiveSessionCount() int {
 // 时检查，而 OOM 场景恰恰是会话只增不减、旧会话又都处于活跃状态——把检查放到周期
 // 任务里，保证超限积压总能被收敛，不依赖新请求到达。
 func PurgeExpiredStreamSessions() {
-	store := &relayStreamSessions
+	store := relayStreamSessions
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	store.cleanupLocked(time.Now())
