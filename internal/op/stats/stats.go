@@ -431,20 +431,33 @@ func dailyDimensionExcludedExpr(dbConn *gorm.DB, column string) string {
 	return "excluded." + column
 }
 
-func dailyDimensionMaxExpr(dbConn *gorm.DB, column string) string {
-	excluded := dailyDimensionExcludedExpr(dbConn, column)
-	if dbConn != nil && dbConn.Dialector != nil && dbConn.Dialector.Name() == "sqlite" {
-		return "MAX(" + column + ", " + excluded + ")"
+// dailyDimensionTargetExpr 返回 ON CONFLICT DO UPDATE 里对目标表列的引用。
+// PostgreSQL 在 DO UPDATE 中同时看到目标表与 excluded 的同名列时，裸列名
+// 会被判为 ambiguous（SQLSTATE 42702），必须带表名限定。SQLite/MySQL 不受
+// 影响，保持裸列名以维持原有行为。
+func dailyDimensionTargetExpr(dbConn *gorm.DB, table, column string) string {
+	if dbConn != nil && dbConn.Dialector != nil && dbConn.Dialector.Name() == "postgres" {
+		return table + "." + column
 	}
-	return "GREATEST(" + column + ", " + excluded + ")"
+	return column
 }
 
-func dailyDimensionUpdateColumns(dbConn *gorm.DB, includeName bool) clause.Set {
+func dailyDimensionMaxExpr(dbConn *gorm.DB, table, column string) string {
+	excluded := dailyDimensionExcludedExpr(dbConn, column)
+	target := dailyDimensionTargetExpr(dbConn, table, column)
+	if dbConn != nil && dbConn.Dialector != nil && dbConn.Dialector.Name() == "sqlite" {
+		return "MAX(" + target + ", " + excluded + ")"
+	}
+	return "GREATEST(" + target + ", " + excluded + ")"
+}
+
+func dailyDimensionUpdateColumns(dbConn *gorm.DB, table string, includeName bool) clause.Set {
 	add := func(column string) clause.Assignment {
-		return clause.Assignment{Column: clause.Column{Name: column}, Value: gorm.Expr(column + " + " + dailyDimensionExcludedExpr(dbConn, column))}
+		expr := dailyDimensionTargetExpr(dbConn, table, column) + " + " + dailyDimensionExcludedExpr(dbConn, column)
+		return clause.Assignment{Column: clause.Column{Name: column}, Value: gorm.Expr(expr)}
 	}
 	max := func(column string) clause.Assignment {
-		return clause.Assignment{Column: clause.Column{Name: column}, Value: gorm.Expr(dailyDimensionMaxExpr(dbConn, column))}
+		return clause.Assignment{Column: clause.Column{Name: column}, Value: gorm.Expr(dailyDimensionMaxExpr(dbConn, table, column))}
 	}
 	assignments := []clause.Assignment{
 		add("input_token"),
@@ -476,8 +489,8 @@ func dailyDimensionUpdateColumns(dbConn *gorm.DB, includeName bool) clause.Set {
 	return assignments
 }
 
-func dailyDimensionChannelUpdateColumns(dbConn *gorm.DB) clause.Set {
-	assignments := dailyDimensionUpdateColumns(dbConn, false)
+func dailyDimensionChannelUpdateColumns(dbConn *gorm.DB, table string) clause.Set {
+	assignments := dailyDimensionUpdateColumns(dbConn, table, false)
 	return append([]clause.Assignment{{Column: clause.Column{Name: "channel_name"}, Value: gorm.Expr(dailyDimensionExcludedExpr(dbConn, "channel_name"))}}, assignments...)
 }
 
@@ -487,7 +500,7 @@ func upsertDailyChannels(dbConn *gorm.DB, stats []model.StatsDailyChannel) error
 	}
 	return dbConn.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "date"}, {Name: "channel_id"}},
-		DoUpdates: dailyDimensionChannelUpdateColumns(dbConn),
+		DoUpdates: dailyDimensionChannelUpdateColumns(dbConn, "stats_daily_channels"),
 	}).Create(&stats).Error
 }
 
@@ -497,7 +510,7 @@ func upsertDailyModels(dbConn *gorm.DB, stats []model.StatsDailyModel) error {
 	}
 	return dbConn.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "date"}, {Name: "model_name"}},
-		DoUpdates: dailyDimensionUpdateColumns(dbConn, false),
+		DoUpdates: dailyDimensionUpdateColumns(dbConn, "stats_daily_models", false),
 	}).Create(&stats).Error
 }
 
@@ -507,7 +520,7 @@ func upsertDailyAPIKeys(dbConn *gorm.DB, stats []model.StatsDailyAPIKey) error {
 	}
 	return dbConn.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "date"}, {Name: "api_key_id"}},
-		DoUpdates: dailyDimensionUpdateColumns(dbConn, true),
+		DoUpdates: dailyDimensionUpdateColumns(dbConn, "stats_daily_api_keys", true),
 	}).Create(&stats).Error
 }
 
@@ -517,7 +530,7 @@ func upsertDailyChannelModels(dbConn *gorm.DB, stats []model.StatsDailyChannelMo
 	}
 	return dbConn.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "date"}, {Name: "channel_id"}, {Name: "model_name"}},
-		DoUpdates: dailyDimensionChannelUpdateColumns(dbConn),
+		DoUpdates: dailyDimensionChannelUpdateColumns(dbConn, "stats_daily_channel_models"),
 	}).Create(&stats).Error
 }
 
