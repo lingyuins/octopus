@@ -279,12 +279,30 @@ func TestOutboundAttemptTypesAnthropicRawPassthroughUsesRawAdapter(t *testing.T)
 	}
 }
 
-func TestOutboundAttemptTypesAnthropicAutoStillPrefersChatFallbackChain(t *testing.T) {
-	// Anthropic inbound + auto format on an OpenAI-compatible channel should still
-	// enter the LLM adapter-selection path instead of hard-coding channel type.
+func TestOutboundAttemptTypesAnthropicAutoPrefersAnthropicFirst(t *testing.T) {
+	// Anthropic inbound + auto format on an OpenAI-compatible channel should try the
+	// zero-conversion Anthropic adapter first, then fall back to Chat → Responses.
 	req := &model.InternalLLMRequest{RawAPIFormat: model.APIFormatAnthropicMessage}
 
 	got := outboundAttemptTypes(outbound.OutboundTypeOpenAIChat, req, "")
+	want := []outbound.OutboundType{outbound.OutboundTypeAnthropic, outbound.OutboundTypeOpenAIChat, outbound.OutboundTypeOpenAIResponse}
+
+	if len(got) != len(want) {
+		t.Fatalf("attempt types len = %d, want %d: %#v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("attempt types = %#v, want %#v", got, want)
+		}
+	}
+}
+
+func TestOutboundAttemptTypesAnthropicChatFormatStillPrefersChat(t *testing.T) {
+	// The explicit "chat" option must NOT sniff the inbound format: it always means
+	// Chat Completions first, Responses second, even for Anthropic inbound requests.
+	req := &model.InternalLLMRequest{RawAPIFormat: model.APIFormatAnthropicMessage}
+
+	got := outboundAttemptTypes(outbound.OutboundTypeOpenAIChat, req, "chat")
 	want := []outbound.OutboundType{outbound.OutboundTypeOpenAIChat, outbound.OutboundTypeOpenAIResponse}
 
 	if len(got) != len(want) {
@@ -348,5 +366,74 @@ func TestShouldTryAdapterFallbackSkipsClientErrorScopeNone(t *testing.T) {
 
 	if shouldTryAdapterFallback(result, 0, 2) {
 		t.Fatal("expected client error ScopeNone to skip adapter fallback so upstream body can be returned immediately")
+	}
+}
+
+func TestShouldTryAdapterFallbackSkipsWrittenResponse(t *testing.T) {
+	result := attemptResult{
+		Success:  false,
+		Written:  true,
+		Decision: RetryDecision{Scope: ScopeNextChannel, Reason: "stream failed", Code: 503, IsError: true},
+	}
+
+	if shouldTryAdapterFallback(result, 0, 2) {
+		t.Fatal("expected a written response to stop adapter fallback")
+	}
+}
+
+func TestShouldTryAdapterFallbackSkipsLastAdapter(t *testing.T) {
+	result := attemptResult{
+		Success:  false,
+		Decision: RetryDecision{Scope: ScopeNextChannel, Reason: "gateway error", Code: 503, IsError: true},
+	}
+
+	if shouldTryAdapterFallback(result, 1, 2) {
+		t.Fatal("expected the last adapter to stop fallback")
+	}
+}
+
+func TestShouldDeferFailureAccounting(t *testing.T) {
+	tests := []struct {
+		name       string
+		configured bool
+		decision   RetryDecision
+		written    bool
+		want       bool
+	}{
+		{
+			name:       "intermediate route failure",
+			configured: true,
+			decision:   RetryDecision{Scope: ScopeNextChannel, Code: 404, IsError: true},
+			want:       true,
+		},
+		{
+			name:       "final route failure",
+			configured: false,
+			decision:   RetryDecision{Scope: ScopeNextChannel, Code: 404, IsError: true},
+		},
+		{
+			name:       "same channel failure",
+			configured: true,
+			decision:   RetryDecision{Scope: ScopeSameChannel, Code: 429, IsError: true},
+		},
+		{
+			name:       "written response",
+			configured: true,
+			decision:   RetryDecision{Scope: ScopeNextChannel, Code: 503, IsError: true},
+			written:    true,
+		},
+		{
+			name:       "accounting skipped",
+			configured: true,
+			decision:   RetryDecision{Scope: ScopeNextChannel, Code: 503, IsError: true, SkipFailureAccounting: true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldDeferFailureAccounting(tt.configured, tt.decision, tt.written); got != tt.want {
+				t.Fatalf("shouldDeferFailureAccounting() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

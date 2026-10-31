@@ -259,8 +259,8 @@ func performChannelModelFallback(ctx context.Context, channel *appmodel.Channel,
 	cloned.BaseUrls = []appmodel.BaseUrl{{URL: base.url, SuffixMode: base.suffixMode}}
 	cloned.Keys = []appmodel.ChannelKey{{ChannelKey: apiKey}}
 
-	// 与 group probe 一致，对 OpenAI 类型渠道走 adapter 回退（issue #187）：
-	// 先尝试 Chat Completions，失败再回退 Responses API。
+	// 渠道探测请求固定按 OpenAI Chat 入站格式构造，因此 auto 下对 OpenAI
+	// 类型渠道仍走 Chat → Responses adapter 回退（issue #187）。
 	probeReqForResolve, _ := buildGroupProbeRequest(appmodel.EndpointTypeAll, modelName)
 	adapterTypes := outbound.ResolveAttemptTypes(channel.Type, probeReqForResolve, "")
 	var lastErr error

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Defer channel and key failure accounting for intermediate outbound-format attempts so a successful adapter fallback does not cool down or downgrade a healthy channel.
+
+### Changed
+
+- Make automatic outbound format selection sniff Anthropic Messages inbound requests and try Anthropic before Chat → Responses; explicit `chat` and `responses` keep their configured order without inbound sniffing.
+
 ## [v2.7.2] - 2026-10-31
 
 ### Added

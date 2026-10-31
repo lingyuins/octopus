@@ -582,7 +582,7 @@ Octopus 提供多层模型可见性：
 - **会话保持**：单位秒，在设定时间窗口内，同一 API Key + 模型会优先复用上次成功的渠道，`0` 表示禁用
 - **Condition (JSON)**：可选的 AND 条件规则，当前只在主 LLM relay 路径里生效；内置请求上下文目前包含 `model`、`api_key_id`、`hour`
 - **端点供应商（Endpoint Provider）**：按端点类型进行供应商感知的请求改写。对话供应商（`openai`、`deepseek`、`mimo`、`siliconflow`、`newapi`）会剥离不兼容的推理字段；音乐供应商（`newapi`、`minimax`）改写请求体和路径；视频供应商（`agnes`）改写上流路径；语音合成供应商（`mimo`）转换请求格式和路径
-- **出站格式（Outbound Format）**：控制跨格式适配器回退。`""`（自动）、`chat`、`responses` 仅调整 Chat/Responses 的尝试顺序；`chat_only` 和 `responses_only` 会完全禁用回退——适用于用 400/404 拒绝另一格式的上游（如公益站）
+- **出站格式（Outbound Format）**：控制跨格式适配器回退。`""`（自动）会识别入站协议：Anthropic Messages 入站优先 Anthropic 出站，其余入站优先 Chat Completions，失败按 Chat → Responses 回退；`chat`、`responses` 仅调整 Chat/Responses 的尝试顺序（不识别入站格式）；`messages` 按 Anthropic → Chat → Responses 尝试，`*_only` 变体会完全禁用回退。跨格式回退只针对 404/5xx、网络错误等路由级失败，400 等客户端 / Key 级错误不会触发回退；适用于用错误状态拒绝另一格式的上游（如公益站）
 - **思考模式**：在分组编辑器的高级配置中设置 `thinking_mode`。`auto`（默认）保持客户端 / 上游行为；`off` / `on` 覆盖客户端推理参数，客户端未传参时也生效。适配器按 DeepSeek/MiMo、OpenAI Chat/Responses（含 Codex）、Anthropic、Gemini、火山引擎各自协议发送控制字段。通过通用域名代理 DeepSeek/MiMo 时，请选择对应 API 分类或端点供应商。需要上游模型支持；原始透传 / 原始穿透保持请求体不变，不应用此策略。此功能不新增 FIM 或 `/v1/completions` 端点。
 - **Key 冷却**：限速冷却按 `(keyID, model)` 粒度追踪（issue #94），单个模型的 429 不再拖累同 Key 的其他模型。单渠道重试次数可设为 `0`（只试一次即换渠道）；最大总尝试次数配额只统计真实发往上游的转发，冷却/熔断跳过不占用配额
 

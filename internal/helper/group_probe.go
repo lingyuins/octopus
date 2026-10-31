@@ -457,10 +457,10 @@ func testConfiguredGroupItem(ctx context.Context, group *appmodel.Group, item ap
 		requestJSON, _ = json.Marshal(probeRequest)
 	}
 
-	// 解析出站 adapter 回退列表。对 OpenAI 类型渠道，默认先尝试 Chat
-	// Completions (/v1/chat/completions)，失败再回退 Responses API
-	// (/v1/responses)。这与 relay 主流程的 outboundAttemptTypes 一致，
-	// 避免 type=1 渠道在只支持 chat completions 的上游上探测失败（issue #187）。
+	// 解析出站 adapter 回退列表。探测请求固定构造为 OpenAI Chat 入站格式，
+	// 因此 auto 下仍先尝试 Chat Completions (/v1/chat/completions)，失败再回退
+	// Responses API (/v1/responses)；分组显式配置 messages 等格式时按配置解析。
+	// 这样可避免 type=1 渠道在只支持 chat completions 的上游上探测失败（issue #187）。
 	adapterTypes := outbound.ResolveAttemptTypes(channel.Type, probeRequest, group.OutboundFormat)
 
 	startTime := time.Now()

@@ -129,7 +129,9 @@ func IsLLMRequestFormat(request *model.InternalLLMRequest) bool {
 // 对 OpenAIChat / OpenAIResponse 类型，提供可配置的 adapter 回退优先级：
 //   - "passthrough": 原样转发 inbound JSON body，禁用 adapter 回退。
 //   - "raw": 与 passthrough 相同，但额外保留客户端原始请求路径。
-//   - "chat" / 默认(auto): 优先 Chat Completions，回退 Responses API。
+//   - 默认(auto): Anthropic 入站优先 Anthropic Messages，其他入站优先
+//     Chat Completions；失败回退顺序为 Anthropic → Chat → Responses。
+//   - "chat": 优先 Chat Completions，回退 Responses API（不识别入站格式）。
 //   - "responses": 优先 Responses API，回退 Chat Completions。
 //   - "messages": 优先 Anthropic Messages，回退 Chat → Responses。
 //   - "chat_only" / "responses_only" / "messages_only": 禁用跨格式回退。
@@ -161,7 +163,12 @@ func ResolveAttemptTypes(channelType OutboundType, request *model.InternalLLMReq
 			return []OutboundType{OutboundTypeOpenAIResponse}
 		case "messages_only":
 			return []OutboundType{OutboundTypeAnthropic}
-		default: // auto / chat
+		case "chat":
+			return []OutboundType{OutboundTypeOpenAIChat, OutboundTypeOpenAIResponse}
+		default: // auto：Anthropic 入站优先 Anthropic 出站，其余优先 Chat
+			if request.RawAPIFormat == model.APIFormatAnthropicMessage {
+				return []OutboundType{OutboundTypeAnthropic, OutboundTypeOpenAIChat, OutboundTypeOpenAIResponse}
+			}
 			return []OutboundType{OutboundTypeOpenAIChat, OutboundTypeOpenAIResponse}
 		}
 	}

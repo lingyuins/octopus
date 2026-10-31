@@ -2774,7 +2774,7 @@
       },
       "outboundFormat": {
         "label": "Outbound Format",
-        "hint": "Select the preferred outbound API format. Auto tries Chat Completions first then falls back to Responses. Messages prefers Anthropic Messages. Raw passthrough sends the original client request body upstream without format conversion or fallback. Raw passthrough (body) additionally preserves the client's original request path and only rewrites the model name. The only-variants disable fallback for upstreams that reject the other format.",
+        "hint": "Select the preferred outbound API format. Auto sniffs the inbound protocol: Anthropic Messages inbound tries Anthropic first, other inbound formats try Chat Completions first, then falls back along Chat → Responses. Chat and Responses set their Chat/Responses order without inbound sniffing; Messages tries Anthropic → Chat → Responses, and only-variants disable fallback. Cross-format fallback applies to route-level failures such as 404/5xx or network errors, not client/key-scoped errors. Raw passthrough sends the original client request body upstream without format conversion or fallback. Raw passthrough (body) additionally preserves the client's original request path and only rewrites the model name.",
         "options": {
           "auto": "Auto",
           "chat": "Chat Completions",

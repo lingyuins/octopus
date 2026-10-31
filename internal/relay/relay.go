@@ -101,6 +101,19 @@ func shouldTryAdapterFallback(result attemptResult, adapterIndex, attemptCount i
 	// 后者换 adapter 只会用同一把 Key 多打一次，徒增延迟。
 	return result.Decision.Scope == ScopeNextChannel
 }
+
+// hasAvailableAdapterAfter checks whether the fallback chain has a usable
+// adapter after the current index. Nil factories do not count as fallback
+// attempts and therefore must not defer failure accounting.
+func hasAvailableAdapterAfter(attemptTypes []outbound.OutboundType, adapterIndex int) bool {
+	for _, attemptType := range attemptTypes[adapterIndex+1:] {
+		if outbound.Get(attemptType) != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func isZenCandidateChannelAllowed(requestModel string, channelType outbound.OutboundType, isEmbeddingRequest bool) bool {
 	preferred := detectZenPreferredChannelTypes(requestModel, isEmbeddingRequest)
 	if len(preferred) == 0 {
@@ -472,14 +485,19 @@ func (ra *relayAttempt) attempt() attemptResult {
 
 	// 使用错误分类驱动决策
 	decision := ClassifyRelayError(statusCode, fwdErr, written)
+	deferFailureAccounting := shouldDeferFailureAccounting(ra.deferFailureAccounting, decision, written)
 
-	// 记录按模型粒度的 key 冷却：某模型触发错误时，仅冷却该 (keyID, model) 组合，
-	// 不影响该 key 上其它模型的可用性（见 issue #94）。仅错误响应（≥400）才冷却。
-	if statusCode >= 400 {
-		balancer.RecordKeyCooldown(ra.channel.ID, ra.usedKey.ID, ra.internalRequest.Model, statusCode)
+	// 格式回退中的中间 adapter 失败只保留尝试日志，不立即污染 Key 冷却、
+	// 可用度或渠道健康状态；只有最终 adapter 失败才执行这些副作用。
+	if !deferFailureAccounting {
+		// 记录按模型粒度的 key 冷却：某模型触发错误时，仅冷却该 (keyID, model) 组合，
+		// 不影响该 key 上其它模型的可用性（见 issue #94）。仅错误响应（≥400）才冷却。
+		if statusCode >= 400 {
+			balancer.RecordKeyCooldown(ra.channel.ID, ra.usedKey.ID, ra.internalRequest.Model, statusCode)
+		}
+		// 记录可用度衰减：按错误类型加权（401/403 重扣、429/5xx 轻扣），仅 availability 策略生效。
+		balancer.RecordKeyAvailability(ra.channel.ID, ra.usedKey.ID, ra.internalRequest.Model, statusCode, false)
 	}
-	// 记录可用度衰减：按错误类型加权（401/403 重扣、429/5xx 轻扣），仅 availability 策略生效。
-	balancer.RecordKeyAvailability(ra.channel.ID, ra.usedKey.ID, ra.internalRequest.Model, statusCode, false)
 
 	if decision.Scope == ScopeNone && !decision.IsError {
 		// ====== 成功 ======
@@ -528,7 +546,7 @@ func (ra *relayAttempt) attempt() attemptResult {
 	}
 
 	// ====== 失败 ======
-	if ra.channel.PoolID == 0 {
+	if !deferFailureAccounting && ra.channel.PoolID == 0 {
 		_ = ch.RecordKeyUsage(ra.channel.ID, ra.usedKey.ID, 0, 0, time.Now().Unix())
 	}
 
@@ -545,15 +563,18 @@ func (ra *relayAttempt) attempt() attemptResult {
 	}
 	span.End(dbmodel.AttemptFailed, statusCode, msg)
 
-	// Channel 维度统计
-	st.ChannelUpdate(ra.channel.ID, dbmodel.StatsMetrics{
-		WaitTime:      span.Duration().Milliseconds(),
-		RequestFailed: 1,
-	})
-	st.ModelRecord(ra.channel.ID, ra.internalRequest.Model, dbmodel.StatsMetrics{
-		WaitTime:      span.Duration().Milliseconds(),
-		RequestFailed: 1,
-	})
+	// Channel 维度统计：中间 adapter 格式失败只保留 relay attempt 明细，
+	// 避免最终回退成功时把健康渠道记成失败。
+	if !deferFailureAccounting {
+		st.ChannelUpdate(ra.channel.ID, dbmodel.StatsMetrics{
+			WaitTime:      span.Duration().Milliseconds(),
+			RequestFailed: 1,
+		})
+		st.ModelRecord(ra.channel.ID, ra.internalRequest.Model, dbmodel.StatsMetrics{
+			WaitTime:      span.Duration().Milliseconds(),
+			RequestFailed: 1,
+		})
+	}
 
 	// 熔断器和 Auto 策略的记录由调用方（adapter fallback loop）控制，
 	// 避免在 adapter 降级场景（如 Responses→Chat）中误触发熔断。
@@ -1816,22 +1837,23 @@ func executeRelay(req *relayRequest, group dbmodel.Group, requestModel string, m
 						continue
 					}
 					ra := &relayAttempt{
-						relayRequest:         req,
-						outAdapter:           outAdapter,
-						adapterType:          attemptType,
-						channel:              channel,
-						usedKey:              usedKey,
-						firstTokenTimeOutSec: group.FirstTokenTimeOut,
-						attemptTimeOutSec:    group.AttemptTimeOut,
-						tryIndex:             keyRound,
-						tryTotal:             maxKeyRetriesPerRoute,
-						poolCredType:         poolCredType,
-						poolProxyConfigID:    poolProxyConfigID,
-						poolBaseURL:          poolBaseURL,
-						poolPlatform:         poolPlatform,
-						poolType:             poolType,
-						poolAccountID:        poolAccountID,
-						poolAccount:          poolAccount,
+						relayRequest:           req,
+						outAdapter:             outAdapter,
+						adapterType:            attemptType,
+						channel:                channel,
+						usedKey:                usedKey,
+						firstTokenTimeOutSec:   group.FirstTokenTimeOut,
+						attemptTimeOutSec:      group.AttemptTimeOut,
+						tryIndex:               keyRound,
+						tryTotal:               maxKeyRetriesPerRoute,
+						poolCredType:           poolCredType,
+						poolProxyConfigID:      poolProxyConfigID,
+						poolBaseURL:            poolBaseURL,
+						poolPlatform:           poolPlatform,
+						poolType:               poolType,
+						poolAccountID:          poolAccountID,
+						poolAccount:            poolAccount,
+						deferFailureAccounting: hasAvailableAdapterAfter(attemptTypes, adapterIndex),
 					}
 
 					result = ra.attempt()

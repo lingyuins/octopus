@@ -29,6 +29,9 @@ func TestBuildGroupProbeRequest_ConversationEndpointsUseMessages(t *testing.T) {
 		if req.EmbeddingInput != nil {
 			t.Fatalf("buildGroupProbeRequest(%q) embedding_input = %#v, want nil", endpointType, req.EmbeddingInput)
 		}
+		if req.RawAPIFormat != transmodel.APIFormatOpenAIChatCompletion {
+			t.Fatalf("buildGroupProbeRequest(%q) RawAPIFormat = %q, want %q", endpointType, req.RawAPIFormat, transmodel.APIFormatOpenAIChatCompletion)
+		}
 		if len(req.Messages) != 1 {
 			t.Fatalf("buildGroupProbeRequest(%q) messages len = %d, want 1", endpointType, len(req.Messages))
 		}

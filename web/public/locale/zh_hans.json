@@ -2730,7 +2730,7 @@
       },
       "outboundFormat": {
         "label": "出站请求格式",
-        "hint": "选择首选的出站 API 格式。自动模式优先尝试 Chat Completions，失败后回退到 Responses；Messages 优先使用 Anthropic Messages；原始透传会直接把客户端原始请求体发给上游，不做格式转换或回退；原始穿透（信息体）在此基础上保留客户端原始请求路径，仅改写模型名；「仅」模式不会回退到其他格式，适合只支持单一格式（如公益站）的上游。",
+        "hint": "选择首选的出站 API 格式。自动模式会识别入站协议：Anthropic Messages 入站优先尝试 Anthropic，其余入站优先尝试 Chat Completions，失败后按 Chat → Responses 回退；Chat 和 Responses 仅调整 Chat/Responses 顺序，不识别入站格式；Messages 按 Anthropic → Chat → Responses 尝试，「仅」模式会禁用回退。跨格式回退只针对 404/5xx、网络错误等路由级失败，400 等客户端 / Key 级错误不会触发回退。原始透传会直接把客户端原始请求体发给上游，不做格式转换或回退；原始穿透（信息体）在此基础上保留客户端原始请求路径，仅改写模型名。",
         "options": {
           "auto": "自动",
           "chat": "Chat Completions",

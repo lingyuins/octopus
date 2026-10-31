@@ -272,6 +272,11 @@ type relayAttempt struct {
 	// consumed any further.
 	errBodySnippet string
 
+	// deferFailureAccounting 延迟本次 adapter 失败的渠道/Key 记账，直到
+	// adapter 回退链确定最终失败。仅对仍有后续可用 adapter 的尝试设置，
+	// 由 attempt() 再结合 RetryDecision.Scope 判断是否为可回退的格式失败。
+	deferFailureAccounting bool
+
 	// filterCfg 缓存本次尝试的响应关键词过滤配置，避免在流式响应的每个
 	// chunk 上重复读取 setting 并解析关键词 JSON。通过 getResponseFilterConfig
 	// 懒加载，仅在首次需要时计算一次。
@@ -365,6 +370,13 @@ func (d RetryDecision) String() string {
 func shouldRecordChannelFailure(poolID int, decision RetryDecision) bool {
 	return poolID == 0 && !decision.SkipFailureAccounting &&
 		(decision.Scope == ScopeNextChannel || decision.Scope == ScopeAbortAll)
+}
+
+// shouldDeferFailureAccounting reports whether an adapter failure is only an
+// intermediate format attempt and should not affect channel/key health yet.
+// The final adapter result remains responsible for failure accounting.
+func shouldDeferFailureAccounting(configured bool, decision RetryDecision, written bool) bool {
+	return configured && !written && !decision.SkipFailureAccounting && decision.Scope == ScopeNextChannel
 }
 
 // markClientCancelIfGone 在客户端已断开时把 decision 标记为「不计入渠道故障」。
