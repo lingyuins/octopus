@@ -35,6 +35,8 @@ export interface PlanProvider {
     channel_id: number;
     balance: number;
     balance_used: number;
+    // 历史累计 Token 用量（输入+输出）。仅部分厂商（基元律动）提供，其他厂商为 0。
+    total_tokens: number;
     total_used: number;
     quota_total: number;
     quota_used: number;
@@ -170,5 +172,62 @@ export function useDeletePlanProvider() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['plan-provider'] });
         },
+    });
+}
+
+// --- 基元律动钱包明细（资金明细） ---
+
+// 单笔到账额度（后端 planprovider.TokenRhythmWalletCredit）。
+// 口径与官网「账户」页资金明细表一致：来源 / 到账金额 / 已消费 / 剩余可用 / 状态 / 有效期。
+export interface TokenRhythmWalletCredit {
+    id: string;
+    // RECHARGE（充值本金）/ IDENTITY_VERIFICATION_REWARD / INVITE_REWARD / INITIAL_BALANCE ...
+    source: string;
+    // 上游中文标签：充值本金 / 实名认证奖励 / 邀请奖励 ...
+    source_label: string;
+    granted_cny: number;
+    consumed_cny: number;
+    remaining_cny: number;
+    // ACTIVE 生效中 / PAUSED 暂停中 / USED_UP 已用尽 / EXPIRED 已到期
+    status: string;
+    // 本金行上游不返回 → 空串，前端显示「长期有效」
+    granted_at: string;
+    expires_at: string | null;
+    is_principal: boolean;
+}
+
+// 资金明细查询结果（后端 planprovider.TokenRhythmWallet）
+export interface TokenRhythmWallet {
+    currency: string;
+    available_balance_cny: number;
+    gift_balance_cny: number;
+    recharge_balance_cny: number;
+    debt_balance_cny: number;
+    frozen_balance_cny: number;
+    // 累计获赠（账本 cumulativeGiftGrantedCny）；累计消费 = usage-summary 成本（与卡片「已用额度」同源）
+    total_received_cny: number;
+    total_consumed_cny: number;
+    // 即将到期余额与最近到期时间（账本 summary）
+    expiring_balance_cny: number;
+    next_expiry_at: string;
+    as_of: string;
+    // 账本条目总数（不含本金行）；credits 为本次返回的一页（最多 50 笔，最新在前）
+    total: number;
+    page: number;
+    page_size: number;
+    credits: TokenRhythmWalletCredit[];
+    // 充值本金行（granted_cny > 0 时官网才展示）
+    recharge_principal: TokenRhythmWalletCredit | null;
+}
+
+// useTokenRhythmWallet 拉取基元律动钱包明细。
+// providerId 传 null 时不发请求（弹窗打开才传 id），因此不会产生轮询流量。
+export function useTokenRhythmWallet(providerId: number | null) {
+    return useQuery<TokenRhythmWallet>({
+        queryKey: ['plan-provider', 'tokenrhythm', 'wallet', providerId],
+        queryFn: () =>
+            apiClient.get<TokenRhythmWallet>(`/api/v1/plan-provider/wallet/transactions/${providerId}`),
+        enabled: providerId != null && providerId > 0,
+        staleTime: 30_000,
     });
 }

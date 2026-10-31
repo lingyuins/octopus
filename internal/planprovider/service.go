@@ -295,6 +295,7 @@ func AddProvider(ctx context.Context, category model.PlanProviderCategory, apiKe
 
 	// 1. 查询余额 / TokenPlan
 	var balance, balanceUsed float64
+	var totalTokens int64
 	var quotaTotal, quotaUsed, weeklyTotal, weeklyUsed float64
 	var fiveHourTotal, fiveHourUsed float64
 	var dedicatedWeeklyTotal, dedicatedWeeklyUsed float64
@@ -310,6 +311,7 @@ func AddProvider(ctx context.Context, category model.PlanProviderCategory, apiKe
 		}
 		balance = result.Balance
 		balanceUsed = result.BalanceUsed
+		totalTokens = result.TotalTokens
 	} else {
 		result, err := QueryTokenPlan(ctx, category, apiKey, info.BaseURL, proxyMode, proxyConfigID, teamOrgID, teamProjectID)
 		if err != nil {
@@ -450,6 +452,7 @@ func AddProvider(ctx context.Context, category model.PlanProviderCategory, apiKe
 		LastQuotaUsed:          lastQuotaUsed,
 		Balance:                balance,
 		BalanceUsed:            balanceUsed,
+		TotalTokens:            totalTokens,
 		QuotaTotal:             quotaTotal,
 		QuotaUsed:              quotaUsed,
 		WeeklyTotal:            weeklyTotal,
@@ -527,13 +530,14 @@ func RefreshProvider(ctx context.Context, id int) (*model.PlanProvider, error) {
 		// 快照旧余额：本次刷新后 LastBalance 表示"上次检测时的余额"，
 		// 与最新 Balance 的差值即两次检测之间的消费；差额累加进累计已用额度。
 		lastBalance := provider.Balance
-		result, err := QueryBalance(ctx, provider.Category, provider.APIKey, provider.BaseURL)
+		result, err := refreshBalanceWithLogin(ctx, &provider)
 		if err != nil {
 			return nil, fmt.Errorf("refresh balance: %w", err)
 		}
 		provider.LastBalance = lastBalance
 		provider.Balance = result.Balance
 		provider.BalanceUsed = result.BalanceUsed
+		provider.TotalTokens = result.TotalTokens
 		provider.TotalUsed += max(0, lastBalance-provider.Balance)
 	} else {
 		// 商汤日日新：若配置了账号密码，先确保控制台 access_token 有效
@@ -612,8 +616,8 @@ func UpdateProviderCredentials(ctx context.Context, id int, newAPIKey, newForwar
 	if newAPIKey == "" && loginUsername == "" {
 		return nil, fmt.Errorf("API key or login credentials is required")
 	}
-	if loginUsername != "" && provider.Category != model.PlanProviderSenseNovaPlan && provider.Category != model.PlanProviderDeepSeek {
-		return nil, fmt.Errorf("account login is only supported for sensenova_plan and deepseek")
+	if loginUsername != "" && provider.Category != model.PlanProviderSenseNovaPlan && provider.Category != model.PlanProviderDeepSeek && provider.Category != model.PlanProviderTokenRhythm {
+		return nil, fmt.Errorf("account login is only supported for sensenova_plan, deepseek and tokenrhythm")
 	}
 	if loginUsername != "" && loginPassword == "" {
 		return nil, fmt.Errorf("login password is required")
@@ -648,6 +652,20 @@ func UpdateProviderCredentials(ctx context.Context, id int, newAPIKey, newForwar
 		provider.LoginUsername = loginUsername
 		provider.LoginPasswordEnc = loginPasswordEnc
 		provider.RefreshTokenEnc = ""
+	} else if loginUsername != "" && provider.Category == model.PlanProviderTokenRhythm {
+		// 基元律动：登录换会话 Cookie 作为主凭据（覆盖手动粘贴的 Cookie）。
+		loginPasswordEnc, err := crypto.Encrypt(loginPassword)
+		if err != nil {
+			return nil, fmt.Errorf("encrypt login password: %w", err)
+		}
+		cookie, err := tokenRhythmLogin(ctx, loginUsername, loginPassword)
+		if err != nil {
+			return nil, fmt.Errorf("tokenrhythm login: %w", err)
+		}
+		newAPIKey = cookie
+		provider.LoginUsername = loginUsername
+		provider.LoginPasswordEnc = loginPasswordEnc
+		provider.RefreshTokenEnc = ""
 	} else {
 		provider.LoginUsername = ""
 		provider.LoginPasswordEnc = ""
@@ -655,6 +673,7 @@ func UpdateProviderCredentials(ctx context.Context, id int, newAPIKey, newForwar
 	}
 	clearSenseNovaSession(id)
 	clearDeepSeekSession(id)
+	clearTokenRhythmSession(id)
 
 	newForwardAPIKey = normalizePlanForwardAPIKey(provider.Category, strings.TrimSpace(newForwardAPIKey))
 	newTeamOrgID = strings.TrimSpace(newTeamOrgID)
@@ -693,6 +712,7 @@ func UpdateProviderCredentials(ctx context.Context, id int, newAPIKey, newForwar
 		provider.LastBalance = lastBalance
 		provider.Balance = result.Balance
 		provider.BalanceUsed = result.BalanceUsed
+		provider.TotalTokens = result.TotalTokens
 		provider.TotalUsed += max(0, lastBalance-provider.Balance)
 	} else {
 		lastQuotaUsed := tokenPlanPrimaryUsed(provider.Category, provider.QuotaUsed, provider.WeeklyUsed, provider.DedicatedWeeklyUsed)
@@ -882,6 +902,7 @@ func updatePlanForwardChannelKey(ctx context.Context, provider *model.PlanProvid
 func DeleteProvider(ctx context.Context, id int) error {
 	clearSenseNovaSession(id)
 	clearDeepSeekSession(id)
+	clearTokenRhythmSession(id)
 	var provider model.PlanProvider
 	if err := db.GetDB().WithContext(ctx).First(&provider, id).Error; err != nil {
 		return fmt.Errorf("find plan provider: %w", err)
