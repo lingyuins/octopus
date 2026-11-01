@@ -26,7 +26,7 @@
 - 🔐 **Role-Based Admin Access** - Built-in `admin`, `editor`, and `viewer` roles with server-side permission enforcement
 - 🔑 **WebAuthn / Passkey Login** — Passwordless login and registration via WebAuthn/Passkey with configurable RP settings
 - 🚨 **Alerts & Notification Center** - Unified notification center aggregating system events, alert firings, and plan notifications with SSE streaming; alert rules for error rate (with scope + sliding window), cost threshold, quota exceeded, and channel down, delivered via webhook, Gotify, email, Telegram, Feishu, DingTalk, WeCom, and ntfy
-- 📦 **Plan Provider Monitoring** - Track upstream subscription quota/usage (Codex, MiMo, StepFun, SenseNova, and balance-type providers like DeepSeek / Kimi / OpenRouter) and auto-create dedicated forwarding channels under the "Plan" channel group
+- 📦 **Plan Provider Monitoring** - Track upstream subscription quota/usage (Codex, MiMo, StepFun, SenseNova, and balance-type providers like DeepSeek / Kimi / OpenRouter / TokenRhythm) and auto-create dedicated forwarding channels under the "Plan" channel group; monitor-only providers without an API key (such as TokenRhythm) report quota without creating a forwarding channel
 - 📅 **Usage Reports** - Schedule daily / weekly / monthly usage reports delivered through notification channels
 - 💎 **Model Market** - Unified model catalog with pricing, channel coverage, enabled key counts, latency, and success metrics, multi-dimension filtering with normalized dedupe, available-endpoint and price-category views, plus create / edit / delete / refresh price workflows
 - 🔃 **Model Sync** - Automatic synchronization of available model lists with channels
@@ -1102,7 +1102,7 @@ internal/
 │   ├── rewrite/        # Request normalization with configurable profiles
 │   └── model/          # Shared transformer types & interfaces
 ├── hub/                # Remote site adapter interface, registry, HTTP client, and platform-specific adapters
-├── planprovider/       # Upstream subscription plan monitoring (Codex, MiMo, StepFun, SenseNova, balance-type providers)
+├── planprovider/       # Upstream subscription plan monitoring (Codex, MiMo, StepFun, SenseNova, balance-type providers; TokenRhythm is monitor-only)
 ├── poolhealthcheck/    # Periodic account-pool health patrol
 ├── pooltokenrefresh/   # Account-pool OAuth token refresh with backoff
 ├── poolscheduledtest/  # Scheduled account-pool connectivity tests and recovery

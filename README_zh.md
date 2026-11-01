@@ -26,7 +26,7 @@
 - 🔐 **角色化管理权限** - 内置 `admin`、`editor`、`viewer` 三种角色，并由服务端强制执行权限控制
 - 🔑 **WebAuthn / Passkey 登录** — 通过 WebAuthn/Passkey 实现无密码登录和注册，支持可配置 RP 设置
 - 🚨 **告警与通知中心** - 统一通知中心聚合系统事件、告警触发和套餐通知，支持 SSE 实时推送；告警规则支持错误率（含作用域 + 滑动窗口）、费用阈值、额度超限、渠道下线，通过 Webhook、Gotify、Email、Telegram、飞书、钉钉、企业微信、ntfy 八种渠道送达
-- 📦 **套餐监控** - 跟踪上游订阅套餐额度/用量（Codex、MiMo、StepFun、SenseNova，以及 DeepSeek / Kimi / OpenRouter 等余额类厂商），并自动在「Plan」渠道分组下创建专属转发渠道
+- 📦 **套餐监控** - 跟踪上游订阅套餐额度/用量（Codex、MiMo、StepFun、SenseNova，以及 DeepSeek / Kimi / OpenRouter / 基元律动 TokenRhythm 等余额类厂商），并自动在「Plan」渠道分组下创建专属转发渠道；无 API Key 的纯监控厂商（如 TokenRhythm）只做额度查询，不创建转发渠道
 - 📅 **用量报表** - 支持按日 / 周 / 月调度用量报表，通过通知渠道送达
 - 💎 **模型广场** - 统一模型目录，展示价格、渠道覆盖、可用 Key 数、延迟和成功率等指标，支持归一化去重多维筛选、可用端点与价格分类视图，同时保留创建 / 编辑 / 删除 / 刷新价格能力
 - 🔃 **模型同步** - 自动与渠道同步可用模型列表，省心省力
@@ -1072,7 +1072,7 @@ internal/
 │   ├── rewrite/        # 请求规范化（可配置 Profile）
 │   └── model/          # 共享适配器类型与接口
 ├── hub/                # 远程站点适配器接口、注册表、HTTP 客户端和平台专属适配器
-├── planprovider/       # 上游订阅套餐监控（Codex、MiMo、StepFun、SenseNova、余额类厂商）
+├── planprovider/       # 上游订阅套餐监控（Codex、MiMo、StepFun、SenseNova、余额类厂商；TokenRhythm 为无 Key 纯监控）
 ├── poolhealthcheck/    # 号池账号周期健康巡检
 ├── pooltokenrefresh/   # 号池 OAuth Token 自动刷新（含退避）
 ├── poolscheduledtest/  # 号池计划连通性测试与账号恢复

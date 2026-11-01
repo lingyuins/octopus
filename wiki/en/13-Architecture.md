@@ -61,7 +61,7 @@ internal/
 │   ├── rewrite/        # Request normalization with configurable profiles
 │   └── model/          # Shared transformer types & interfaces
 ├── hub/                # Remote site adapter interface, registry, HTTP client, and platform-specific adapters
-├── planprovider/       # Upstream subscription plan monitoring (Codex, MiMo, StepFun, SenseNova, balance-type providers)
+├── planprovider/       # Upstream subscription plan monitoring (Codex, MiMo, StepFun, SenseNova, balance-type providers; TokenRhythm is monitor-only)
 ├── pkg/                # Third-party OAuth flow helpers for account pool accounts (Anthropic / OpenAI / Gemini CLI / xAI)
 ├── poolhealthcheck/    # Periodic health probes for account pool accounts
 ├── pooltokenrefresh/   # Automatic OAuth token refresh for account pool accounts (with backoff)

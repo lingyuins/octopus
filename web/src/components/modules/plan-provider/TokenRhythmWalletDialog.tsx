@@ -3,6 +3,7 @@
 import { Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
+import { formatDateOnly } from '@/lib/time';
 import {
     Dialog,
     DialogContent,
@@ -33,19 +34,10 @@ const formatMoney = (val: number) => {
     });
 };
 
-// YYYY/MM/DD（官网资金明细「有效期」列的写法，北京时间）
+// 资金明细「有效期」列：仅日期，遵循用户设置的时区（见 CONTRIBUTING「本地验证」）。
 const formatDate = (val: string | null | undefined) => {
     if (!val) return '';
-    const d = new Date(val);
-    if (Number.isNaN(d.getTime())) return val;
-    return new Intl.DateTimeFormat('zh-CN', {
-        timeZone: 'Asia/Shanghai',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    })
-        .format(d)
-        .replaceAll('-', '/');
+    return formatDateOnly(val, { year: 'numeric', month: '2-digit', day: '2-digit' });
 };
 
 // 明细列宽（桌面端 6 列）：来源 | 到账金额 | 已消费 | 剩余可用 | 状态 | 有效期
