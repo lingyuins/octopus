@@ -25,7 +25,8 @@ func init() {
 		AddRoute(router.NewRoute("/balance/list", http.MethodGet).Handle(listBalanceProviders)).
 		AddRoute(router.NewRoute("/tokenplan/list", http.MethodGet).Handle(listTokenPlanProviders)).
 		AddRoute(router.NewRoute("/balance/categories", http.MethodGet).Handle(getBalanceCategories)).
-		AddRoute(router.NewRoute("/tokenplan/categories", http.MethodGet).Handle(getTokenPlanCategories))
+		AddRoute(router.NewRoute("/tokenplan/categories", http.MethodGet).Handle(getTokenPlanCategories)).
+		AddRoute(router.NewRoute("/wallet/transactions/:id", http.MethodGet).Handle(getTokenRhythmWallet))
 
 	// 额度管理路由 (写)
 	router.NewGroupRouter("/api/v1/plan-provider").
@@ -65,6 +66,25 @@ func getTokenPlanCategories(c *gin.Context) {
 	resp.Success(c, categories)
 }
 
+// getTokenRhythmWallet 基元律动资金明细。
+// 口径与官网「用户中心 → 账户」页（/account/account）的「资金明细」表一致：
+// 赠送额度账本（逐笔赠金 + 充值本金行，含已用尽/已到期历史）+ 账户余额 + 累计消费；
+// 只对 tokenrhythm 类 balance provider 生效，字段见 planprovider.TokenRhythmWallet 注释。
+func getTokenRhythmWallet(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		resp.Error(c, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	wallet, err := planprovider.QueryTokenRhythmWalletByID(c.Request.Context(), id)
+	if err != nil {
+		resp.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	resp.Success(c, wallet)
+}
+
 type addPlanProviderRequest struct {
 	Category      model.PlanProviderCategory `json:"category" binding:"required"`
 	APIKey        string                     `json:"api_key"`
@@ -78,9 +98,10 @@ type addPlanProviderRequest struct {
 	// 智谱团队版（zhipu_team）专用：组织 ID / 项目 ID，其他厂商忽略。
 	TeamOrganizationID string `json:"team_organization_id,omitempty"`
 	TeamProjectID      string `json:"team_project_id,omitempty"`
-	// 账号密码自动登录（sensenova_plan / deepseek 专用，可选）：
+	// 账号密码自动登录（sensenova_plan / deepseek / tokenrhythm 可选）：
 	// sensenova 配置后系统自动登录并续期控制台 Bearer Token（api_key 可留空）；
-	// deepseek 配置后用于查询官方 usage（api_key 仍必填，用于余额查询）。
+	// deepseek 配置后用于查询官方 usage（api_key 仍必填，用于余额查询）；
+	// tokenrhythm 配置后登录换会话 Cookie 作为主凭据（api_key 可留空）。
 	LoginUsername string `json:"login_username,omitempty"`
 	LoginPassword string `json:"login_password,omitempty"`
 }

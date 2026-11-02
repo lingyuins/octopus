@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add TokenRhythm (基元律动) balance monitoring, supporting both a pasted console session cookie and automatic console account/password login with session reuse, 401 re-login, and login cooldown. Because the provider has no API key, it reports balance/usage without creating a forwarding channel.
+- Add a read-only `GET /api/v1/plan-provider/wallet/transactions/:id` endpoint that mirrors the TokenRhythm console wallet ledger (per-credit grants and recharge principal, including exhausted and expired entries).
+
 ### Fixed
 
 - Defer channel and key failure accounting for intermediate outbound-format attempts so a successful adapter fallback does not cool down or downgrade a healthy channel.
