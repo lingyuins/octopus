@@ -65,6 +65,16 @@ type Relay struct {
 	MaxMultipartBodyBytes int64 `mapstructure:"max_multipart_body_bytes"`
 }
 
+// NodeTransport 描述云端节点反向传输的缓冲/超时参数。
+// 留空（0）时回落到 nodetransport 包内的默认常量。
+type NodeTransport struct {
+	// StreamQueueFrames 是每条流在内存里缓冲的响应帧数上限；超过即判慢消费。
+	StreamQueueFrames int `mapstructure:"stream_queue_frames"`
+	// ConsumerWaitTimeout 是消费队列满时等待消费端追上的宽限（如 "10s"）；
+	// 0 表示不等待、立即判慢消费（向后兼容旧行为）。
+	ConsumerWaitTimeout time.Duration `mapstructure:"consumer_wait_timeout"`
+}
+
 type External struct {
 	LLMPriceURL  string `mapstructure:"llm_price_url"`
 	UpdateURL    string `mapstructure:"update_url"`
@@ -101,6 +111,7 @@ type Config struct {
 	Database Database `mapstructure:"database"`
 	Auth     Auth     `mapstructure:"auth"`
 	Relay    Relay    `mapstructure:"relay"`
+	NodeTransport NodeTransport `mapstructure:"node_transport"`
 	External External `mapstructure:"external"`
 	Security Security `mapstructure:"security"`
 	Cache    Cache    `mapstructure:"cache"`
@@ -241,6 +252,9 @@ func setDefaults() {
 	viper.SetDefault("auth.jwt_secret", "")
 	viper.SetDefault("relay.max_json_body_bytes", int64(64<<20))
 	viper.SetDefault("relay.max_multipart_body_bytes", int64(64<<20))
+	// 节点反向传输默认沿用 nodetransport 包内常量（0 = 用代码默认）。
+	viper.SetDefault("node_transport.stream_queue_frames", 0)
+	viper.SetDefault("node_transport.consumer_wait_timeout", "0s")
 	viper.SetDefault("external.llm_price_url", "https://models.dev/api.json")
 	viper.SetDefault("external.update_url", "https://github.com/lingyuins/octopus/releases/latest/download")
 	viper.SetDefault("external.update_api_url", "https://api.github.com/repos/lingyuins/octopus/releases/latest")

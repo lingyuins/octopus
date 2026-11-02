@@ -282,9 +282,9 @@ func (s *serverSession) readLoop() error {
 				st.modelsBody = append(st.modelsBody, f.data...)
 				continue
 			}
-			select {
-			case st.chunks <- f.data:
-			default:
+			// 缓冲满时先给消费端一个可配置的宽限（默认 0 = 立即判慢消费，
+			// 兼容旧行为），把瞬时抖动与消费端真的卡死区分开。
+			if !s.deliverChunk(st, f.data) {
 				s.remove(f.id, ErrSlowConsumer, true)
 			}
 		case frameComplete:
@@ -337,7 +337,7 @@ type responseStream struct {
 }
 
 func newResponseStream() *responseStream {
-	return &responseStream{meta: make(chan responseMeta, 1), chunks: make(chan []byte, streamQueue), done: make(chan struct{})}
+	return &responseStream{meta: make(chan responseMeta, 1), chunks: make(chan []byte, streamQueueFrames()), done: make(chan struct{})}
 }
 func (s *responseStream) finish(err error) { s.once.Do(func() { s.err = err; close(s.done) }) }
 func (s *responseStream) executionError(err error) error {
@@ -351,6 +351,29 @@ type nodeTransport struct {
 	manager *Manager
 	nodeID  int
 	timeout time.Duration
+}
+
+// deliverChunk 把一帧响应数据放进该流的消费队列。队列满时先按
+// consumerWaitTimeout 给消费端一个追上的宽限（默认 0 = 立即判慢消费，
+// 兼容旧行为），宽限用尽才返回 false 由调用方终止流。
+func (s *serverSession) deliverChunk(st *responseStream, data []byte) bool {
+	select {
+	case st.chunks <- data:
+		return true
+	default:
+	}
+	wait := consumerWaitTimeout()
+	if wait <= 0 {
+		return false
+	}
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case st.chunks <- data:
+		return true
+	case <-timer.C:
+		return false
+	}
 }
 
 // Keep the timeout inside the transport: net/http.Client.Timeout replaces a

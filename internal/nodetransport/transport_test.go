@@ -320,7 +320,7 @@ func TestSlowConsumerAbortsBoundedStream(t *testing.T) {
 	if !errors.Is(err, ErrSlowConsumer) || !IsExecutionUncertain(err) {
 		t.Fatalf("slow consumer %d %v", len(b), err)
 	}
-	if len(b) > streamQueue*maxChunk {
+	if len(b) > streamQueueFrames()*maxChunk {
 		t.Fatalf("unbounded buffer %d", len(b))
 	}
 }
