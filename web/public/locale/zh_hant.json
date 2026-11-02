@@ -1361,6 +1361,15 @@
     "name": "節點名稱",
     "create": "建立節點",
     "saved": "節點已更新",
+    "transport": {
+      "title": "傳輸調優",
+      "description": "調整雲端與節點之間的回應緩衝與慢消費寬限。推理模型長時間思考後突發輸出的場景，可適度調大緩衝或寬限。",
+      "streamQueueFrames": "緩衝幀數上限",
+      "streamQueueFramesHint": "每條流緩衝的回應幀數（預設 8，即 256KiB）。範圍 1–4096。",
+      "consumerWaitTimeout": "慢消費寬限（秒）",
+      "consumerWaitTimeoutHint": "緩衝滿時等待消費端追上的秒數（預設 0 = 立即判失敗）。範圍 0–300。",
+      "restartNotice": "以上兩項修改後需重啟服務才能生效。"
+    },
     "copied": "已複製",
     "tokenTitle": "{name} 的連線權杖",
     "tokenWarning": "權杖僅顯示一次，請立即複製並妥善保管。關閉此面板後即捨棄；需要時請輪替產生新權杖。",

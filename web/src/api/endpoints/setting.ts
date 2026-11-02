@@ -124,6 +124,8 @@ export const SettingKey = {
     WebAuthnOrigins: 'webauthn_origins',
     TrustedProxies: 'trusted_proxies',
     GroupUpstreamMetaDisplayEnabled: 'group_upstream_meta_display_enabled',
+    NodeTransportStreamQueueFrames: 'node_transport_stream_queue_frames',
+    NodeTransportConsumerWaitTimeout: 'node_transport_consumer_wait_timeout',
 } as const;
 
 /**

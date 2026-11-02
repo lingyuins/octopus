@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -17,6 +18,8 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/lingyuins/octopus/internal/conf"
+	"github.com/lingyuins/octopus/internal/model"
+	"github.com/lingyuins/octopus/internal/op/setting"
 )
 
 const BaseURL = "https://node.octopus.invalid/v1"
@@ -66,9 +69,14 @@ func (e *ExecutionUncertainError) Error() string { return "node execution uncert
 func (e *ExecutionUncertainError) Unwrap() error { return e.Err }
 func IsExecutionUncertain(err error) bool        { var e *ExecutionUncertainError; return errors.As(err, &e) }
 
-// streamQueueFrames 返回当前生效的每流缓冲帧数（0/负数 → 默认 8）。
-// 由 node_transport.stream_queue_frames / OCTOPUS_NODE_TRANSPORT_STREAM_QUEUE_FRAMES 驱动。
+// streamQueueFrames 返回当前生效的每流缓冲帧数（默认 8）。
+// 优先级：DB setting（设置页可改，重启生效）> config.json/env。
 func streamQueueFrames() int {
+	if v, err := setting.GetString(model.SettingKeyNodeTransportStreamQueueFrames); err == nil {
+		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
+			return n
+		}
+	}
 	if n := conf.AppConfig.NodeTransport.StreamQueueFrames; n > 0 {
 		return n
 	}
@@ -76,9 +84,13 @@ func streamQueueFrames() int {
 }
 
 // consumerWaitTimeout 返回消费队列满时等待消费端追上的宽限。
-// 0 表示立即判慢消费（旧行为）。由 node_transport.consumer_wait_timeout /
-// OCTOPUS_NODE_TRANSPORT_CONSUMER_WAIT_TIMEOUT 驱动。
+// 0 表示立即判慢消费（旧行为）。优先级：DB setting > config.json/env。
 func consumerWaitTimeout() time.Duration {
+	if v, err := setting.GetString(model.SettingKeyNodeTransportConsumerWaitTimeout); err == nil {
+		if secs, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && secs >= 0 {
+			return time.Duration(secs) * time.Second
+		}
+	}
 	return conf.AppConfig.NodeTransport.ConsumerWaitTimeout
 }
 

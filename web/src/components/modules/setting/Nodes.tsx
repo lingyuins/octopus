@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useNodeAction, useNodeList, useTestNode, type LocalNode, type NodeAction } from '@/api/endpoints/node';
 import type { NodeProbeResult } from '@/api/endpoints/node-probe';
+import { useSettingList, useSetSetting, SettingKey } from '@/api/endpoints/setting';
 import { NodeProbeFeedback } from '@/components/common/NodeProbeFeedback';
 import { API_BASE_URL } from '@/api/client';
 import { useAuthStore } from '@/api/endpoints/user';
@@ -35,6 +36,32 @@ export function SettingNodes() {
     const [testResults, setTestResults] = useState<Record<number, NodeProbeResult | { error: string }>>({});
     const testGeneration = useRef(0);
     const canWrite = data?.can_write === true;
+    const { data: settings } = useSettingList();
+    const setSetting = useSetSetting();
+    const [streamQueueFrames, setStreamQueueFrames] = useState('');
+    const [consumerWaitTimeout, setConsumerWaitTimeout] = useState('');
+    const initStreamQueueFrames = useRef('');
+    const initConsumerWaitTimeout = useRef('');
+    useEffect(() => {
+        if (!settings) return;
+        const get = (k: string) => settings.find((s) => s.key === k)?.value;
+        const frames = get(SettingKey.NodeTransportStreamQueueFrames);
+        const wait = get(SettingKey.NodeTransportConsumerWaitTimeout);
+        queueMicrotask(() => {
+            if (frames !== undefined) { setStreamQueueFrames(frames); initStreamQueueFrames.current = frames; }
+            if (wait !== undefined) { setConsumerWaitTimeout(wait); initConsumerWaitTimeout.current = wait; }
+        });
+    }, [settings]);
+    const saveValue = (key: string, value: string, initial: string) => {
+        if (value === initial) return;
+        setSetting.mutate({ key, value }, {
+            onSuccess: () => {
+                toast.success(t('saved'));
+                if (key === SettingKey.NodeTransportStreamQueueFrames) initStreamQueueFrames.current = value;
+                else if (key === SettingKey.NodeTransportConsumerWaitTimeout) initConsumerWaitTimeout.current = value;
+            },
+        });
+    };
     const [name, setName] = useState('');
     const [secret, setSecret] = useState<{ node: LocalNode; token: string } | null>(null);
     const [confirmation, setConfirmation] = useState<NodeAction | null>(null);
@@ -132,6 +159,33 @@ export function SettingNodes() {
             </div>
         </div>}
         {data?.nodes.length === 0 && <p className="text-sm text-muted-foreground">{t('empty')}</p>}
+        {canWrite && <div className="space-y-3 rounded-xl border border-border/50 p-4">
+            <h3 className="font-semibold">{t('transport.title')}</h3>
+            <p className="text-xs text-muted-foreground">{t('transport.description')}</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                    <label className="text-xs text-muted-foreground">{t('transport.streamQueueFrames')}</label>
+                    <Input
+                        type="number" min={1} max={4096} value={streamQueueFrames}
+                        onChange={(e) => setStreamQueueFrames(e.target.value)}
+                        onBlur={() => saveValue(SettingKey.NodeTransportStreamQueueFrames, streamQueueFrames, initStreamQueueFrames.current)}
+                        placeholder="8"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">{t('transport.streamQueueFramesHint')}</p>
+                </div>
+                <div>
+                    <label className="text-xs text-muted-foreground">{t('transport.consumerWaitTimeout')}</label>
+                    <Input
+                        type="number" min={0} max={300} value={consumerWaitTimeout}
+                        onChange={(e) => setConsumerWaitTimeout(e.target.value)}
+                        onBlur={() => saveValue(SettingKey.NodeTransportConsumerWaitTimeout, consumerWaitTimeout, initConsumerWaitTimeout.current)}
+                        placeholder="0"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">{t('transport.consumerWaitTimeoutHint')}</p>
+                </div>
+            </div>
+            <p className="text-xs text-amber-600 dark:text-amber-500">{t('transport.restartNotice')}</p>
+        </div>}
         <div className="space-y-3">{data?.nodes.map((node) => <article key={node.id} className="space-y-3 rounded-xl border p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-semibold break-all">{node.name}</h3>

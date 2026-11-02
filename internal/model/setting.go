@@ -57,6 +57,8 @@ const (
 	SettingKeyPoolHealthCheckInterval              SettingKey = "pool_health_check_interval_minutes"       // 号池账号健康巡检间隔（分钟）
 	SettingKeyPoolHealthCheckFailThreshold         SettingKey = "pool_health_check_fail_threshold"         // 号池账号健康巡检失败阈值（连续 N 次后 SetError）
 	SettingKeyNodesFeatureEnabled                  SettingKey = "nodes_feature_enabled"                    // Magpie 节点功能总开关；false 时节点管理/连接/绑定全部拒绝
+	SettingKeyNodeTransportStreamQueueFrames     SettingKey = "node_transport_stream_queue_frames"     // 节点反向传输每流缓冲帧数（默认 8，即 256KiB）；改后需重启生效
+	SettingKeyNodeTransportConsumerWaitTimeout   SettingKey = "node_transport_consumer_wait_timeout"   // 节点反向传输消费队列满时的宽限（秒，默认 0=立即判慢消费）；改后需重启生效
 	SettingKeyAutoStrategyMinSamples               SettingKey = "auto_strategy_min_samples"                // Auto策略最小样本数阈值
 	SettingKeyAutoStrategyTimeWindow               SettingKey = "auto_strategy_time_window"                // Auto策略时间窗口（秒）
 	SettingKeyAutoStrategySampleThreshold          SettingKey = "auto_strategy_sample_threshold"           // Auto策略滑动窗口大小
@@ -251,6 +253,8 @@ func DefaultSettings() []Setting {
 		{Key: SettingKeyPoolHealthCheckInterval, Value: "30"},           // 默认 30 分钟巡检
 		{Key: SettingKeyPoolHealthCheckFailThreshold, Value: "3"},       // 默认 3 次失败后 SetError
 		{Key: SettingKeyNodesFeatureEnabled, Value: "true"},             // 默认启用 Magpie 节点功能
+		{Key: SettingKeyNodeTransportStreamQueueFrames, Value: "8"},     // 默认 8 帧（256KiB）；推理模型突发输出场景建议 64-128
+		{Key: SettingKeyNodeTransportConsumerWaitTimeout, Value: "0"},   // 默认 0 秒=立即判慢消费（兼容旧行为）；建议 10
 	}
 }
 
@@ -299,10 +303,17 @@ func (s *Setting) Validate() error {
 		SettingKeyKeyHealthCheckInterval, SettingKeyKeyHealthCheckFailThreshold, SettingKeyKeyHealthCheckNotifyCooldown,
 		SettingKeyPoolTokenRefreshInterval, SettingKeyPoolQuotaSyncInterval, SettingKeyPlanProviderRefreshInterval,
 		SettingKeyPoolMinPriority, SettingKeyPoolHealthCheckInterval, SettingKeyPoolHealthCheckFailThreshold,
-		SettingKeyPoolStickyEscapeTTFTMs:
+		SettingKeyPoolStickyEscapeTTFTMs,
+		SettingKeyNodeTransportStreamQueueFrames, SettingKeyNodeTransportConsumerWaitTimeout:
 		v, err := strconv.Atoi(s.Value)
 		if err != nil {
 			return fmt.Errorf("setting value must be an integer")
+		}
+		if s.Key == SettingKeyNodeTransportStreamQueueFrames && (v < 1 || v > 4096) {
+			return fmt.Errorf("node transport stream queue frames must be between 1 and 4096")
+		}
+		if s.Key == SettingKeyNodeTransportConsumerWaitTimeout && (v < 0 || v > 300) {
+			return fmt.Errorf("node transport consumer wait timeout must be between 0 and 300 seconds")
 		}
 		// 允许设为 0：0 表示该候选渠道内不进行 Key 级重试（只试一次，失败即换渠道）。
 		if s.Key == SettingKeyRelayRetryCount && v < 0 {
