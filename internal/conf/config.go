@@ -73,6 +73,11 @@ type NodeTransport struct {
 	// ConsumerWaitTimeout 是消费队列满时等待消费端追上的宽限（如 "10s"）；
 	// 0 表示不等待、立即判慢消费（向后兼容旧行为）。
 	ConsumerWaitTimeout time.Duration `mapstructure:"consumer_wait_timeout"`
+	// BusyWaitTimeout 是节点并发满时短暂排队等待的时长（如 "200ms"）；
+	// 0 表示不等待、立即返回 ErrNodeBusy。
+	BusyWaitTimeout time.Duration `mapstructure:"busy_wait_timeout"`
+	// MaxRequestBytes 是单请求体上限（字节，默认 16MiB）。
+	MaxRequestBytes int `mapstructure:"max_request_bytes"`
 }
 
 type External struct {

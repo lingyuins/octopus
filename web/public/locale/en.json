@@ -1446,6 +1446,7 @@
     "name": "Node name",
     "create": "Create node",
     "saved": "Node updated",
+    "maxConcurrency": "Max concurrency",
     "transport": {
       "title": "Transport tuning",
       "description": "Tune the response buffer and slow-consumer grace period between cloud and node. For reasoning models that pause for a long time and then burst output, consider increasing the buffer or grace period.",
@@ -1453,7 +1454,11 @@
       "streamQueueFramesHint": "Response frames buffered per stream (default 8, i.e. 256 KiB). Range 1–4096.",
       "consumerWaitTimeout": "Slow-consumer grace (seconds)",
       "consumerWaitTimeoutHint": "Seconds to wait for the consumer to catch up when the buffer is full (default 0 = fail immediately). Range 0–300.",
-      "restartNotice": "Both options take effect only after a service restart."
+      "busyWaitTimeout": "Busy wait (milliseconds)",
+      "busyWaitTimeoutHint": "Milliseconds to wait when the node concurrency is full (default 200). Range 0–10000.",
+      "maxRequestBytes": "Request body limit (bytes)",
+      "maxRequestBytesHint": "Maximum request body size in bytes (default 16777216, i.e. 16 MiB). Range 1MiB–1GiB.",
+      "liveNotice": "Changes take effect immediately without restarting the service."
     },
     "copied": "Copied",
     "tokenTitle": "Connection token for {name}",

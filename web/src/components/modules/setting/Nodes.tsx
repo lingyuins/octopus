@@ -63,6 +63,7 @@ export function SettingNodes() {
         });
     };
     const [name, setName] = useState('');
+    const [maxConcurrency, setMaxConcurrency] = useState('16');
     const [secret, setSecret] = useState<{ node: LocalNode; token: string } | null>(null);
     const [confirmation, setConfirmation] = useState<NodeAction | null>(null);
     const confirmationId = useId();
@@ -137,8 +138,9 @@ export function SettingNodes() {
         {!canWrite && <p className="text-sm text-muted-foreground">{t('readOnly')}</p>}
         {isLoading && <p role="status">{t('loading')}</p>}
         {isError && <div role="alert"><p>{t('errors.loadFailed')}</p><Button variant="outline" onClick={() => void refetch()}>{t('refresh')}</Button></div>}
-        {canWrite && <form className="flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); setConfirmation({ action: 'create', name: name.trim() }); }}>
+        {canWrite && <form className="flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); setConfirmation({ action: 'create', name: name.trim(), max_concurrency: parseInt(maxConcurrency, 10) || 16 }); }}>
             <Input aria-label={t('name')} placeholder={t('name')} value={name} maxLength={100} onChange={(event) => setName(event.target.value)} required className="min-w-0 flex-1" />
+            <Input aria-label={t('maxConcurrency')} placeholder={t('maxConcurrency')} type="number" min={1} max={32} value={maxConcurrency} onChange={(event) => setMaxConcurrency(event.target.value)} className="w-24" />
             <Button type="submit" disabled={action.isPending || confirmation !== null || !name.trim()}>{t('create')}</Button>
         </form>}
         {secret && canWrite && <div className="space-y-3 rounded-xl border border-amber-500 p-4">
@@ -184,7 +186,7 @@ export function SettingNodes() {
                     <p className="mt-1 text-xs text-muted-foreground">{t('transport.consumerWaitTimeoutHint')}</p>
                 </div>
             </div>
-            <p className="text-xs text-amber-600 dark:text-amber-500">{t('transport.restartNotice')}</p>
+            <p className="text-xs text-amber-600 dark:text-amber-500">{t('transport.liveNotice')}</p>
         </div>}
         <div className="space-y-3">{data?.nodes.map((node) => <article key={node.id} className="space-y-3 rounded-xl border p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -197,6 +199,15 @@ export function SettingNodes() {
                 <div><dt className="text-muted-foreground">{t('lastSeen')}</dt><dd>{formatDateTime(node.last_seen_at)}</dd></div>
                 <div><dt className="text-muted-foreground">{t('updatedAt')}</dt><dd>{formatDateTime(node.updated_at)}</dd></div>
             </dl>
+            {canWrite && <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground">{t('maxConcurrency')}</label>
+                <Input type="number" min={1} max={32} defaultValue={node.max_concurrency} className="w-20" onBlur={(e) => {
+                    const v = parseInt(e.target.value, 10);
+                    if (v >= 1 && v <= 32 && v !== node.max_concurrency) {
+                        run({ action: 'update', id: node.id, max_concurrency: v });
+                    }
+                }} />
+            </div>}
             {node.last_error && <p className="break-all text-sm text-destructive">{t('lastError')}: {node.last_error}</p>}
             {testResults[node.id] && <NodeTestResult result={testResults[node.id]} />}
             {canWrite && <div className="flex flex-wrap gap-2">

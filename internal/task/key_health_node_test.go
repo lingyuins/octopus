@@ -18,7 +18,7 @@ func TestNodeKeyHealthFailureDetailRetainsProbeDiagnostic(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	created, err := nodeop.Create(context.Background(), "health-test", true)
+	created, err := nodeop.Create(context.Background(), "health-test", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}

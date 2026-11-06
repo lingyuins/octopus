@@ -44,7 +44,7 @@ func TestNodeChannelBindingRequiresAdmin(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	node, err := nodeop.Create(ctx, "local", true)
+	node, err := nodeop.Create(ctx, "local", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestNodeChannelBindingRequiresAdmin(t *testing.T) {
 	if updated.NodeID != node.Node.ID || len(updated.Keys) != 1 || updated.Keys[0].ChannelKey != ch.NodeChannelKey {
 		t.Fatal("ordinary editor patch lost node binding or placeholder")
 	}
-	other, err := nodeop.Create(ctx, "other", true)
+	other, err := nodeop.Create(ctx, "other", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -21,7 +21,7 @@ func TestNodeBackupCrossDatabaseAndLiveRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	created, err := node.Create(ctx, "edge", true)
+	created, err := node.Create(ctx, "edge", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ func TestNodeLiveRestoreReplacesOldCachedBindingBeforeUnlock(t *testing.T) {
 		t.Fatal(err)
 	}
 	enabled := true
-	if _, err := node.Update(ctx, 1, nil, &enabled); err != nil {
+	if _, err := node.Update(ctx, 1, nil, &enabled, nil); err != nil {
 		t.Fatal(err)
 	}
 	if !node.ValidateCredential(ctx, 1, rotated.Token) {
@@ -208,14 +208,14 @@ func TestNodeSQLiteSequenceDoesNotReuseDeletedOrRestoredIDs(t *testing.T) {
 	if !strings.Contains(strings.ToUpper(ddl), "AUTOINCREMENT") {
 		t.Fatal("nodes table lacks non-reusing AUTOINCREMENT")
 	}
-	created, err := node.Create(ctx, "first", true)
+	created, err := node.Create(ctx, "first", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := node.Delete(ctx, created.Node.ID); err != nil {
 		t.Fatal(err)
 	}
-	next, err := node.Create(ctx, "next", true)
+	next, err := node.Create(ctx, "next", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +229,7 @@ func TestNodeSQLiteSequenceDoesNotReuseDeletedOrRestoredIDs(t *testing.T) {
 	if err := node.Delete(ctx, 1000); err != nil {
 		t.Fatal(err)
 	}
-	next, err = node.Create(ctx, "after-import", true)
+	next, err = node.Create(ctx, "after-import", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}

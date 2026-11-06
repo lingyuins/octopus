@@ -57,8 +57,10 @@ const (
 	SettingKeyPoolHealthCheckInterval              SettingKey = "pool_health_check_interval_minutes"       // 号池账号健康巡检间隔（分钟）
 	SettingKeyPoolHealthCheckFailThreshold         SettingKey = "pool_health_check_fail_threshold"         // 号池账号健康巡检失败阈值（连续 N 次后 SetError）
 	SettingKeyNodesFeatureEnabled                  SettingKey = "nodes_feature_enabled"                    // Magpie 节点功能总开关；false 时节点管理/连接/绑定全部拒绝
-	SettingKeyNodeTransportStreamQueueFrames     SettingKey = "node_transport_stream_queue_frames"     // 节点反向传输每流缓冲帧数（默认 8，即 256KiB）；改后需重启生效
-	SettingKeyNodeTransportConsumerWaitTimeout   SettingKey = "node_transport_consumer_wait_timeout"   // 节点反向传输消费队列满时的宽限（秒，默认 0=立即判慢消费）；改后需重启生效
+	SettingKeyNodeTransportStreamQueueFrames     SettingKey = "node_transport_stream_queue_frames"     // 节点反向传输每流缓冲帧数（默认 8，即 256KiB）；实时生效
+	SettingKeyNodeTransportConsumerWaitTimeout   SettingKey = "node_transport_consumer_wait_timeout"   // 节点反向传输消费队列满时的宽限（秒，默认 0=立即判慢消费）；实时生效
+	SettingKeyNodeTransportBusyWaitTimeout       SettingKey = "node_transport_busy_wait_timeout"       // 节点并发满时短暂排队等待（毫秒，默认 200）；实时生效
+	SettingKeyNodeTransportMaxRequestBytes       SettingKey = "node_transport_max_request_bytes"       // 节点单请求体上限（字节，默认 16MiB）；实时生效
 	SettingKeyAutoStrategyMinSamples               SettingKey = "auto_strategy_min_samples"                // Auto策略最小样本数阈值
 	SettingKeyAutoStrategyTimeWindow               SettingKey = "auto_strategy_time_window"                // Auto策略时间窗口（秒）
 	SettingKeyAutoStrategySampleThreshold          SettingKey = "auto_strategy_sample_threshold"           // Auto策略滑动窗口大小
@@ -255,6 +257,8 @@ func DefaultSettings() []Setting {
 		{Key: SettingKeyNodesFeatureEnabled, Value: "true"},             // 默认启用 Magpie 节点功能
 		{Key: SettingKeyNodeTransportStreamQueueFrames, Value: "8"},     // 默认 8 帧（256KiB）；推理模型突发输出场景建议 64-128
 		{Key: SettingKeyNodeTransportConsumerWaitTimeout, Value: "0"},   // 默认 0 秒=立即判慢消费（兼容旧行为）；建议 10
+		{Key: SettingKeyNodeTransportBusyWaitTimeout, Value: "200"},     // 默认 200ms 短暂排队；0=立即返回 ErrNodeBusy
+		{Key: SettingKeyNodeTransportMaxRequestBytes, Value: "16777216"}, // 默认 16MiB；调大可支持 base64 图片
 	}
 }
 
@@ -304,7 +308,8 @@ func (s *Setting) Validate() error {
 		SettingKeyPoolTokenRefreshInterval, SettingKeyPoolQuotaSyncInterval, SettingKeyPlanProviderRefreshInterval,
 		SettingKeyPoolMinPriority, SettingKeyPoolHealthCheckInterval, SettingKeyPoolHealthCheckFailThreshold,
 		SettingKeyPoolStickyEscapeTTFTMs,
-		SettingKeyNodeTransportStreamQueueFrames, SettingKeyNodeTransportConsumerWaitTimeout:
+		SettingKeyNodeTransportStreamQueueFrames, SettingKeyNodeTransportConsumerWaitTimeout,
+		SettingKeyNodeTransportBusyWaitTimeout, SettingKeyNodeTransportMaxRequestBytes:
 		v, err := strconv.Atoi(s.Value)
 		if err != nil {
 			return fmt.Errorf("setting value must be an integer")
@@ -314,6 +319,12 @@ func (s *Setting) Validate() error {
 		}
 		if s.Key == SettingKeyNodeTransportConsumerWaitTimeout && (v < 0 || v > 300) {
 			return fmt.Errorf("node transport consumer wait timeout must be between 0 and 300 seconds")
+		}
+		if s.Key == SettingKeyNodeTransportBusyWaitTimeout && (v < 0 || v > 10000) {
+			return fmt.Errorf("node transport busy wait timeout must be between 0 and 10000 ms")
+		}
+		if s.Key == SettingKeyNodeTransportMaxRequestBytes && (v < 1<<20 || v > 1<<30) {
+			return fmt.Errorf("node transport max request bytes must be between 1MiB and 1GiB")
 		}
 		// 允许设为 0：0 表示该候选渠道内不进行 Key 级重试（只试一次，失败即换渠道）。
 		if s.Key == SettingKeyRelayRetryCount && v < 0 {

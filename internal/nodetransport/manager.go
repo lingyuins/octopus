@@ -39,7 +39,7 @@ type Status struct {
 	LastError        string     `json:"last_error"`
 }
 type Manager struct {
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	sessions map[int]*serverSession
 	history  map[int]Status
 	closed   bool
@@ -106,8 +106,14 @@ func (m *Manager) Accept(ctx context.Context, nodeID int, w http.ResponseWriter,
 	if h.MaxConcurrency < limit {
 		limit = h.MaxConcurrency
 	}
+	// Validate 在锁外执行：避免 DB 查询阻塞全局会话表。
+	// 锁内仅做 closed/featureEnabled 检查和 sessions 替换。
+	if !opts.Validate() {
+		_ = c.CloseNow()
+		return errors.New("node registration revoked")
+	}
 	m.mu.Lock()
-	if m.closed || !featureEnabled() || !opts.Validate() {
+	if m.closed || !featureEnabled() {
 		m.mu.Unlock()
 		_ = c.CloseNow()
 		return errors.New("node registration revoked")
@@ -171,10 +177,10 @@ func (m *Manager) Close() error {
 	return nil
 }
 func (m *Manager) Status(nodeID int) Status {
-	m.mu.Lock()
+	m.mu.RLock()
 	s := m.sessions[nodeID]
 	previous := m.history[nodeID]
-	m.mu.Unlock()
+	m.mu.RUnlock()
 	if s == nil {
 		return previous
 	}
@@ -378,12 +384,16 @@ func (s *serverSession) deliverChunk(st *responseStream, data []byte) bool {
 
 // Keep the timeout inside the transport: net/http.Client.Timeout replaces a
 // RoundTripper error with an unwrappable timeoutError, losing execution safety.
+// timeout<=0 时不设 deadline，跟随 relay 的 OCTOPUS_RELAY_UPSTREAM_TIMEOUT_SECONDS。
 func (t *nodeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	timeout := t.timeout
-	if timeout <= 0 {
-		timeout = 5 * time.Minute
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(req.Context(), timeout)
+	} else {
+		ctx, cancel = context.WithCancel(req.Context())
 	}
-	ctx, cancel := context.WithTimeout(req.Context(), timeout)
 	resp, err := t.roundTrip(req.Clone(ctx))
 	if err != nil {
 		cancel()
@@ -433,9 +443,9 @@ func (t *nodeTransport) roundTrip(req *http.Request) (*http.Response, error) {
 		}
 		return nil, errors.New("request headers too large")
 	}
-	t.manager.mu.Lock()
+	t.manager.mu.RLock()
 	s := t.manager.sessions[t.nodeID]
-	t.manager.mu.Unlock()
+	t.manager.mu.RUnlock()
 	if s == nil || s.ctx.Err() != nil {
 		if req.Body != nil {
 			_ = req.Body.Close()
@@ -445,6 +455,12 @@ func (t *nodeTransport) roundTrip(req *http.Request) (*http.Response, error) {
 	var releaseOnce sync.Once
 	releaseCapacity := func() { releaseOnce.Do(func() { <-s.capacity }) }
 	bodyOwnsCapacity := false
+	busyWait := busyWaitTimeout()
+	var busyTimer *time.Timer
+	if busyWait > 0 {
+		busyTimer = time.NewTimer(busyWait)
+		defer busyTimer.Stop()
+	}
 	select {
 	case s.capacity <- struct{}{}:
 		defer func() {
@@ -453,22 +469,37 @@ func (t *nodeTransport) roundTrip(req *http.Request) (*http.Response, error) {
 			}
 		}()
 	default:
-		if req.Body != nil {
-			_ = req.Body.Close()
+		if busyWait <= 0 {
+			if req.Body != nil {
+				_ = req.Body.Close()
+			}
+			return nil, ErrNodeBusy
 		}
-		return nil, ErrNodeBusy
+		select {
+		case s.capacity <- struct{}{}:
+			defer func() {
+				if !bodyOwnsCapacity {
+					releaseCapacity()
+				}
+			}()
+		case <-busyTimer.C:
+			if req.Body != nil {
+				_ = req.Body.Close()
+			}
+			return nil, ErrNodeBusy
+		}
 	}
 	var body []byte
 	if req.Body != nil {
 		stop := context.AfterFunc(req.Context(), func() { _ = req.Body.Close() })
 		var err error
-		body, err = io.ReadAll(io.LimitReader(req.Body, maxRequest+1))
+		body, err = io.ReadAll(io.LimitReader(req.Body, int64(maxRequestBytes())+1))
 		stop()
 		_ = req.Body.Close()
 		if err != nil {
 			return nil, err
 		}
-		if len(body) > maxRequest {
+		if len(body) > maxRequestBytes() {
 			return nil, errors.New("node request exceeds limit")
 		}
 	}
@@ -503,18 +534,27 @@ func (t *nodeTransport) roundTrip(req *http.Request) (*http.Response, error) {
 	}
 	s.streams[id] = st
 	s.mu.Unlock()
-	deadline := time.Now().Add(5 * time.Minute)
-	if d, ok := req.Context().Deadline(); ok && d.Before(deadline) {
+	// Deadline 仅当调用方显式设置（如 relay 的 OCTOPUS_RELAY_UPSTREAM_TIMEOUT_SECONDS）
+	// 或 req.Context() 自带 deadline 时才下发；默认无超时，与 relay 行为对齐。
+	var deadline time.Time
+	if d, ok := req.Context().Deadline(); ok {
 		deadline = d
 	}
-	meta := requestMeta{Method: req.Method, Path: req.URL.Path, Header: h, Deadline: deadline.UnixMilli()}
+	meta := requestMeta{Method: req.Method, Path: req.URL.Path, Header: h}
+	if !deadline.IsZero() {
+		meta.Deadline = deadline.UnixMilli()
+	}
 	f, err := jsonFrame(frameRequest, id, meta)
 	if err != nil {
 		s.remove(id, err, false)
 		s.dispatchMu.Unlock()
 		return nil, err
 	}
-	opCtx, stopDeadline := context.WithDeadline(req.Context(), deadline)
+	// 无 deadline 时退化为 WithCancel，避免 context.WithDeadline 收到零值 panic。
+	opCtx, stopDeadline := context.WithCancel(req.Context())
+	if !deadline.IsZero() {
+		opCtx, stopDeadline = context.WithDeadline(req.Context(), deadline)
+	}
 	// Cancellation is tied to the operation context or Body.Close, not to an
 	// unrelated downstream TCP connection (stream sessions can outlive it).
 	stopAfter := context.AfterFunc(opCtx, func() { s.remove(id, opCtx.Err(), true) })

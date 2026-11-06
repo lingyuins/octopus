@@ -30,7 +30,7 @@ func TestCheckChannelKeysRequiresAdminOnlyForNodeChannels(t *testing.T) {
 	previous := nodetransport.DefaultManager
 	nodetransport.DefaultManager = manager
 	t.Cleanup(func() { _ = manager.Close(); nodetransport.DefaultManager = previous })
-	created, err := nodeop.Create(context.Background(), "node-key-check", true)
+	created, err := nodeop.Create(context.Background(), "node-key-check", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}

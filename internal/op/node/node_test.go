@@ -26,10 +26,10 @@ func setup(t *testing.T) context.Context {
 
 func TestNodeLifecycleAndCredentialRedaction(t *testing.T) {
 	ctx := setup(t)
-	if _, err := Create(ctx, " ", true); !errors.Is(err, ErrInvalidName) {
+	if _, err := Create(ctx, " ", true, 16); !errors.Is(err, ErrInvalidName) {
 		t.Fatal("empty name accepted")
 	}
-	created, err := Create(ctx, " edge ", true)
+	created, err := Create(ctx, " edge ", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestNodeLifecycleAndCredentialRedaction(t *testing.T) {
 		t.Fatal("rotation credential validity")
 	}
 	enabled := false
-	if _, err := Update(ctx, id, nil, &enabled); err != nil {
+	if _, err := Update(ctx, id, nil, &enabled, nil); err != nil {
 		t.Fatal(err)
 	}
 	if ValidateCredential(ctx, id, rotated.Token) {
@@ -84,7 +84,7 @@ func TestNodeLifecycleAndCredentialRedaction(t *testing.T) {
 	}
 	enabled = true
 	name := "renamed"
-	if _, err := Update(ctx, id, &name, &enabled); err != nil {
+	if _, err := Update(ctx, id, &name, &enabled, nil); err != nil {
 		t.Fatal(err)
 	}
 	if !ValidateCredential(ctx, id, rotated.Token) {
@@ -113,7 +113,7 @@ func TestNodeLifecycleAndCredentialRedaction(t *testing.T) {
 
 func TestRevocationSerializesWithTransportRegistration(t *testing.T) {
 	ctx := setup(t)
-	created, err := Create(ctx, "edge", true)
+	created, err := Create(ctx, "edge", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}

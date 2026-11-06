@@ -25,7 +25,7 @@ import (
 
 func TestNodeChannelRelayModelsAndSSE(t *testing.T) {
 	setupDiagnosticsRelay(t, false)
-	created, err := nodeop.Create(context.Background(), "local-test-node", true)
+	created, err := nodeop.Create(context.Background(), "local-test-node", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}

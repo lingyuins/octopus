@@ -54,7 +54,7 @@ func assertNodeFeatureChannel(t *testing.T, ctx context.Context, id int, enabled
 
 func TestNodeFeaturePausesAndRestoresOnlyPreviouslyEnabledChannels(t *testing.T) {
 	ctx := setupNodeFeatureTest(t)
-	n, err := nodeop.Create(ctx, "local", true)
+	n, err := nodeop.Create(ctx, "local", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestNodeFeaturePausesAndRestoresOnlyPreviouslyEnabledChannels(t *testing.T)
 
 func TestNodeFeatureGuardsMutationsAndClearsObsoleteResumeMarkers(t *testing.T) {
 	ctx := setupNodeFeatureTest(t)
-	n, err := nodeop.Create(ctx, "local", true)
+	n, err := nodeop.Create(ctx, "local", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}

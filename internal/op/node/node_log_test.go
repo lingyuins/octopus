@@ -18,7 +18,7 @@ func TestNodeCredentialSQLNeverLoggedInDebugMode(t *testing.T) {
 	old := conn.Logger
 	conn.Logger = logger.New(stdlog.New(&output, "", 0), logger.Config{LogLevel: logger.Info})
 	t.Cleanup(func() { conn.Logger = old })
-	created, err := Create(ctx, "edge", true)
+	created, err := Create(ctx, "edge", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestNodeCredentialSQLNeverLoggedInDebugMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	enabled := false
-	if _, err := Update(ctx, created.Node.ID, nil, &enabled); err != nil {
+	if _, err := Update(ctx, created.Node.ID, nil, &enabled, nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := Delete(ctx, created.Node.ID); err != nil {

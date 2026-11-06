@@ -131,10 +131,13 @@ func hashToken(token string) string {
 	return hex.EncodeToString(h[:])
 }
 
-func Create(ctx context.Context, name string, enabled bool) (*TokenResult, error) {
+func Create(ctx context.Context, name string, enabled bool, maxConcurrency int) (*TokenResult, error) {
 	name, err := validName(name)
 	if err != nil {
 		return nil, err
+	}
+	if maxConcurrency < 1 || maxConcurrency > 32 {
+		maxConcurrency = 16
 	}
 	token, hash, err := generateToken()
 	if err != nil {
@@ -142,7 +145,7 @@ func Create(ctx context.Context, name string, enabled bool) (*TokenResult, error
 	}
 	lifecycleMu.Lock()
 	defer lifecycleMu.Unlock()
-	n := model.Node{Name: name, Enabled: enabled, TokenHash: hash}
+	n := model.Node{Name: name, Enabled: enabled, MaxConcurrency: maxConcurrency, TokenHash: hash}
 	if err := secretDB(ctx).Create(&n).Error; err != nil {
 		return nil, err
 	}
@@ -155,7 +158,7 @@ func revoke(id int) {
 	}
 }
 
-func Update(ctx context.Context, id int, name *string, enabled *bool) (*Record, error) {
+func Update(ctx context.Context, id int, name *string, enabled *bool, maxConcurrency *int) (*Record, error) {
 	var normalized string
 	var err error
 	if name != nil {
@@ -177,6 +180,13 @@ func Update(ctx context.Context, id int, name *string, enabled *bool) (*Record, 
 	}
 	if enabled != nil {
 		updates["enabled"] = *enabled
+	}
+	if maxConcurrency != nil {
+		mc := *maxConcurrency
+		if mc < 1 || mc > 32 {
+			mc = 16
+		}
+		updates["max_concurrency"] = mc
 	}
 	if len(updates) > 0 {
 		if err := conn.Model(&n).Updates(updates).Error; err != nil {

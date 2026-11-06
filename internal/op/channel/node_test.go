@@ -17,7 +17,7 @@ func TestNodeChannelCreateUpdateAndDetach(t *testing.T) {
 	setupBatchGroupTest(t)
 	crypto.Init("octopus-test-encryption-key")
 	ctx := context.Background()
-	node, err := nodeop.Create(ctx, "local", true)
+	node, err := nodeop.Create(ctx, "local", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestNodeDetachRejectsPlaceholderDestinationsAndCredentials(t *testing.T) {
 	setupBatchGroupTest(t)
 	crypto.Init("octopus-test-encryption-key")
 	ctx := context.Background()
-	created, err := nodeop.Create(ctx, "local", true)
+	created, err := nodeop.Create(ctx, "local", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestNodeChannelOrdinaryPatchPreservesKeysAndCollapsesPlaceholder(t *testing
 	if len(updated.Keys) != 2 || updated.Keys[0].ID != httpChannel.Keys[0].ID || updated.Keys[1].ID != httpChannel.Keys[1].ID {
 		t.Fatal("ordinary HTTP patch lost keys")
 	}
-	created, err := nodeop.Create(ctx, "local", true)
+	created, err := nodeop.Create(ctx, "local", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestNodeDeleteAndChannelBindingShareLifecycleLock(t *testing.T) {
 	crypto.Init("octopus-test-encryption-key")
 	ctx := context.Background()
 	for i := 0; i < 40; i++ {
-		created, err := nodeop.Create(ctx, "local", true)
+		created, err := nodeop.Create(ctx, "local", true, 16)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -203,7 +203,7 @@ func TestNodeChannelRejectsMissingNodeAndProxy(t *testing.T) {
 	if err := Create(&missing, ctx); !errors.Is(err, ErrInvalidNodeChannel) {
 		t.Fatalf("missing node accepted: %v", err)
 	}
-	node, err := nodeop.Create(ctx, "local", true)
+	node, err := nodeop.Create(ctx, "local", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1402,6 +1402,7 @@
     "name": "节点名称",
     "create": "创建节点",
     "saved": "节点已更新",
+    "maxConcurrency": "并发上限",
     "transport": {
       "title": "传输调优",
       "description": "调整云端与节点之间的响应缓冲与慢消费宽限。推理模型长时间思考后突发输出的场景，可适当调大缓冲或宽限。",
@@ -1409,7 +1410,11 @@
       "streamQueueFramesHint": "每条流缓冲的响应帧数（默认 8，即 256KiB）。范围 1–4096。",
       "consumerWaitTimeout": "慢消费宽限（秒）",
       "consumerWaitTimeoutHint": "缓冲满时等待消费端追上的秒数（默认 0 = 立即判失败）。范围 0–300。",
-      "restartNotice": "以上两项修改后需重启服务才能生效。"
+      "busyWaitTimeout": "并发满排队（毫秒）",
+      "busyWaitTimeoutHint": "并发满时短暂排队等待的毫秒数（默认 200）。范围 0–10000。",
+      "maxRequestBytes": "请求体上限（字节）",
+      "maxRequestBytesHint": "单请求体最大字节数（默认 16777216，即 16MiB）。范围 1MiB–1GiB。",
+      "liveNotice": "以上参数修改后实时生效，无需重启服务。"
     },
     "copied": "已复制",
     "tokenTitle": "{name} 的连接令牌",

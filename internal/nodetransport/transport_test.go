@@ -328,7 +328,7 @@ func TestSlowConsumerAbortsBoundedStream(t *testing.T) {
 func TestRequestAndHeaderBounds(t *testing.T) {
 	f := setup(t, func(w http.ResponseWriter, r *http.Request) { t.Error("oversize request was dispatched") })
 	m := f.manager
-	req := modelRequest(t, context.Background(), "/responses", strings.Repeat("x", maxRequest+1))
+	req := modelRequest(t, context.Background(), "/responses", strings.Repeat("x", defaultMaxRequest+1))
 	_, err := m.Client(1, 0).Do(req)
 	if err == nil || IsExecutionUncertain(err) {
 		t.Fatal(err)

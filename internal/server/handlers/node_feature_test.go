@@ -76,7 +76,7 @@ func TestNodesFeatureManagementPermissionsAndTunnelLifecycle(t *testing.T) {
 		return w
 	}
 	ctx := context.Background()
-	created, err := nodeop.Create(ctx, "edge", true)
+	created, err := nodeop.Create(ctx, "edge", true, 16)
 	if err != nil {
 		t.Fatal(err)
 	}

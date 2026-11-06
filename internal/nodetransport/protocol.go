@@ -31,14 +31,16 @@ const (
 	protocol     = "octopus-node-v1"
 	maxChunk     = 32 << 10
 	maxHeader    = 16 << 10
-	maxRequest   = 4 << 20
-	maxStreams   = 32
-	queueSize    = 64
+	// maxRequest 是单请求体硬上限的默认值；实际生效值由
+	// node_transport.max_request_bytes / OCTOPUS_NODE_TRANSPORT_MAX_REQUEST_BYTES 覆盖。
+	defaultMaxRequest = 16 << 20
+	maxStreams        = 32
+	queueSize         = 64
 	// defaultStreamQueue 是每条流在内存里缓冲的响应帧数默认上限（8 × 32KiB = 256KiB）。
 	// 推理模型"长思考后瞬时爆发输出"的模式很容易打满它，可由
 	// node_transport.stream_queue_frames / OCTOPUS_NODE_TRANSPORT_STREAM_QUEUE_FRAMES 覆盖。
 	defaultStreamQueue = 8
-	writeTimeout = 10 * time.Second
+	writeTimeout       = 10 * time.Second
 )
 const (
 	frameHello byte = iota + 1
@@ -92,6 +94,31 @@ func consumerWaitTimeout() time.Duration {
 		}
 	}
 	return conf.AppConfig.NodeTransport.ConsumerWaitTimeout
+}
+
+// busyWaitTimeout 返回节点并发满时短暂排队的等待时长。
+// 0 表示立即返回 ErrNodeBusy（旧行为）。优先级：DB setting > config.json/env。
+func busyWaitTimeout() time.Duration {
+	if v, err := setting.GetString(model.SettingKeyNodeTransportBusyWaitTimeout); err == nil {
+		if ms, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && ms >= 0 {
+			return time.Duration(ms) * time.Millisecond
+		}
+	}
+	return conf.AppConfig.NodeTransport.BusyWaitTimeout
+}
+
+// maxRequestBytes 返回单请求体上限（字节）。
+// 优先级：DB setting > config.json/env > 默认值 16MiB。
+func maxRequestBytes() int {
+	if v, err := setting.GetString(model.SettingKeyNodeTransportMaxRequestBytes); err == nil {
+		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n > 0 {
+			return n
+		}
+	}
+	if n := conf.AppConfig.NodeTransport.MaxRequestBytes; n > 0 {
+		return n
+	}
+	return defaultMaxRequest
 }
 
 // ValidateChannelTarget validates a channel base URL, not an arbitrary upstream URL.

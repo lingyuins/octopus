@@ -1402,6 +1402,7 @@
     "name": "節點名稱",
     "create": "建立節點",
     "saved": "節點已更新",
+    "maxConcurrency": "並發上限",
     "transport": {
       "title": "傳輸調優",
       "description": "調整雲端與節點之間的回應緩衝與慢消費寬限。推理模型長時間思考後突發輸出的場景，可適度調大緩衝或寬限。",
@@ -1409,7 +1410,11 @@
       "streamQueueFramesHint": "每條流緩衝的回應幀數（預設 8，即 256KiB）。範圍 1–4096。",
       "consumerWaitTimeout": "慢消費寬限（秒）",
       "consumerWaitTimeoutHint": "緩衝滿時等待消費端追上的秒數（預設 0 = 立即判失敗）。範圍 0–300。",
-      "restartNotice": "以上兩項修改後需重啟服務才能生效。"
+      "busyWaitTimeout": "並發滿排隊（毫秒）",
+      "busyWaitTimeoutHint": "並發滿時短暫排隊等待的毫秒數（預設 200）。範圍 0–10000。",
+      "maxRequestBytes": "請求體上限（位元組）",
+      "maxRequestBytesHint": "單請求體最大位元組數（預設 16777216，即 16MiB）。範圍 1MiB–1GiB。",
+      "liveNotice": "以上參數修改後即時生效，無需重啟服務。"
     },
     "copied": "已複製",
     "tokenTitle": "{name} 的連線權杖",

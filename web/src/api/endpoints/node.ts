@@ -37,8 +37,8 @@ export function useNodeList(enabled = true) {
 }
 
 export type NodeAction =
-    | { action: 'create'; name: string }
-    | { action: 'update'; id: number; name?: string; enabled?: boolean }
+    | { action: 'create'; name: string; max_concurrency?: number }
+    | { action: 'update'; id: number; name?: string; enabled?: boolean; max_concurrency?: number }
     | { action: 'rotate'; id: number }
     | { action: 'delete'; id: number };
 
@@ -50,7 +50,7 @@ export function useNodeAction(onToken: (node: LocalNode, token: string) => void)
         mutationFn: async (input: NodeAction): Promise<void> => {
             switch (input.action) {
                 case 'create': {
-                    const result = await apiClient.post<{ node: LocalNode; token: string }>('/api/v1/nodes', { name: input.name });
+                    const result = await apiClient.post<{ node: LocalNode; token: string }>('/api/v1/nodes', { name: input.name, max_concurrency: input.max_concurrency });
                     onToken(result.node, result.token);
                     break;
                 }
@@ -60,7 +60,7 @@ export function useNodeAction(onToken: (node: LocalNode, token: string) => void)
                     break;
                 }
                 case 'update':
-                    await apiClient.put<LocalNode>(`/api/v1/nodes/${input.id}`, { name: input.name, enabled: input.enabled });
+                    await apiClient.put<LocalNode>(`/api/v1/nodes/${input.id}`, { name: input.name, enabled: input.enabled, max_concurrency: input.max_concurrency });
                     break;
                 case 'delete':
                     await apiClient.delete(`/api/v1/nodes/${input.id}`);

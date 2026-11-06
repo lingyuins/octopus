@@ -62,7 +62,7 @@ func TestNodeBrowserAcceptance(t *testing.T) {
 	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(func() { _ = server.Close() })
 	for _, mode := range []string{"online", "bad-key", "empty-models", "offline"} {
-		created, err := nodeop.Create(context.Background(), "fixture-"+mode, true)
+		created, err := nodeop.Create(context.Background(), "fixture-"+mode, true, 16)
 		if err != nil {
 			t.Fatal(err)
 		}

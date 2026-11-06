@@ -87,8 +87,9 @@ func listNodes(c *gin.Context) {
 
 func createNode(c *gin.Context) {
 	var req struct {
-		Name    string `json:"name"`
-		Enabled *bool  `json:"enabled"`
+		Name           string `json:"name"`
+		Enabled        *bool  `json:"enabled"`
+		MaxConcurrency *int   `json:"max_concurrency"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.InvalidJSON(c)
@@ -98,7 +99,11 @@ func createNode(c *gin.Context) {
 	if req.Enabled != nil {
 		enabled = *req.Enabled
 	}
-	result, err := node.Create(c.Request.Context(), req.Name, enabled)
+	maxConcurrency := 16
+	if req.MaxConcurrency != nil {
+		maxConcurrency = *req.MaxConcurrency
+	}
+	result, err := node.Create(c.Request.Context(), req.Name, enabled, maxConcurrency)
 	if err != nil {
 		nodeError(c, err)
 		return
@@ -113,14 +118,15 @@ func updateNode(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Name    *string `json:"name"`
-		Enabled *bool   `json:"enabled"`
+		Name           *string `json:"name"`
+		Enabled        *bool   `json:"enabled"`
+		MaxConcurrency *int    `json:"max_concurrency"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.InvalidJSON(c)
 		return
 	}
-	result, err := node.Update(c.Request.Context(), id, req.Name, req.Enabled)
+	result, err := node.Update(c.Request.Context(), id, req.Name, req.Enabled, req.MaxConcurrency)
 	if err != nil {
 		nodeError(c, err)
 		return
@@ -188,8 +194,13 @@ func connectNode(c *gin.Context) {
 		}
 		raw = wrapper.Unwrap()
 	}
+	// 读取节点配置的并发上限；未配置或非法值回落到 16。
+	maxConcurrency := 16
+	if n, err := node.Get(c.Request.Context(), id); err == nil && n.Node.MaxConcurrency >= 1 && n.Node.MaxConcurrency <= 32 {
+		maxConcurrency = n.Node.MaxConcurrency
+	}
 	_ = nodetransport.DefaultManager.Accept(c.Request.Context(), id, nodeUpgradeWriter{raw, c.Writer}, c.Request, nodetransport.AcceptOptions{
-		MaxConcurrency: 16,
+		MaxConcurrency: maxConcurrency,
 		Validate:       func() bool { return node.ValidateCredential(c.Request.Context(), id, token) },
 	})
 }
