@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.7.3-Fix] - 2026-11-07
+
+### Fixed
+
+- Preserve client-supplied `reasoning_content` and `reasoning` fields during OpenAI Chat-to-Chat forwarding, including third-party DeepSeek-compatible upstreams, without synthesizing missing reasoning or leaking protocol-scoped signatures.
+- Honor explicitly selected DeepSeek and MiMo endpoint providers when group thinking mode is `auto`.
+
+### Changed
+
+- Resolve node tunnel stability and usability issues.
+- Align application, frontend package, and Docker Compose versions to v2.7.3-Fix.
+
 ## [v2.7.3] - 2026-11-02
 
 ### Added
