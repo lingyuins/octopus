@@ -115,12 +115,13 @@ func SanitizeRequestForOpenAICompat(request *model.InternalLLMRequest, baseURL s
 	}
 
 	preserveDeepSeekReasoning := shouldPreserveDeepSeekReasoning(baseURL, request, isMimoChannel)
-	if preserveDeepSeekReasoning {
+	preserveClientReasoning := request.RawAPIFormat == model.APIFormatOpenAIChatCompletion
+	if preserveDeepSeekReasoning && !preserveClientReasoning {
 		attachStandaloneDeepSeekReasoningMessages(request)
 	}
 
 	for i := range request.Messages {
-		sanitizeMessageForOpenAICompat(&request.Messages[i], preserveDeepSeekReasoning)
+		sanitizeMessageForOpenAICompat(&request.Messages[i], preserveDeepSeekReasoning, preserveClientReasoning)
 	}
 
 	if !isReasoningCompatRequest(baseURL, request, isMimoChannel) {
@@ -197,8 +198,16 @@ func applyReasoningCompatTokenBudget(request *model.InternalLLMRequest, baseURL 
 	// reasoning-heavy outputs (e.g. codeplan models).
 }
 
-func sanitizeMessageForOpenAICompat(msg *model.Message, preserveDeepSeekReasoning bool) {
+func sanitizeMessageForOpenAICompat(msg *model.Message, preserveDeepSeekReasoning, preserveClientReasoning bool) {
 	if msg == nil {
+		return
+	}
+
+	if preserveClientReasoning {
+		// Chat-to-Chat replay keeps the client's original field spelling and does
+		// not synthesize missing values. Signatures remain protocol-scoped.
+		msg.ReasoningSignature = nil
+		msg.ReasoningSignatureFormat = ""
 		return
 	}
 

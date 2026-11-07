@@ -44,7 +44,7 @@ func prepareInternalRequestForOutbound(channel *appmodel.Channel, request *trans
 		target = transmodel.WithThinkingMode(target, group.ThinkingMode)
 		attachRelayGroupEndpointMetadata(target, group.EndpointType)
 		provider := group.EndpointProvider
-		if (target.ThinkingMode == "off" || target.ThinkingMode == "on") && (provider == "deepseek" || provider == "mimo") {
+		if provider == "deepseek" || provider == "mimo" {
 			attachRelayGroupEndpointMetadata(target, provider)
 		}
 	}

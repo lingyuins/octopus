@@ -661,6 +661,71 @@ func TestChatOutboundTransformRequest_PreservesReasoningContentForDeepSeekReason
 	}
 }
 
+func TestChatOutboundTransformRequest_PreservesClientReasoningFieldsForGenericOpenAICompat(t *testing.T) {
+	outbound := &ChatOutbound{}
+	reasoningContent := "需要调用天气工具"
+	reasoningAlias := "tool call reasoning from the client"
+
+	request := &model.InternalLLMRequest{
+		Model:        "deepseek-flash",
+		RawAPIFormat: model.APIFormatOpenAIChatCompletion,
+		Messages: []model.Message{
+			{Role: "user", Content: model.MessageContent{Content: loPtr("北京天气如何")}},
+			{
+				Role:                     "assistant",
+				ReasoningContent:         &reasoningContent,
+				ReasoningSignature:       loPtr("must-not-cross-protocols"),
+				ReasoningSignatureFormat: model.APIFormatAnthropicMessage,
+				ToolCalls: []model.ToolCall{{
+					ID: "call_1", Type: "function",
+					Function: model.FunctionCall{Name: "get_weather", Arguments: `{"city":"北京"}`},
+				}},
+			},
+			{Role: "tool", ToolCallID: loPtr("call_1"), Content: model.MessageContent{Content: loPtr("晴 25 度")}},
+			{Role: "assistant", Reasoning: &reasoningAlias},
+		},
+	}
+
+	for _, name := range []string{"without provider metadata", "deepseek provider metadata"} {
+		t.Run(name, func(t *testing.T) {
+			testRequest := *request
+			testRequest.Messages = append([]model.Message(nil), request.Messages...)
+			if name == "deepseek provider metadata" {
+				testRequest.TransformerMetadata = map[string]string{model.TransformerMetadataGroupEndpointType: "deepseek"}
+			}
+			httpReq, err := outbound.TransformRequest(context.Background(), &testRequest, "https://third-party.example/v1", "sk-test")
+			if err != nil {
+				t.Fatalf("TransformRequest() error = %v", err)
+			}
+			body, err := io.ReadAll(httpReq.Body)
+			if err != nil {
+				t.Fatalf("failed to read request body: %v", err)
+			}
+			var got struct {
+				Messages []map[string]any `json:"messages"`
+			}
+			if err := transformer.Unmarshal(body, &got); err != nil {
+				t.Fatalf("failed to unmarshal outbound body: %v", err)
+			}
+			if got.Messages[1]["reasoning_content"] != reasoningContent {
+				t.Fatalf("reasoning_content = %#v, want %q; body=%s", got.Messages[1]["reasoning_content"], reasoningContent, body)
+			}
+			if got.Messages[1]["reasoning_signature"] != nil {
+				t.Fatalf("cross-protocol reasoning signature must be stripped: %s", body)
+			}
+			if got.Messages[3]["reasoning"] != reasoningAlias {
+				t.Fatalf("reasoning alias = %#v, want %q; body=%s", got.Messages[3]["reasoning"], reasoningAlias, body)
+			}
+			if got.Messages[1]["reasoning"] != nil || got.Messages[3]["reasoning_content"] != nil {
+				t.Fatalf("client field spelling was not preserved: %s", body)
+			}
+			if testRequest.Messages[1].ReasoningSignature == nil || testRequest.Messages[1].ReasoningSignatureFormat != model.APIFormatAnthropicMessage {
+				t.Fatal("original request was mutated while sanitizing the outbound copy")
+			}
+		})
+	}
+}
+
 func TestChatOutboundTransformRequest_ClearsReasoningContentForGenericOpenAICompat(t *testing.T) {
 	outbound := &ChatOutbound{}
 	reasoning := "should not be sent to generic openai compat"
