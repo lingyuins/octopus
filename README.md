@@ -239,6 +239,7 @@ Most operational knobs are not stored in `config.json`. Retry policy, circuit br
 |--------|-------------|---------|
 | `server.host` | Listen address | `0.0.0.0` |
 | `server.port` | Server port | `8080` |
+| `server.read_timeout` | Total limit for reading an inbound request including its body, as a Go duration. Increase to `5m` for large contexts over slow public links; `0s` explicitly disables it. Keep a limit in production and use a reverse proxy. Applied at startup. | `60s` |
 | `server.trusted_proxies` | Comma-separated trusted reverse-proxy CIDRs/IPs for resolving real client IP from `X-Forwarded-For`. Empty = trust none (safe default; `c.ClientIP()` returns the direct TCP address). `*` = trust all (dev only; XFF spoofing risk). | empty |
 | `database.type` | Database type | `sqlite` |
 | `database.path` | Database connection string | `data/data.db` |
@@ -318,6 +319,7 @@ All configuration options can be overridden via environment variables using the 
 |---------------------|---------------------|
 | `OCTOPUS_SERVER_PORT` | `server.port` |
 | `OCTOPUS_SERVER_HOST` | `server.host` |
+| `OCTOPUS_SERVER_READ_TIMEOUT` | `server.read_timeout` (for example `5m`; `0s` disables) |
 | `OCTOPUS_SERVER_TRUSTED_PROXIES` | `server.trusted_proxies` |
 | `OCTOPUS_DATABASE_TYPE` | `database.type` |
 | `OCTOPUS_DATABASE_PATH` | `database.path` |

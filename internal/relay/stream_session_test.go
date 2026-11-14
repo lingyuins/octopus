@@ -13,6 +13,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	transmodel "github.com/lingyuins/octopus/internal/transformer/model"
+	"github.com/lingyuins/octopus/internal/utils/log"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func TestSplitRelaySSEPayload_SplitsMultipleEvents(t *testing.T) {
@@ -256,6 +260,15 @@ func TestRelayStreamSessionFinishRemovesExpiredSession(t *testing.T) {
 }
 
 func TestHandleStreamResponseStopsImmediatelyWhenClientDisconnectsWithoutSession(t *testing.T) {
+	core, observed := observer.New(zapcore.InfoLevel)
+	previousLogger := log.Logger
+	log.Logger = zap.New(core).Sugar()
+	log.SetLevel("info")
+	t.Cleanup(func() {
+		log.Logger = previousLogger
+		log.SetLevel("warn")
+	})
+
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 
@@ -294,6 +307,20 @@ func TestHandleStreamResponseStopsImmediatelyWhenClientDisconnectsWithoutSession
 		}
 	case <-time.After(200 * time.Millisecond):
 		t.Fatal("handleStreamResponse() did not stop after client disconnect")
+	}
+
+	entries := observed.FilterMessage("relay upstream phase").All()
+	if len(entries) != 1 {
+		t.Fatalf("phase log count = %d, want 1; entries = %+v", len(entries), entries)
+	}
+	if got := entries[0].ContextMap()["phase"]; got != "client_disconnected" {
+		t.Fatalf("phase = %v, want client_disconnected", got)
+	}
+	if got := entries[0].ContextMap()["first_output"]; got != "" {
+		t.Fatalf("first_output = %v, want empty for stalled upstream", got)
+	}
+	if got := entries[0].ContextMap()["client_context_error"]; got != context.Canceled.Error() {
+		t.Fatalf("client_context_error = %v, want context.Canceled", got)
 	}
 }
 

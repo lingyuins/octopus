@@ -16,6 +16,9 @@ import (
 type Server struct {
 	Host string `mapstructure:"host"`
 	Port int    `mapstructure:"port"`
+	// ReadTimeout 限制读取完整请求（含请求体）的时间；使用 Go duration 字符串。
+	// 默认沿用 60s，慢速公网上传大上下文时可调大；0 显式禁用该总时限。
+	ReadTimeout time.Duration `mapstructure:"read_timeout"`
 	// TrustedProxies 控制信任的反向代理 CIDR/IP 列表（逗号分隔），用于解析
 	// X-Forwarded-For / X-Real-IP 取得真实客户端 IP。空值（默认）表示不信任
 	// 任何代理，c.ClientIP() 只返回 TCP 直连地址（安全默认，防 XFF 伪造）。
@@ -111,15 +114,15 @@ type RedisConfig struct {
 }
 
 type Config struct {
-	Server   Server   `mapstructure:"server"`
-	Log      Log      `mapstructure:"log"`
-	Database Database `mapstructure:"database"`
-	Auth     Auth     `mapstructure:"auth"`
-	Relay    Relay    `mapstructure:"relay"`
+	Server        Server        `mapstructure:"server"`
+	Log           Log           `mapstructure:"log"`
+	Database      Database      `mapstructure:"database"`
+	Auth          Auth          `mapstructure:"auth"`
+	Relay         Relay         `mapstructure:"relay"`
 	NodeTransport NodeTransport `mapstructure:"node_transport"`
-	External External `mapstructure:"external"`
-	Security Security `mapstructure:"security"`
-	Cache    Cache    `mapstructure:"cache"`
+	External      External      `mapstructure:"external"`
+	Security      Security      `mapstructure:"security"`
+	Cache         Cache         `mapstructure:"cache"`
 }
 
 var AppConfig Config
@@ -242,6 +245,7 @@ func SaveCacheConfig(cacheType string, redis RedisConfig) error {
 func setDefaults() {
 	viper.SetDefault("server.host", "0.0.0.0")
 	viper.SetDefault("server.port", 8080)
+	viper.SetDefault("server.read_timeout", ServerReadTimeout.String())
 	viper.SetDefault("server.external_url", "")
 	viper.SetDefault("database.type", "sqlite")
 	viper.SetDefault("database.path", defaultDatabasePath())

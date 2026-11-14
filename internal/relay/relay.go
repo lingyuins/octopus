@@ -397,6 +397,7 @@ func (ra *relayAttempt) resetInboundAdapter() error {
 // attempt 统一管理一次通道尝试的完整生命周期
 func (ra *relayAttempt) attempt() attemptResult {
 	attemptStarted := time.Now()
+	ra.attemptStarted = attemptStarted
 	ra.metrics.FirstTokenTime = time.Time{}
 	ra.metrics.InternalResponse = nil
 	ra.metrics.Stats = dbmodel.StatsMetrics{}
@@ -697,6 +698,17 @@ func (ra *relayAttempt) forward() (int, error) {
 	// rate-limit evidence (429 reset-header parsing). Clone a copy to avoid
 	// later processing paths reusing/mutating the same Header object.
 	ra.respHeaders = response.Header.Clone()
+	ra.upstreamStatus = response.StatusCode
+	ra.logUpstreamPhase("upstream_headers", response.StatusCode, nil)
+	streaming := response.StatusCode >= 200 && response.StatusCode < 300 &&
+		ra.internalRequest.Stream != nil && *ra.internalRequest.Stream
+	if streaming {
+		defer func() {
+			if ra.firstOutput == "" {
+				ra.logUpstreamPhase("upstream_stream_ended_without_output", response.StatusCode, nil)
+			}
+		}()
+	}
 
 	// 检查响应状态
 	statusCode, err := ra.handleForwardResponse(response)
@@ -885,6 +897,43 @@ func clientErrorType(statusCode int) string {
 	default:
 		return "api_error"
 	}
+}
+
+func (ra *relayAttempt) elapsedSinceAttempt() time.Duration {
+	if ra.attemptStarted.IsZero() {
+		return 0
+	}
+	return time.Since(ra.attemptStarted)
+}
+
+func (ra *relayAttempt) logUpstreamPhase(phase string, statusCode int, err error) {
+	channelID := 0
+	if ra.channel != nil {
+		channelID = ra.channel.ID
+	}
+	stream := ra.internalRequest != nil && ra.internalRequest.Stream != nil && *ra.internalRequest.Stream
+	fields := []any{
+		"phase", phase,
+		"channel_id", channelID,
+		"adapter", ra.adapterType,
+		"status", statusCode,
+		"stream", stream,
+		"attempt_ms", ra.elapsedSinceAttempt().Milliseconds(),
+	}
+	if phase == "client_disconnected" {
+		fields = append(fields, "first_output", ra.firstOutput, "client_context_error", ra.clientCtx.Err())
+	}
+	if err != nil {
+		fields = append(fields, "error", err)
+	}
+	log.Infow("relay upstream phase", fields...)
+}
+
+func (ra *relayAttempt) markFirstOutput(phase string) {
+	ra.firstOutputOnce.Do(func() {
+		ra.firstOutput = phase
+		ra.logUpstreamPhase(phase, ra.upstreamStatus, nil)
+	})
 }
 
 // writeClientTerminalError 在 ScopeNone 等「不再重试」的终态下，把上游错误尽量原样
@@ -1084,6 +1133,7 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 		}
 		clientDisconnected = true
 		clientDone = nil
+		ra.logUpstreamPhase("client_disconnected", ra.upstreamStatus, nil)
 		// 启动断连宽限计时。带 stream session 时循环会继续读上游（以支持断线
 		// 重连重放），这段时间里会话既不是 done、也无法被驱逐，其缓冲会一直占
 		// 着内存。宽限期到后由下面的 clientGoneTicker 强制收尾（issue #196）。
@@ -1175,6 +1225,7 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 					return nil
 				}
 				ra.c.Writer.Flush()
+				ra.markFirstOutput("first_downstream_write")
 			}
 			return nil
 		}
@@ -1186,6 +1237,7 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 			return errClientDisconnected
 		}
 		ra.c.Writer.Flush()
+		ra.markFirstOutput("first_downstream_write")
 		return nil
 	}
 
@@ -1229,11 +1281,11 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 		}
 		select {
 		case <-clientDone:
+			markClientDisconnected()
 			if ra.streamSession == nil {
 				log.Infof("client disconnected, stopping stream")
 				return errClientDisconnected
 			}
-			markClientDisconnected()
 		case <-clientGoneC:
 			// 客户端已断连且上游在宽限期内仍未结束：强制结束会话并停止读取上游，
 			// 避免断连会话的 replay 缓冲长期占用内存（issue #196 的 OOM 主因）。
@@ -1343,6 +1395,7 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 			if len(data) == 0 {
 				continue
 			}
+			ra.markFirstOutput("first_transformed_chunk")
 			if firstToken {
 				ra.metrics.SetFirstTokenTime(time.Now())
 				firstToken = false
@@ -1409,6 +1462,7 @@ func writeReasoningBuffer(ra *relayAttempt, buffer [][]byte, clientDisconnected 
 					return
 				}
 				ra.c.Writer.Flush()
+				ra.markFirstOutput("first_downstream_write")
 			}
 			continue
 		}
@@ -1418,6 +1472,7 @@ func writeReasoningBuffer(ra *relayAttempt, buffer [][]byte, clientDisconnected 
 			return
 		}
 		ra.c.Writer.Flush()
+		ra.markFirstOutput("first_downstream_write")
 	}
 }
 

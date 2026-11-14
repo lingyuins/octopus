@@ -2,19 +2,27 @@ import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
 
 const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
 const storage = new Map<string, string>();
+const localStorage = {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => { storage.set(key, value); },
+    removeItem: (key: string) => { storage.delete(key); },
+};
+Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: { localStorage },
+});
 Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
-    value: {
-        getItem: (key: string) => storage.get(key) ?? null,
-        setItem: (key: string, value: string) => { storage.set(key, value); },
-        removeItem: (key: string) => { storage.delete(key); },
-    },
+    value: localStorage,
 });
 const { DEFAULT_LOG_FIELD_VISIBILITY, normalizeLogFieldVisibility, shouldAutoRefreshLogs, useLogFieldVisibilityStore } = await import('./ui-store.ts');
 after(() => {
     if (storageDescriptor) Object.defineProperty(globalThis, 'localStorage', storageDescriptor);
     else Reflect.deleteProperty(globalThis, 'localStorage');
+    if (windowDescriptor) Object.defineProperty(globalThis, 'window', windowDescriptor);
+    else Reflect.deleteProperty(globalThis, 'window');
 });
 
 test('log visibility restores missing defaults while preserving explicit false', () => {

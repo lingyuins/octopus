@@ -9,6 +9,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/conf"
@@ -276,6 +278,11 @@ type relayAttempt struct {
 	// adapter 回退链确定最终失败。仅对仍有后续可用 adapter 的尝试设置，
 	// 由 attempt() 再结合 RetryDecision.Scope 判断是否为可回退的格式失败。
 	deferFailureAccounting bool
+
+	attemptStarted  time.Time
+	upstreamStatus  int
+	firstOutputOnce sync.Once
+	firstOutput     string
 
 	// filterCfg 缓存本次尝试的响应关键词过滤配置，避免在流式响应的每个
 	// chunk 上重复读取 setting 并解析关键词 JSON。通过 getResponseFilterConfig

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Add `server.read_timeout` / `OCTOPUS_SERVER_READ_TIMEOUT` for inbound request-body reads. The default remains 60 seconds; Go duration values such as `5m` support large contexts over slow links, while `0s` explicitly disables the total limit.
+- Log upstream response headers, first transformed output, first downstream write, no-output stream termination, and client disconnect timing without recording message contents or credentials.
+
+### Fixed
+
+- Return HTTP 408 instead of HTTP 400 when reading the inbound request body fails due to a network timeout; preserve HTTP 413 for oversized bodies and HTTP 400 for other invalid requests.
+- Provide the browser `window.localStorage` fixture required by Zustand persistence tests instead of silently disabling the middleware under Node.
+
 ## [v2.7.3-Fix] - 2026-11-07
 
 ### Fixed

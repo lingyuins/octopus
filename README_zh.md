@@ -238,6 +238,7 @@ http://localhost:3000
 |--------|------|--------|
 | `server.host` | 监听地址 | `0.0.0.0` |
 | `server.port` | 服务端口 | `8080` |
+| `server.read_timeout` | 读取完整入站请求（含请求体）的总时限，使用 Go duration 格式。公网慢速上传大上下文时可设为 `5m`；`0s` 显式禁用。生产环境建议保留时限并配置反向代理，仅启动时生效 | `60s` |
 | `server.trusted_proxies` | 信任的反向代理 CIDR/IP 列表（逗号分隔），用于从 `X-Forwarded-For` 解析真实客户端 IP。空值=不信任任何代理（安全默认，`c.ClientIP()` 返回 TCP 直连地址）；`*`=信任全部（仅开发用，有 XFF 伪造风险） | 空 |
 | `database.type` | 数据库类型 | `sqlite` |
 | `database.path` | 数据库连接地址 | `data/data.db` |
@@ -291,6 +292,7 @@ http://localhost:3000
 |----------|-----------|
 | `OCTOPUS_SERVER_PORT` | `server.port` |
 | `OCTOPUS_SERVER_HOST` | `server.host` |
+| `OCTOPUS_SERVER_READ_TIMEOUT` | `server.read_timeout`（例如 `5m`；`0s` 禁用） |
 | `OCTOPUS_SERVER_TRUSTED_PROXIES` | `server.trusted_proxies` |
 | `OCTOPUS_DATABASE_TYPE` | `database.type` |
 | `OCTOPUS_DATABASE_PATH` | `database.path` |

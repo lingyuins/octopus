@@ -1,16 +1,19 @@
 package relay
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 
 	"errors"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lingyuins/octopus/internal/conf"
@@ -37,6 +40,55 @@ func TestParseRequestRejectsOversizeBody(t *testing.T) {
 	}
 	if recorder.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusRequestEntityTooLarge)
+	}
+}
+
+func TestSlowRequestBodyReadReturnsRequestTimeout(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	server := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, _ := gin.CreateTestContext(w)
+			ctx.Request = r
+			_, _, _ = parseRequest(inbound.InboundTypeOpenAIChat, ctx)
+		}),
+		ReadTimeout: 50 * time.Millisecond,
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = server.Serve(listener)
+	}()
+	t.Cleanup(func() {
+		_ = server.Close()
+		<-done
+	})
+
+	conn, err := net.Dial("tcp", listener.Addr().String())
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+	_, _ = conn.Write([]byte("POST /v1/chat/completions HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: 1048576\r\nConnection: close\r\n\r\n{"))
+	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatalf("set client deadline: %v", err)
+	}
+	response, err := http.ReadResponse(bufio.NewReader(conn), nil)
+	if err != nil {
+		t.Fatalf("read response: %v", err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read error response: %v", err)
+	}
+	if response.StatusCode != http.StatusRequestTimeout {
+		t.Fatalf("status = %d, body = %s; want %d", response.StatusCode, body, http.StatusRequestTimeout)
+	}
+	if !strings.Contains(string(body), errRelayRequestBodyTimeout.Error()) || !strings.Contains(string(body), "i/o timeout") {
+		t.Fatalf("response body = %s, want timeout category and network cause", body)
 	}
 }
 
