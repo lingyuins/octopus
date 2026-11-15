@@ -1,3 +1,10 @@
+> [!IMPORTANT]
+> ## ⚠️ 最终版本 —— 停止更新
+>
+> **`v2.7.3-Fix2` 是本 fork 的最后一个版本，此后不再更新或维护。**
+>
+> **作者已转向开发新的网关。**
+
 <div align="center">
 
 <img src="web/public/logo.svg" alt="Octopus Logo" width="120" height="120">
