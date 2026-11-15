@@ -106,6 +106,12 @@ func (m *Manager) Accept(ctx context.Context, nodeID int, w http.ResponseWriter,
 	if h.MaxConcurrency < limit {
 		limit = h.MaxConcurrency
 	}
+	peerMaxRequestBytes := h.MaxRequestBytes
+	if peerMaxRequestBytes <= 0 {
+		// Older connectors used a fixed 4 MiB request limit and do not send
+		// max_request_bytes in hello.
+		peerMaxRequestBytes = legacyMaxRequest
+	}
 	// Validate 在锁外执行：避免 DB 查询阻塞全局会话表。
 	// 锁内仅做 closed/featureEnabled 检查和 sessions 替换。
 	if !opts.Validate() {
@@ -118,7 +124,7 @@ func (m *Manager) Accept(ctx context.Context, nodeID int, w http.ResponseWriter,
 		_ = c.CloseNow()
 		return errors.New("node registration revoked")
 	}
-	s := &serverSession{wire: newWire(ctx, c), streams: make(map[uint64]*responseStream), capacity: make(chan struct{}, limit), limit: limit, connected: time.Now().UTC()}
+	s := &serverSession{wire: newWire(ctx, c), streams: make(map[uint64]*responseStream), capacity: make(chan struct{}, limit), limit: limit, maxRequestBytes: peerMaxRequestBytes, connected: time.Now().UTC()}
 	s.lastSeen.Store(time.Now().UnixMilli())
 	old := m.sessions[nodeID]
 	m.sessions[nodeID] = s
@@ -202,13 +208,14 @@ func Client(nodeID int, timeout time.Duration) *http.Client {
 
 type serverSession struct {
 	*wire
-	mu         sync.Mutex
-	streams    map[uint64]*responseStream
-	dispatchMu sync.Mutex
-	next       atomic.Uint64
-	limit      int
-	capacity   chan struct{}
-	connected  time.Time
+	mu              sync.Mutex
+	streams         map[uint64]*responseStream
+	dispatchMu      sync.Mutex
+	next            atomic.Uint64
+	limit           int
+	maxRequestBytes int
+	capacity        chan struct{}
+	connected       time.Time
 }
 
 func (s *serverSession) close() {
@@ -452,6 +459,10 @@ func (t *nodeTransport) roundTrip(req *http.Request) (*http.Response, error) {
 		}
 		return nil, ErrNodeOffline
 	}
+	requestLimit := maxRequestBytes()
+	if s.maxRequestBytes > 0 && s.maxRequestBytes < requestLimit {
+		requestLimit = s.maxRequestBytes
+	}
 	var releaseOnce sync.Once
 	releaseCapacity := func() { releaseOnce.Do(func() { <-s.capacity }) }
 	bodyOwnsCapacity := false
@@ -493,13 +504,13 @@ func (t *nodeTransport) roundTrip(req *http.Request) (*http.Response, error) {
 	if req.Body != nil {
 		stop := context.AfterFunc(req.Context(), func() { _ = req.Body.Close() })
 		var err error
-		body, err = io.ReadAll(io.LimitReader(req.Body, int64(maxRequestBytes())+1))
+		body, err = io.ReadAll(io.LimitReader(req.Body, int64(requestLimit)+1))
 		stop()
 		_ = req.Body.Close()
 		if err != nil {
 			return nil, err
 		}
-		if len(body) > maxRequestBytes() {
+		if len(body) > requestLimit {
 			return nil, errors.New("node request exceeds limit")
 		}
 	}

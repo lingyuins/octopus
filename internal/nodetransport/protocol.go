@@ -28,12 +28,13 @@ const BaseURL = "https://node.octopus.invalid/v1"
 const MaxModelsResponseBytes = 4 << 20
 
 const (
-	protocol     = "octopus-node-v1"
-	maxChunk     = 32 << 10
-	maxHeader    = 16 << 10
+	protocol  = "octopus-node-v1"
+	maxChunk  = 32 << 10
+	maxHeader = 16 << 10
 	// maxRequest 是单请求体硬上限的默认值；实际生效值由
 	// node_transport.max_request_bytes / OCTOPUS_NODE_TRANSPORT_MAX_REQUEST_BYTES 覆盖。
 	defaultMaxRequest = 16 << 20
+	legacyMaxRequest  = 4 << 20
 	maxStreams        = 32
 	queueSize         = 64
 	// defaultStreamQueue 是每条流在内存里缓冲的响应帧数默认上限（8 × 32KiB = 256KiB）。
@@ -187,8 +188,9 @@ type responseMeta struct {
 	Header http.Header `json:"header"`
 }
 type hello struct {
-	Version        int `json:"version"`
-	MaxConcurrency int `json:"max_concurrency"`
+	Version         int `json:"version"`
+	MaxConcurrency  int `json:"max_concurrency"`
+	MaxRequestBytes int `json:"max_request_bytes,omitempty"`
 }
 type frame struct {
 	kind byte

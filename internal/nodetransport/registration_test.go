@@ -87,3 +87,83 @@ func TestConcurrencyNegotiationUsesLowerBound(t *testing.T) {
 		cloud.Close()
 	}
 }
+
+func TestRequestBodyLimitNegotiatesLegacyAndCurrentPeers(t *testing.T) {
+	for _, item := range []struct {
+		name        string
+		peerLimit   int
+		oversize    int
+		wantSession int
+	}{
+		{name: "legacy hello retains four MiB ceiling", oversize: legacyMaxRequest + 1, wantSession: legacyMaxRequest},
+		{name: "current peer advertises sixteen MiB ceiling", peerLimit: defaultMaxRequest, oversize: legacyMaxRequest + 1, wantSession: defaultMaxRequest},
+	} {
+		t.Run(item.name, func(t *testing.T) {
+			m := NewManager()
+			t.Cleanup(func() { _ = m.Close() })
+			cloud := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_ = m.Accept(r.Context(), 1, w, r, AcceptOptions{Validate: func() bool { return true }})
+			}))
+			t.Cleanup(cloud.Close)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			c, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(cloud.URL, "http"), &websocket.DialOptions{Subprotocols: []string{protocol}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = c.CloseNow() })
+			f, err := jsonFrame(frameHello, 0, hello{Version: 1, MaxConcurrency: 4, MaxRequestBytes: item.peerLimit})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := c.Write(ctx, websocket.MessageBinary, f.encode()); err != nil {
+				t.Fatal(err)
+			}
+			eventually(t, func() bool { return m.Status(1).Online })
+			m.mu.RLock()
+			gotLimit := m.sessions[1].maxRequestBytes
+			m.mu.RUnlock()
+			if gotLimit != item.wantSession {
+				t.Fatalf("session request limit = %d, want %d", gotLimit, item.wantSession)
+			}
+
+			request := modelRequest(t, ctx, "/responses", strings.Repeat("x", item.oversize))
+			if item.peerLimit > 0 {
+				responseDone := make(chan error, 1)
+				go func() {
+					response, requestErr := m.Client(1, 0).Do(request)
+					if requestErr == nil {
+						requestErr = response.Body.Close()
+					}
+					responseDone <- requestErr
+				}()
+				requestFrame, err := readFrame(ctx, c)
+				if err != nil {
+					t.Fatalf("read dispatched request: %v", err)
+				}
+				if requestFrame.kind != frameRequest || requestFrame.id != 1 {
+					t.Fatalf("dispatched frame = %+v, want first request", requestFrame)
+				}
+				responseMetaFrame, err := jsonFrame(frameResponse, requestFrame.id, responseMeta{Status: http.StatusOK, Header: http.Header{"Content-Type": []string{"application/json"}}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := c.Write(ctx, websocket.MessageBinary, responseMetaFrame.encode()); err != nil {
+					t.Fatal(err)
+				}
+				if err := c.Write(ctx, websocket.MessageBinary, (frame{kind: frameComplete, id: requestFrame.id}).encode()); err != nil {
+					t.Fatal(err)
+				}
+				if err := <-responseDone; err != nil {
+					t.Fatalf("current peer request within negotiated limit failed: %v", err)
+				}
+				return
+			}
+
+			_, err = m.Client(1, 0).Do(request)
+			if err == nil || !strings.Contains(err.Error(), "node request exceeds limit") {
+				t.Fatalf("legacy oversized request error = %v, want request limit rejection", err)
+			}
+		})
+	}
+}

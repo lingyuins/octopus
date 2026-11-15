@@ -166,6 +166,26 @@ finally { process.stdin.destroy(); }
 	if err != nil || string(body) != `{"object":"list","data":[{"id":"allowed","object":"model"}]}` {
 		t.Fatalf("filtered models: %q %v", body, err)
 	}
+	noDeadlineClient := m.Client(1, 0)
+	resp, err = noDeadlineClient.Do(modelRequest(t, context.Background(), "/responses", `{"model":"allowed","case":"json"}`))
+	if err != nil {
+		t.Fatalf("unbounded cross-language request: %v", err)
+	}
+	body, err = io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if err != nil || string(body) != `{"ok":true}` {
+		t.Fatalf("unbounded cross-language roundtrip: %q %v", body, err)
+	}
+	largeBody := `{"model":"allowed","case":"json","padding":"` + strings.Repeat("x", 5<<20) + `"}`
+	resp, err = noDeadlineClient.Do(modelRequest(t, context.Background(), "/responses", largeBody))
+	if err != nil {
+		t.Fatalf("large cross-language request: %v", err)
+	}
+	body, err = io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if err != nil || string(body) != `{"ok":true}` {
+		t.Fatalf("large cross-language roundtrip: %q %v", body, err)
+	}
 
 	for _, item := range []struct{ name, want string }{{"json", `{"ok":true}`}, {"sse", "data: first\n\ndata: [DONE]\n\n"}} {
 		req := modelRequest(t, context.Background(), "/responses", fmt.Sprintf(`{"model":"allowed","case":%q}`, item.name))
@@ -216,7 +236,7 @@ finally { process.stdin.destroy(); }
 	}
 	start()
 	time.Sleep(50 * time.Millisecond)
-	if calls.Load() != 5 {
+	if calls.Load() != 7 {
 		t.Fatalf("cross-language request replayed: %d calls", calls.Load())
 	}
 	resp, err = client.Do(modelRequest(t, context.Background(), "/responses", `{"model":"allowed","case":"json"}`))
@@ -225,7 +245,7 @@ finally { process.stdin.destroy(); }
 	}
 	body, err = io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
-	if err != nil || string(body) != `{"ok":true}` || calls.Load() != 6 {
+	if err != nil || string(body) != `{"ok":true}` || calls.Load() != 8 {
 		t.Fatalf("new session roundtrip %q %v calls=%d", body, err, calls.Load())
 	}
 }

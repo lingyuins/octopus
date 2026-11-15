@@ -7,6 +7,8 @@ test('buildNodeCloudURL derives a wss connect URL preserving any deployment pref
     assert.equal(buildNodeCloudURL('https://cloud.example.com/octopus/'), 'wss://cloud.example.com/octopus/node/v1/connect');
     assert.equal(buildNodeCloudURL('http://cloud.example.com'), 'wss://cloud.example.com/node/v1/connect');
     assert.equal(buildNodeCloudURL('https://cloud.example.com/path?x=1#y'), 'wss://cloud.example.com/path/node/v1/connect');
+    assert.equal(buildNodeCloudURL('http://localhost:8080/octopus/'), 'ws://127.0.0.1:8080/octopus/node/v1/connect');
+    assert.equal(buildNodeCloudURL('http://127.0.0.1:8080/octopus/'), 'ws://127.0.0.1:8080/octopus/node/v1/connect');
 });
 
 test('plugin setup separates public options from private credentials and preserves deployment prefix', () => {
@@ -29,6 +31,10 @@ test('plugin setup separates public options from private credentials and preserv
     assert.equal(JSON.parse(buildNodeConfig('token', 'http://cloud.example.com')).plugin_options.cloud_url, 'wss://cloud.example.com/node/v1/connect');
     assert.equal(JSON.stringify(config.plugin_options).includes('once-only-token'), false);
     assert.equal('node_token' in config.plugin_options, false);
+
+    const local = JSON.parse(buildNodeConfig('local-token', 'http://localhost:8080/octopus/'));
+    assert.equal(local.plugin_options.cloud_url, 'ws://127.0.0.1:8080/octopus/node/v1/connect');
+    assert.equal(local.private_config.allow_insecure_loopback, true);
 });
 
 test('node confirmations remain in the settings panel without nested portal or form submission', () => {
