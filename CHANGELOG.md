@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v2.7.3-Fix2] - 2026-11-15
 
 ### Added
 
@@ -15,7 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Return HTTP 408 instead of HTTP 400 when reading the inbound request body fails due to a network timeout; preserve HTTP 413 for oversized bodies and HTTP 400 for other invalid requests.
+- Negotiate the node request-body limit with each Connector, retaining the legacy 4 MiB limit for older peers that omit the handshake field instead of dispatching requests they cannot accept.
+- Generate `ws://127.0.0.1` Connector configuration for local HTTP deployments while retaining WSS for remote deployments.
 - Provide the browser `window.localStorage` fixture required by Zustand persistence tests instead of silently disabling the middleware under Node.
+
+### Changed
+
+- Require a persistent JWT secret in Docker Compose so encrypted credentials remain recoverable across restarts.
+- Align application, frontend package, and Docker Compose versions to v2.7.3-Fix2.
 
 ## [v2.7.3-Fix] - 2026-11-07
 
