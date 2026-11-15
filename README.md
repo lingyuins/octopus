@@ -1,3 +1,10 @@
+> [!IMPORTANT]
+> ## ⚠️ Final Release — No Further Updates
+>
+> **`v2.7.3-Fix2` is the final release of this fork. This fork will no longer be updated or maintained.**
+>
+> **The author has moved on to developing a new gateway.**
+
 <div align="center">
 
 <img src="web/public/logo.svg" alt="Octopus Logo" width="120" height="120">
